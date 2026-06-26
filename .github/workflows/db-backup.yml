@@ -1,0 +1,96 @@
+name: Scheduled DB Backup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'          # Daily at 03:00 UTC
+    - cron: '0 4 * * 0'          # Weekly on Sunday at 04:00 UTC (full dump)
+  workflow_dispatch:              # Manual trigger
+
+env:
+  SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+jobs:
+  backup:
+    name: 💾 Database Backup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Export schema
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            --schema-only > backups/schema_$(date +%Y%m%d_%H%M%S).sql
+
+      - name: Export data
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            --data-only > backups/data_$(date +%Y%m%d_%H%M%S).sql
+
+      - name: Export full dump (weekly only)
+        if: github.event.schedule == '0 4 * * 0'
+        run: |
+          supabase db dump \
+            --db-url "$SUPABASE_DB_URL" \
+            > backups/full_$(date +%Y%m%d_%H%M%S).sql
+
+      - name: Verify backup files exist
+        run: |
+          echo "📦 Backup files created:"
+          ls -lh backups/
+          for f in backups/*.sql; do
+            lines=$(wc -l < "$f")
+            echo "  $f — $lines lines"
+            if [ "$lines" -lt 10 ]; then
+              echo "❌ ERROR: Backup file $f seems too small!"
+              exit 1
+            fi
+          done
+
+      # Upload to cloud storage (configure based on your provider)
+      # Uncomment and configure one of the following:
+
+      # --- Google Cloud Storage ---
+      # - name: Upload to GCS
+      #   uses: google-github-actions/upload-cloud-storage@v2
+      #   with:
+      #     path: 'backups'
+      #     destination: 'stashinn-backups/$(date +%Y/%m)'
+      #     credentials: ${{ secrets.GCS_CREDENTIALS }}
+
+      # --- AWS S3 ---
+      # - name: Upload to S3
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      #     aws-region: ap-south-1
+      # - run: aws s3 sync backups/ s3://stashinn-backups/$(date +%Y/%m)/
+
+      - name: Upload artifact (fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: backups/
+          retention-days: 30
+
+  notify-failure:
+    name: 🔴 Alert on Failure
+    runs-on: ubuntu-latest
+    needs: backup
+    if: failure()
+    steps:
+      - name: Send Slack Alert
+        if: ${{ secrets.SLACK_OPS_WEBHOOK != '' }}
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          text: "🔴 BACKUP FAILED — StashInn daily DB backup failed. Investigate immediately."
+          webhook_url: ${{ secrets.SLACK_OPS_WEBHOOK }}

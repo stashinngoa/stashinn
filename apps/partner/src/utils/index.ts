@@ -1,0 +1,1 @@
+// Partner app — utility functions

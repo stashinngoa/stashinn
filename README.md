@@ -1,159 +1,155 @@
-# Turborepo starter
+# StashInn Portal
 
-This Turborepo starter is maintained by the Turborepo core team.
+> A short-term luggage storage aggregation platform connecting travelers with verified local storage partners.
 
-## Using this example
+## 🏗️ Architecture Overview
 
-Run the following command:
+StashInn is built as a **Turborepo monorepo** with three independent Next.js applications and shared packages:
 
-```sh
-npx create-turbo@latest
+```
+stashinn-portal/
+├── apps/
+│   ├── customer/          # Customer-facing booking portal (port 3000)
+│   ├── partner/           # Partner management dashboard (port 3001)
+│   └── admin/             # Admin operations panel (port 3002)
+├── packages/
+│   ├── lib/               # Shared types, constants, Supabase clients
+│   ├── ui/                # Shared UI component library
+│   ├── eslint-config/     # Shared ESLint configuration
+│   └── typescript-config/ # Shared TypeScript configuration
+├── docs/                  # Project documentation
+├── .github/workflows/     # CI/CD pipeline definitions
+└── turbo.json             # Turborepo task configuration
 ```
 
-## What's inside?
+### App Details
 
-This Turborepo includes the following packages/apps:
+| App | Port | Purpose | URL Pattern |
+|-----|------|---------|-------------|
+| **Customer** | 3000 | Search locations, book storage, pay | `stashinn.com` |
+| **Partner** | 3001 | Manage locations, bookings, payouts | `partner.stashinn.com` |
+| **Admin** | 3002 | Verify partners, manage disputes, analytics | `admin.stashinn.com` |
 
-### Apps and Packages
+### Tech Stack
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Next.js 16 (App Router), React 19, TypeScript 5.9 |
+| **Backend** | Supabase (PostgreSQL, Auth, Edge Functions, RLS) |
+| **Payments** | Razorpay |
+| **Hosting** | Vercel (per-app deployment) |
+| **Monorepo** | Turborepo |
+| **CI/CD** | GitHub Actions |
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+### Shared Package: `@stashinn/lib`
 
-### Utilities
+Contains cross-app utilities:
+- **Types**: `UserProfile`, `BookingStatus`, `PaymentStatus`, `PartnerStatus`, `UserRole`
+- **Constants**: App ports, dashboard routes, auth routes, booking defaults
+- **Supabase clients**: Browser and server-side clients (configured in Batch B)
 
-This Turborepo has some additional tools already setup for you:
+## 🚀 Getting Started
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+### Prerequisites
 
-### Build
+- Node.js >= 20
+- npm >= 10
+- Git
 
-To build all apps and packages, run the following command:
+### Installation
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+```bash
+# Clone the repository
+git clone https://github.com/<your-org>/stashinn-portal.git
+cd stashinn-portal
 
-```sh
-cd my-turborepo
-turbo build
+# Install all dependencies
+npm install
+
+# Start all apps in development mode
+npm run dev
 ```
 
-Without global `turbo`, use your package manager:
+### Development Commands
 
-```sh
-cd my-turborepo
-npx turbo build
-npm dlx turbo build
-npm exec turbo build
+```bash
+# Run all apps simultaneously
+npm run dev
+
+# Build all apps
+npm run build
+
+# Lint all apps and packages
+npm run lint
+
+# Type check all apps and packages
+npm run check-types
+
+# Format code
+npm run format
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Running a Single App
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+```bash
+# Run only the customer app
+npx turbo run dev --filter=@stashinn/customer
 
-```sh
-turbo build --filter=docs
+# Build only the partner app
+npx turbo run build --filter=@stashinn/partner
 ```
 
-Without global `turbo`:
+## 📁 App Folder Structure
 
-```sh
-npx turbo build --filter=docs
-npm exec turbo build --filter=docs
-npm exec turbo build --filter=docs
+Each app follows a consistent structure:
+
+```
+apps/<app-name>/
+├── app/                   # Next.js App Router pages
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx           # Home page
+│   ├── globals.css        # Global styles
+│   └── auth/              # Auth-related pages (Stage 1, Batch C)
+├── src/
+│   ├── components/        # App-specific React components
+│   ├── lib/               # App-specific library integrations
+│   └── utils/             # App-specific utility functions
+├── public/                # Static assets
+├── next.config.js         # Next.js configuration
+├── tsconfig.json          # TypeScript configuration
+├── eslint.config.js       # ESLint configuration
+└── package.json           # App dependencies and scripts
 ```
 
-### Develop
+## 🔐 Environment Variables
 
-To develop all apps and packages, run the following command:
+See [`.env.example`](./.env.example) for the full list of required environment variables. Refer to [`docs/ENVIRONMENT.md`](./docs/ENVIRONMENT.md) for detailed per-environment documentation.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## 🔀 Branch Strategy
 
-```sh
-cd my-turborepo
-turbo dev
-```
+| Branch | Purpose |
+|--------|---------|
+| `main` | Production — deployed to live |
+| `develop` | Staging — integration branch |
+| `feature/*` | Feature branches |
+| `fix/*` | Bug fix branches |
+| `hotfix/*` | Emergency production fixes |
 
-Without global `turbo`, use your package manager:
+See [`docs/BRANCH_PROTECTION.md`](./docs/BRANCH_PROTECTION.md) for protection rules.
 
-```sh
-cd my-turborepo
-npx turbo dev
-npm exec turbo dev
-npm exec turbo dev
-```
+## 📦 Project Stages
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+Development follows 8 sequential stages (see [Implementation Plans](./docs/) for details):
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+1. **Stage 1**: Auth & Infra (Foundation)
+2. **Stage 2**: Core Flows (Customer + Partner)
+3. **Stage 3**: Payments & Notifications
+4. **Stage 4**: Admin & Damage Handling
+5. **Stage 5**: Reports & Polish UI
+6. **Stage 6**: QA Testing & Launch
+7. **Stage 7**: Post Release Enhancements
+8. **Stage 8**: Extreme Enhancements
 
-```sh
-turbo dev --filter=web
-```
+## 📄 License
 
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-npm exec turbo dev --filter=web
-npm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-npm exec turbo login
-npm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-npm exec turbo link
-npm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Private — All rights reserved.
