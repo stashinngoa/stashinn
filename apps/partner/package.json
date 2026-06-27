@@ -13,17 +13,23 @@
   "dependencies": {
     "@repo/ui": "*",
     "@stashinn/lib": "*",
+    "leaflet": "^1.9.4",
     "next": "16.2.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-leaflet": "^5.0.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "autoprefixer": "^10.5.2",
     "eslint": "^9.39.1",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
     "typescript": "5.9.2"
   }
 }
