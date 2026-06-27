@@ -8,7 +8,7 @@ export async function cancelBooking(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) return { error: 'Not authenticated' };
+  if (!user) throw new Error('Not authenticated');
 
   // Only allow cancellation if pending or confirmed
   const { error } = await supabase
@@ -24,7 +24,7 @@ export async function cancelBooking(formData: FormData) {
 
   if (error) {
     console.error('Cancel Error:', error);
-    return { error: 'Could not cancel booking.' };
+    throw new Error('Could not cancel booking.');
   }
 
   revalidatePath('/dashboard');

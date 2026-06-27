@@ -8,7 +8,7 @@ export async function createBooking(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return { error: 'You must be logged in to book.' };
+    redirect('/login');
   }
 
   const locationId = formData.get('location_id') as string;
