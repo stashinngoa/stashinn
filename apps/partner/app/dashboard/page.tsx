@@ -20,14 +20,14 @@ export default async function Dashboard() {
     <div className="min-h-screen bg-gray-50 p-8">
       <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6 border-t-4 border-purple-600">
         <div className="flex justify-between items-center mb-8 border-b pb-4">
-          <h1 className="text-3xl font-bold">Partner Dashboard</h1>
+          <h1 className="text-3xl font-bold">Partner Dashboard - Vercel deployment check -1</h1>
           <form action={logout}>
             <button className="px-4 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200 font-medium">
               Log Out
             </button>
           </form>
         </div>
-        
+
         <div className="bg-purple-50 p-6 rounded-lg text-purple-900 border border-purple-100">
           <h2 className="text-xl font-semibold mb-2">Partner Portal Active</h2>
           <p>You are authenticated as an authorized partner:</p>
