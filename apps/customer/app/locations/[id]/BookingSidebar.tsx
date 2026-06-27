@@ -17,7 +17,7 @@ export default function BookingSidebar({ location, initialSearch }: { location: 
   const getInitial = (iso?: string, fallbackDate?: string, fallbackTime?: string) => {
     if (iso && iso.includes('T')) {
       const [d, t] = iso.split('T');
-      return { d, t: t.substring(0, 5) };
+      return { d: d || fallbackDate || minDate, t: t ? t.substring(0, 5) : (fallbackTime || '10:00') };
     }
     return { d: fallbackDate || minDate, t: fallbackTime || '10:00' };
   };
