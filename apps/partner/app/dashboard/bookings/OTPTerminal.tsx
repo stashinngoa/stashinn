@@ -43,13 +43,13 @@ export default function OTPTerminal({ booking }: { booking: any }) {
         <p className="text-gray-500 text-sm mb-6">Customer is waiting for you to confirm availability. Please accept if you have enough space for {booking.num_bags} bags.</p>
         
         <div className="flex gap-3">
-          <form action={acceptBooking} className="flex-1">
+          <form action={async (formData) => { await acceptBooking(formData); }} className="flex-1">
             <input type="hidden" name="booking_id" value={booking.id} />
             <button type="submit" className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors">
               Accept
             </button>
           </form>
-          <form action={declineBooking} className="flex-1">
+          <form action={async (formData) => { await declineBooking(formData); }} className="flex-1">
             <input type="hidden" name="booking_id" value={booking.id} />
             <button type="submit" className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors">
               Decline
