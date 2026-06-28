@@ -8,7 +8,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const nextStep = () => setStep((s) => Math.min(s + 1, 3));
+  const nextStep = () => setStep((s) => Math.min(s + 1, 4));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
 
   return (
@@ -26,17 +26,18 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
       <div className="mb-8">
         <div className="flex items-center justify-between relative">
           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-gray-200 rounded"></div>
-          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-purple-600 rounded transition-all duration-300" style={{ width: `${((step - 1) / 2) * 100}%` }}></div>
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-purple-600 rounded transition-all duration-300" style={{ width: `${((step - 1) / 3) * 100}%` }}></div>
           
-          {[1, 2, 3].map((num) => (
+          {[1, 2, 3, 4].map((num) => (
             <div key={num} className={`relative flex items-center justify-center w-8 h-8 rounded-full border-2 font-semibold text-sm transition-colors duration-300 ${step >= num ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-300 text-gray-400'}`}>
               {num}
             </div>
           ))}
         </div>
         <div className="flex justify-between mt-2 text-xs font-medium text-gray-500">
-          <span>Business Info</span>
-          <span>Location details</span>
+          <span>Business</span>
+          <span>Location</span>
+          <span>Point of Contact</span>
           <span>Verification</span>
         </div>
       </div>
@@ -105,25 +106,53 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
         </div>
       </div>
 
-      {/* Step 3: Contact & Documents */}
+      {/* Step 3: Point of Contact */}
       <div className={`space-y-5 animate-in fade-in slide-in-from-right-4 duration-500 ${step === 3 ? 'block' : 'hidden'}`}>
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">POC Name *</label>
+          <input type="text" name="poc_name" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Manager or Staff Name" />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">POC Phone *</label>
+            <input type="tel" name="poc_phone" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" placeholder="+91" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">POC Email</label>
+            <input type="email" name="poc_email" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Optional" />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">POC ID Document (Aadhar/PAN) *</label>
+          <input type="file" name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white" />
+          <p className="text-xs text-gray-500 mt-1">Required for security verification.</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">POC Photo (Headshot) *</label>
+          <input type="file" name="poc_photo" accept="image/jpeg,image/png,image/webp" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white" />
+          <p className="text-xs text-gray-500 mt-1">Clear photo of the point of contact.</p>
+        </div>
+      </div>
+
+      {/* Step 4: Contact & Documents */}
+      <div className={`space-y-5 animate-in fade-in slide-in-from-right-4 duration-500 ${step === 4 ? 'block' : 'hidden'}`}>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Primary Contact Email *</label>
-          <input type="email" name="contact_email" required={step === 3} defaultValue={defaultEmail} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
+          <input type="email" name="contact_email" required={step === 4} defaultValue={defaultEmail} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Primary Phone Number *</label>
-          <input type="tel" name="contact_phone" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" placeholder="+91" />
+          <input type="tel" name="contact_phone" required={step === 4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" placeholder="+91" />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Business KYC Document (PDF/JPG) *</label>
-          <input type="file" name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" required={step === 3} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white" />
+          <input type="file" name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" required={step === 4} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none bg-white" />
           <p className="text-xs text-gray-500 mt-1">Upload your GST Certificate or official Business Registration (Max 10MB).</p>
         </div>
         
         <div className="pt-4 border-t border-gray-100">
            <label className="flex items-center space-x-3 text-sm text-gray-700">
-             <input type="checkbox" required={step === 3} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
+             <input type="checkbox" required={step === 4} className="w-4 h-4 text-purple-600 rounded border-gray-300 focus:ring-purple-500" />
              <span>I agree to the StashInn Partner Terms of Service and Privacy Policy.</span>
            </label>
         </div>
@@ -140,7 +169,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
           Back
         </button>
         
-        {step < 3 ? (
+        {step < 4 ? (
           <button 
             type="button" 
             onClick={nextStep}

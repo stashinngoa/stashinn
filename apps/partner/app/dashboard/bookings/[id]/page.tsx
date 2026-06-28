@@ -13,12 +13,23 @@ export default async function BookingDetailsPage({ params }: { params: { id: str
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('*, partner_locations(name, address_line1, city), users(email, full_name)')
+    .select('*, partner_locations(name, address_line1, city, max_bags), users(email, full_name)')
     .eq('id', resolvedParams.id)
     .eq('partner_id', partner?.id)
     .single();
 
   if (!booking) notFound();
+
+  // Calculate current capacity for this specific location
+  const { data: activeBookings } = await supabase
+    .from('bookings')
+    .select('num_bags')
+    .eq('location_id', booking.location_id)
+    .eq('status', 'checked_in');
+
+  const currentlyBooked = activeBookings?.reduce((sum, b) => sum + b.num_bags, 0) || 0;
+  const maxCapacity = booking.partner_locations?.max_bags || 0;
+  const availableSlots = Math.max(0, maxCapacity - currentlyBooked);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -65,6 +76,35 @@ export default async function BookingDetailsPage({ params }: { params: { id: str
                 <span className="font-semibold text-gray-900">{booking.partner_locations?.name}</span>
                 <span className="block text-sm text-gray-500">{booking.partner_locations?.city}</span>
               </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 border-b pb-2">Location Capacity Status</h2>
+            <div className="grid grid-cols-3 gap-4 text-center divide-x divide-gray-100">
+              <div>
+                <span className="block text-xs font-bold text-gray-500 uppercase mb-1">Max Capacity</span>
+                <span className="text-2xl font-black text-gray-900">{maxCapacity}</span>
+                <span className="block text-xs text-gray-400 mt-1">Bags total</span>
+              </div>
+              <div>
+                <span className="block text-xs font-bold text-purple-600 uppercase mb-1">Currently Booked</span>
+                <span className="text-2xl font-black text-purple-600">{currentlyBooked}</span>
+                <span className="block text-xs text-gray-400 mt-1">Checked-in bags</span>
+              </div>
+              <div>
+                <span className="block text-xs font-bold text-green-600 uppercase mb-1">Available Slots</span>
+                <span className="text-2xl font-black text-green-600">{availableSlots}</span>
+                <span className="block text-xs text-gray-400 mt-1">Bags left</span>
+              </div>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-6 w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div 
+                className={`h-2.5 rounded-full ${availableSlots <= 2 ? 'bg-red-500' : 'bg-purple-600'}`}
+                style={{ width: `${Math.min(100, maxCapacity > 0 ? (currentlyBooked / maxCapacity) * 100 : 0)}%` }}
+              ></div>
             </div>
           </div>
         </div>

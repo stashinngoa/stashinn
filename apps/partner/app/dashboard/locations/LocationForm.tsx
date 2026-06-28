@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { addLocation, updateLocation } from './actions';
 import MapWrapper from './MapWrapper';
 
-export default function LocationForm({ initialData }: { initialData?: any }) {
+export default function LocationForm({ initialData, existingPocs = [] }: { initialData?: any, existingPocs?: any[] }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const [lat, setLat] = useState<number>(initialData?.latitude || 0);
   const [lng, setLng] = useState<number>(initialData?.longitude || 0);
+
+  const [pocOption, setPocOption] = useState<'new' | 'existing'>(existingPocs.length > 0 ? 'existing' : 'new');
 
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true);
@@ -112,6 +114,68 @@ export default function LocationForm({ initialData }: { initialData?: any }) {
           </div>
         </div>
       </div>
+
+      {/* Point of Contact (Only required for new locations) */}
+      {!isEdit && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold border-b pb-2 text-purple-700">Point of Contact (Mandatory)</h3>
+          
+          {existingPocs.length > 0 && (
+            <div className="flex space-x-4 mb-4">
+              <label className="flex items-center space-x-2">
+                <input type="radio" name="poc_option" value="existing" checked={pocOption === 'existing'} onChange={() => setPocOption('existing')} className="text-purple-600 focus:ring-purple-500" />
+                <span className="text-sm font-medium text-gray-700">Select Existing POC</span>
+              </label>
+              <label className="flex items-center space-x-2">
+                <input type="radio" name="poc_option" value="new" checked={pocOption === 'new'} onChange={() => setPocOption('new')} className="text-purple-600 focus:ring-purple-500" />
+                <span className="text-sm font-medium text-gray-700">Add New POC</span>
+              </label>
+            </div>
+          )}
+
+          {pocOption === 'existing' && existingPocs.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Staff Member *</label>
+              <select name="existing_poc_id" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none">
+                <option value="">-- Choose POC --</option>
+                {existingPocs.map(poc => (
+                  <option key={poc.id} value={poc.id}>{poc.name} ({poc.phone})</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">This staff member will be assigned to manage this location.</p>
+            </div>
+          )}
+
+          {pocOption === 'new' && (
+            <div className="bg-purple-50/50 p-4 rounded-xl border border-purple-100 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">POC Name *</label>
+                <input type="text" name="poc_name" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white" placeholder="Staff Name" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">POC Phone *</label>
+                  <input type="tel" name="poc_phone" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white" placeholder="+91" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">POC Email</label>
+                  <input type="email" name="poc_email" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Document (PDF/JPG) *</label>
+                  <input type="file" name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Headshot Photo *</label>
+                  <input type="file" name="poc_photo" accept="image/jpeg,image/png,image/webp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white text-sm" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Pricing & Hours */}
       <div className="space-y-4">

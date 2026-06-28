@@ -40,7 +40,7 @@ export async function addLocation(formData: FormData) {
     }
   }
 
-  const { error } = await supabase
+  const { data: locData, error } = await supabase
     .from('partner_locations')
     .insert({
       partner_id: partner.id,
@@ -61,11 +61,67 @@ export async function addLocation(formData: FormData) {
       amenities,
       photos: photoUrls,
       is_active: formData.get('is_active') === 'true'
-    });
+    })
+    .select('id')
+    .single();
 
-  if (error) {
+  if (error || !locData) {
     console.error('Add Location Error:', error);
-    return { error: error.message };
+    return { error: error?.message || 'Failed to create location' };
+  }
+
+  // Handle POC Creation / Duplication
+  const pocOption = formData.get('poc_option');
+  
+  if (pocOption === 'existing') {
+    const existingPocId = formData.get('existing_poc_id') as string;
+    if (existingPocId) {
+      const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
+      if (existingPoc) {
+        // Duplicate the POC for the new location
+        await supabase.from('partner_pocs').insert({
+          partner_id: partner.id,
+          location_id: locData.id,
+          name: existingPoc.name,
+          phone: existingPoc.phone,
+          email: existingPoc.email,
+          is_primary: true,
+          id_document_url: existingPoc.id_document_url,
+          photo_url: existingPoc.photo_url
+        });
+      }
+    }
+  } else if (pocOption === 'new') {
+    // Process new POC uploads
+    let idDocUrl = null;
+    let photoUrl = null;
+
+    const pocIdFile = formData.get('poc_id_document') as File;
+    if (pocIdFile && pocIdFile.size > 0) {
+      const ext = pocIdFile.name.split('.').pop();
+      const path = `${partner.id}/poc_id_${Date.now()}.${ext}`;
+      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocIdFile);
+      if (!err) idDocUrl = path;
+    }
+
+    const pocPhotoFile = formData.get('poc_photo') as File;
+    if (pocPhotoFile && pocPhotoFile.size > 0) {
+      const ext = pocPhotoFile.name.split('.').pop();
+      const path = `${partner.id}/poc_photo_${Date.now()}.${ext}`;
+      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocPhotoFile);
+      if (!err) photoUrl = path;
+    }
+
+    await supabase.from('partner_pocs').insert({
+      partner_id: partner.id,
+      location_id: locData.id,
+      name: formData.get('poc_name') as string,
+      phone: formData.get('poc_phone') as string,
+      email: formData.get('poc_email') as string || null,
+      is_primary: true,
+      id_document_url: idDocUrl,
+      photo_url: photoUrl
+    });
   }
 
   revalidatePath('/dashboard/locations');

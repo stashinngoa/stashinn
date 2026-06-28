@@ -25,6 +25,12 @@ export default async function EditLocationPage({ params }: { params: { id: strin
     notFound();
   }
 
+  const { data: existingPocs } = await supabase
+    .from('partner_pocs')
+    .select('*')
+    .eq('partner_id', partner?.id)
+    .order('created_at', { ascending: false });
+
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="mb-6">
@@ -38,7 +44,7 @@ export default async function EditLocationPage({ params }: { params: { id: strin
         <p className="text-gray-500 mt-1">Update the details and pricing for {location.name}.</p>
       </div>
 
-      <LocationForm initialData={location} />
+      <LocationForm initialData={location} existingPocs={existingPocs || []} />
     </div>
   );
 }

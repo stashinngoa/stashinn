@@ -57,6 +57,41 @@ export async function submitOnboarding(formData: FormData) {
     console.error('Location Insert Error:', locationError);
     // Note: the partner was already created, but we failed to add a location. 
     // In production we would use a transaction or RPC for this.
+  } else {
+    // 2.5. Upload POC Files
+    let idDocUrl = null;
+    let photoUrl = null;
+
+    const pocIdFile = formData.get('poc_id_document') as File;
+    if (pocIdFile && pocIdFile.size > 0) {
+      const ext = pocIdFile.name.split('.').pop();
+      const path = `${partnerData.id}/poc_id_${Date.now()}.${ext}`;
+      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocIdFile);
+      if (!err) idDocUrl = path;
+    }
+
+    const pocPhotoFile = formData.get('poc_photo') as File;
+    if (pocPhotoFile && pocPhotoFile.size > 0) {
+      const ext = pocPhotoFile.name.split('.').pop();
+      const path = `${partnerData.id}/poc_photo_${Date.now()}.${ext}`;
+      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocPhotoFile);
+      if (!err) photoUrl = path;
+    }
+
+    // 2.6 Insert POC
+    const { data: locData } = await supabase.from('partner_locations').select('id').eq('partner_id', partnerData.id).single();
+    if (locData) {
+      await supabase.from('partner_pocs').insert({
+        partner_id: partnerData.id,
+        location_id: locData.id,
+        name: formData.get('poc_name') as string,
+        phone: formData.get('poc_phone') as string,
+        email: formData.get('poc_email') as string || null,
+        is_primary: true,
+        id_document_url: idDocUrl,
+        photo_url: photoUrl
+      });
+    }
   }
 
   // 3. Upload KYC Document to Storage

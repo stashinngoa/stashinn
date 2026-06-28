@@ -1,7 +1,28 @@
 import LocationForm from '../LocationForm';
 import Link from 'next/link';
+import { createClient } from '@stashinn/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
-export default function NewLocationPage() {
+export default async function NewLocationPage() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) redirect('/login');
+
+  const { data: partner } = await supabase
+    .from('partners')
+    .select('id')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!partner) redirect('/onboarding');
+
+  const { data: existingPocs } = await supabase
+    .from('partner_pocs')
+    .select('*')
+    .eq('partner_id', partner.id)
+    .order('created_at', { ascending: false });
+
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <div className="mb-6">
@@ -15,7 +36,7 @@ export default function NewLocationPage() {
         <p className="text-gray-500 mt-1">Configure a new physical storage spot for customers to discover.</p>
       </div>
 
-      <LocationForm />
+      <LocationForm existingPocs={existingPocs || []} />
     </div>
   );
 }
