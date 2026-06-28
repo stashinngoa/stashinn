@@ -29,7 +29,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-inter">
+    <div className="min-h-screen bg-gray-100 font-inter">
       <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6">
         <a href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
           StashInn

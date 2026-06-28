@@ -60,6 +60,28 @@ export default function BookingSidebar({ location, initialSearch }: { location: 
     }
   }, [inDate, inTime, outDate, outTime, bags, location]);
 
+  const handleInChange = (type: 'date' | 'time', value: string) => {
+    let newDate = inDate;
+    let newTime = inTime;
+    if (type === 'date') newDate = value;
+    if (type === 'time') newTime = value;
+
+    setInDate(newDate);
+    setInTime(newTime);
+
+    const dropOff = new Date(`${newDate}T${newTime}`);
+    if (!isNaN(dropOff.getTime())) {
+      dropOff.setHours(dropOff.getHours() + 1);
+      const yyyy = dropOff.getFullYear();
+      const mm = String(dropOff.getMonth() + 1).padStart(2, '0');
+      const dd = String(dropOff.getDate()).padStart(2, '0');
+      const hh = String(dropOff.getHours()).padStart(2, '0');
+      
+      setOutDate(`${yyyy}-${mm}-${dd}`);
+      setOutTime(`${hh}:00`);
+    }
+  };
+
   const handleBook = () => {
     const params = new URLSearchParams({
       location_id: location.id,
@@ -86,13 +108,13 @@ export default function BookingSidebar({ location, initialSearch }: { location: 
             <input 
               type="date" 
               value={inDate}
-              onChange={e => setInDate(e.target.value)}
+              onChange={e => handleInChange('date', e.target.value)}
               min={minDate}
               className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
             />
             <select 
               value={inTime}
-              onChange={e => setInTime(e.target.value)}
+              onChange={e => handleInChange('time', e.target.value)}
               className="w-24 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
             >
               {hours.map(h => <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`}>{h}</option>)}

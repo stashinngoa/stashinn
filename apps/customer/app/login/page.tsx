@@ -41,15 +41,17 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
       },
     });
 
+    const nextUrl = formData.get('next') as string;
+
     if (error) {
       return redirect('/login?error=Could not sign up user');
     }
 
-    return redirect('/dashboard');
+    return redirect(nextUrl || '/dashboard');
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
@@ -108,6 +110,7 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
         <div className="mt-6 border-t border-gray-200 pt-6">
           <p className="text-center text-sm text-gray-600 mb-4">Don't have an account?</p>
           <form action={signup} className="space-y-2">
+            <input type="hidden" name="next" value={searchParams?.next || ''} />
             <input
               name="full_name"
               type="text"

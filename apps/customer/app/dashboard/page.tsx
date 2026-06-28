@@ -11,13 +11,6 @@ export default async function Dashboard() {
     redirect('/login');
   }
 
-  const logout = async () => {
-    'use server';
-    const supabase = await createClient();
-    await supabase.auth.signOut();
-    redirect('/login');
-  };
-
   // Fetch customer bookings
   const { data: bookings } = await supabase
     .from('bookings')
@@ -37,27 +30,11 @@ export default async function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 font-inter">
-      {/* Header */}
-      <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 sticky top-0 z-50">
-        <Link href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 flex-1">
-          StashInn
-        </Link>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-600">{user.email}</span>
-          <form action={logout}>
-            <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm transition-colors">
-              Log Out
-            </button>
-          </form>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto py-12 px-4">
-        <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Bookings</h1>
+    <div>
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Bookings</h1>
 
         {(!bookings || bookings.length === 0) ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
             <div className="w-16 h-16 bg-gray-50 text-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -72,7 +49,7 @@ export default async function Dashboard() {
         ) : (
           <div className="space-y-6">
             {bookings.map((booking) => (
-              <div key={booking.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+              <div key={booking.id} className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow relative">
                 <div className="p-6 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900">{booking.partner_locations?.name}</h2>
@@ -165,8 +142,7 @@ export default async function Dashboard() {
               </div>
             ))}
           </div>
-        )}
-      </main>
+      )}
     </div>
   );
 }

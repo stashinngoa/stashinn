@@ -9,8 +9,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
   
   // Define public routes
-  const isPublicRoute = path === '/login' || path === '/register' || path === '/';
-
+  const isPublicRoute = 
+    path === '/' || 
+    path === '/login' || 
+    path === '/register' || 
+    path.startsWith('/search') || 
+    path.startsWith('/locations');
   // Check auth state
   const {
     data: { user },
@@ -19,8 +23,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // If user is not logged in and tries to access a protected route
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
+    const fullPath = request.nextUrl.search ? `${path}${request.nextUrl.search}` : path;
     url.pathname = '/login';
-    url.searchParams.set('next', path);
+    url.searchParams.set('next', fullPath);
     return NextResponse.redirect(url);
   }
 

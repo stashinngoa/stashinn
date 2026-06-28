@@ -22,7 +22,7 @@ export default function LocationList({ locations, searchParams }: { locations: a
       <h2 className="text-xl font-bold text-gray-900 mb-4">{locations.length} storage spots found</h2>
       
       {locations.map((loc) => (
-        <div key={loc.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col sm:flex-row group">
+        <div key={loc.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col sm:flex-row group">
           <div className="sm:w-48 h-48 sm:h-auto bg-gray-100 relative shrink-0">
             {loc.photos && loc.photos.length > 0 ? (
               <img src={loc.photos[0]} alt={loc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />

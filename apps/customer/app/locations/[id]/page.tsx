@@ -22,7 +22,7 @@ export default async function LocationDetailsPage({
   if (!location) notFound();
 
   return (
-    <div className="min-h-screen bg-white font-inter">
+    <div className="min-h-screen bg-gray-100 font-inter">
       {/* Navbar Minimal */}
       <header className="h-16 border-b border-gray-100 flex items-center px-6">
         <a href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
@@ -62,7 +62,7 @@ export default async function LocationDetailsPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
           {/* Main Details */}
-          <div className="lg:col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-8 bg-white p-6 lg:p-10 rounded-3xl border border-gray-200 shadow-sm">
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-4">About this location</h2>
               <p className="text-gray-600 leading-relaxed">

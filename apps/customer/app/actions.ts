@@ -1,19 +1,31 @@
 'use server';
 
-import { createClient } from '@stashinn/lib/supabase/server';
-
 export async function getSearchSuggestions(query: string) {
   if (!query || query.length < 2) return [];
 
-  const supabase = await createClient();
-  
-  // Search for active locations matching the query in name, city, or address
-  const { data } = await supabase
-    .from('partner_locations')
-    .select('id, name, city, address_line1')
-    .eq('is_active', true)
-    .or(`city.ilike.%${query}%,address_line1.ilike.%${query}%,name.ilike.%${query}%`)
-    .limit(5);
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5&countrycodes=in`,
+      {
+        headers: {
+          'User-Agent': 'StashInn/1.0',
+        },
+      }
+    );
     
-  return data || [];
+    if (!res.ok) return [];
+    const data = await res.json();
+    
+    return data.map((item: any) => ({
+      id: item.place_id,
+      name: item.name,
+      city: item.address?.city || item.address?.town || item.address?.state_district,
+      address_line1: item.display_name,
+      lat: parseFloat(item.lat),
+      lon: parseFloat(item.lon),
+    }));
+  } catch (error) {
+    console.error('Nominatim search error:', error);
+    return [];
+  }
 }

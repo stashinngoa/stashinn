@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, FormEvent, useEffect } from 'react';
 import { getSearchSuggestions } from './actions';
+import { createClient } from '@stashinn/lib/supabase/client';
 
 export default function HomePage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function HomePage() {
   const minDate = `${yyyy}-${mm}-${dd}`;
   
   const [city, setCity] = useState('');
+  const [lat, setLat] = useState<number | null>(null);
+  const [lon, setLon] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -27,10 +30,22 @@ export default function HomePage() {
   const [outTime, setOutTime] = useState(`${String(today.getHours() + 2).padStart(2, '0')}:00`);
   
   const [bags, setBags] = useState(1);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    fetchUser();
+  }, []);
 
   // Fetch suggestions
   useEffect(() => {
     const fetchSugg = async () => {
+      if (lat !== null && lon !== null) return; // Skip if already selected
+
       if (city.length > 1) {
         const res = await getSearchSuggestions(city);
         setSuggestions(res);
@@ -42,11 +57,35 @@ export default function HomePage() {
     };
     const timeoutId = setTimeout(fetchSugg, 300);
     return () => clearTimeout(timeoutId);
-  }, [city]);
+  }, [city, lat, lon]);
 
   const handleSuggestionClick = (loc: any) => {
-    setCity(loc.city || loc.name); // Prefer city or name
+    setCity(loc.name); 
+    setLat(loc.lat);
+    setLon(loc.lon);
     setShowSuggestions(false);
+  };
+
+  const handleInChange = (type: 'date' | 'time', value: string) => {
+    let newDate = inDate;
+    let newTime = inTime;
+    if (type === 'date') newDate = value;
+    if (type === 'time') newTime = value;
+
+    setInDate(newDate);
+    setInTime(newTime);
+
+    const dropOff = new Date(`${newDate}T${newTime}`);
+    if (!isNaN(dropOff.getTime())) {
+      dropOff.setHours(dropOff.getHours() + 1);
+      const yyyy = dropOff.getFullYear();
+      const mm = String(dropOff.getMonth() + 1).padStart(2, '0');
+      const dd = String(dropOff.getDate()).padStart(2, '0');
+      const hh = String(dropOff.getHours()).padStart(2, '0');
+      
+      setOutDate(`${yyyy}-${mm}-${dd}`);
+      setOutTime(`${hh}:00`);
+    }
   };
 
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
@@ -58,6 +97,8 @@ export default function HomePage() {
     const checkOutISO = `${outDate}T${outTime}`;
 
     if (city) params.append('q', city);
+    if (lat) params.append('lat', lat.toString());
+    if (lon) params.append('lon', lon.toString());
     params.append('in', checkInISO);
     params.append('out', checkOutISO);
     params.append('bags', bags.toString());
@@ -69,7 +110,7 @@ export default function HomePage() {
   const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
   return (
-    <main className="min-h-screen bg-gray-50 flex flex-col font-inter">
+    <main className="min-h-screen bg-gray-100 flex flex-col font-inter">
       {/* Header */}
       <header className="h-20 bg-white/80 backdrop-blur-md border-b border-gray-100 flex items-center justify-between px-8 sticky top-0 z-50">
         <div className="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
@@ -77,10 +118,21 @@ export default function HomePage() {
         </div>
         <nav className="flex items-center space-x-6">
           <a href="#" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">How it works</a>
-          <a href="#" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Become a Partner</a>
-          <a href="/login" className="px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors shadow-sm">
-            Sign In
-          </a>
+          <a href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">Become a Partner</a>
+          {user ? (
+            <div className="flex items-center space-x-4">
+              <a href="/dashboard" className="hidden md:block px-5 py-2.5 bg-gray-100 text-gray-900 text-sm font-bold rounded-full hover:bg-gray-200 transition-colors">
+                My Bookings
+              </a>
+              <a href="/dashboard/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md hover:shadow-lg transition-all shrink-0" title="Profile Settings">
+                {user.user_metadata?.full_name ? user.user_metadata.full_name.charAt(0).toUpperCase() : 'U'}
+              </a>
+            </div>
+          ) : (
+            <a href="/login" className="px-5 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors shadow-sm">
+              Sign In
+            </a>
+          )}
         </nav>
       </header>
 
@@ -111,7 +163,11 @@ export default function HomePage() {
                   <input 
                     type="text" 
                     value={city}
-                    onChange={(e) => setCity(e.target.value)}
+                    onChange={(e) => {
+                      setCity(e.target.value);
+                      setLat(null);
+                      setLon(null);
+                    }}
                     onFocus={() => setShowSuggestions(true)}
                     placeholder="City, neighborhood, or station"
                     required
@@ -128,7 +184,7 @@ export default function HomePage() {
                         className="px-5 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
                       >
                         <div className="font-bold text-gray-900">{loc.name}</div>
-                        <div className="text-sm text-gray-500">{loc.address_line1}, {loc.city}</div>
+                        <div className="text-sm text-gray-500">{loc.address_line1}</div>
                       </div>
                     ))}
                   </div>
@@ -146,7 +202,7 @@ export default function HomePage() {
                     <input 
                       type="date" 
                       value={inDate}
-                      onChange={(e) => setInDate(e.target.value)}
+                      onChange={(e) => handleInChange('date', e.target.value)}
                       min={minDate}
                       required
                       className="w-full bg-transparent text-gray-900 font-medium outline-none cursor-pointer"
@@ -156,7 +212,7 @@ export default function HomePage() {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Time</label>
                     <select 
                       value={inTime} 
-                      onChange={(e) => setInTime(e.target.value)}
+                      onChange={(e) => handleInChange('time', e.target.value)}
                       className="w-full bg-transparent text-gray-900 font-medium outline-none cursor-pointer"
                     >
                       {hours.map(h => <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`}>{h}</option>)}

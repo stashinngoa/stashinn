@@ -13,14 +13,16 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-function MapBounds({ locations }: { locations: any[] }) {
+function MapBounds({ locations, center }: { locations: any[], center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
     if (locations && locations.length > 0) {
       const bounds = L.latLngBounds(locations.map(loc => [loc.latitude, loc.longitude]));
-      map.fitBounds(bounds, { padding: [50, 50] });
+      map.flyToBounds(bounds, { padding: [50, 50], animate: true, duration: 1.5 });
+    } else if (center) {
+      map.flyTo(center, 12, { animate: true, duration: 1.5 });
     }
-  }, [locations, map]);
+  }, [locations, center, map]);
   return null;
 }
 
@@ -50,7 +52,7 @@ export default function SearchMap({ locations, center }: { locations: any[], cen
             </Popup>
           </Marker>
         ))}
-        {locations.length > 0 && <MapBounds locations={locations} />}
+        <MapBounds locations={locations} center={center} />
       </MapContainer>
     </div>
   );
