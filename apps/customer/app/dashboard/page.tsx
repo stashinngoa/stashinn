@@ -2,8 +2,10 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { cancelBooking } from './actions';
 import Link from 'next/link';
+import SortSelect from './SortSelect';
 
-export default async function Dashboard() {
+export default async function Dashboard({ searchParams }: { searchParams: { filter?: string, page?: string, sort?: string } | Promise<{ filter?: string, page?: string, sort?: string }> }) {
+  const resolvedParams = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -11,12 +13,38 @@ export default async function Dashboard() {
     redirect('/login');
   }
 
-  // Fetch customer bookings
-  const { data: bookings } = await supabase
+  // Parse parameters
+  const filter = resolvedParams.filter || 'all';
+  const sort = resolvedParams.sort || 'newest';
+  const page = parseInt(resolvedParams.page as string || '1');
+  const limit = 5;
+  const offset = (page - 1) * limit;
+
+  // Build query
+  let query = supabase
     .from('bookings')
-    .select('*, partner_locations(name, city, address_line1, photos), partners(business_name)')
-    .eq('customer_id', user.id)
-    .order('created_at', { ascending: false });
+    .select('*, partner_locations(name, city, address_line1, photos), partners(business_name)', { count: 'exact' })
+    .eq('customer_id', user.id);
+
+  if (filter === 'active') {
+    query = query.in('status', ['pending', 'confirmed', 'checked_in']);
+  } else if (filter === 'past') {
+    query = query.eq('status', 'checked_out');
+  } else if (filter === 'cancelled') {
+    query = query.eq('status', 'cancelled');
+  }
+
+  if (sort === 'oldest') {
+    query = query.order('created_at', { ascending: true });
+  } else {
+    query = query.order('created_at', { ascending: false });
+  }
+
+  query = query.range(offset, offset + limit - 1);
+
+  const { data: bookings, count } = await query;
+  const totalCount = count || 0;
+  const totalPages = Math.ceil(totalCount / limit);
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -31,7 +59,30 @@ export default async function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">My Bookings</h1>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <h1 className="text-3xl font-extrabold text-gray-900">My Bookings</h1>
+        
+        <div className="flex items-center gap-4">
+          <SortSelect currentSort={sort} currentFilter={filter} />
+        </div>
+      </div>
+
+      <div className="flex space-x-2 mb-6 overflow-x-auto pb-2">
+        {[
+          { id: 'all', label: 'All Bookings' },
+          { id: 'active', label: 'Active' },
+          { id: 'past', label: 'Past' },
+          { id: 'cancelled', label: 'Cancelled' }
+        ].map(tab => (
+          <Link 
+            key={tab.id}
+            href={`/dashboard?filter=${tab.id}&sort=${sort}`}
+            className={`px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-colors ${filter === tab.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
 
         {(!bookings || bookings.length === 0) ? (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
@@ -141,6 +192,33 @@ export default async function Dashboard() {
                 )}
               </div>
             ))}
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="pt-8 flex justify-center items-center space-x-2">
+                {page > 1 && (
+                  <Link href={`/dashboard?filter=${filter}&sort=${sort}&page=${page - 1}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                  </Link>
+                )}
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
+                  <Link 
+                    key={p} 
+                    href={`/dashboard?filter=${filter}&sort=${sort}&page=${p}`} 
+                    className={`w-10 h-10 flex items-center justify-center rounded-lg border ${page === p ? 'bg-purple-600 border-purple-600 text-white font-bold' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    {p}
+                  </Link>
+                ))}
+
+                {page < totalPages && (
+                  <Link href={`/dashboard?filter=${filter}&sort=${sort}&page=${page + 1}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
       )}
     </div>

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-export default function LocationList({ locations, searchParams }: { locations: any[], searchParams: any }) {
+export default function LocationList({ locations, searchParams, totalCount = 0 }: { locations: any[], searchParams: any, totalCount?: number }) {
   if (!locations || locations.length === 0) {
     return (
       <div className="p-12 text-center">
@@ -19,7 +19,9 @@ export default function LocationList({ locations, searchParams }: { locations: a
 
   return (
     <div className="p-6 space-y-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">{locations.length} storage spots found</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-900">{totalCount > 0 ? totalCount : locations.length} storage spots found</h2>
+      </div>
       
       {locations.map((loc) => (
         <div key={loc.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col sm:flex-row group">
@@ -47,12 +49,23 @@ export default function LocationList({ locations, searchParams }: { locations: a
               </div>
               <p className="text-sm text-gray-500 mt-1 line-clamp-1">{loc.address_line1}, {loc.city}</p>
               
+              <div className="flex items-center mt-2 space-x-1">
+                <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                <span className="text-sm font-bold text-gray-700">{loc.avg_rating || 'New'}</span>
+              </div>
+
               <div className="mt-3 flex flex-wrap gap-2">
-                {['24/7 Security', 'CCTV'].map((feature) => (
-                  <span key={feature} className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">
-                    {feature}
-                  </span>
-                ))}
+                {loc.amenities && loc.amenities.length > 0 ? (
+                  loc.amenities.map((feature: string) => (
+                    <span key={feature} className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">
+                      {feature}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400">Basic Storage</span>
+                )}
               </div>
             </div>
             
@@ -68,6 +81,57 @@ export default function LocationList({ locations, searchParams }: { locations: a
           </div>
         </div>
       ))}
+
+      {/* Pagination Controls */}
+      {totalCount > 0 && (
+        <div className="pt-8 flex justify-center items-center space-x-2">
+          {(() => {
+            const limit = 10;
+            const currentPage = parseInt(searchParams.page as string || '1');
+            const totalPages = Math.ceil(totalCount / limit);
+            const pages = [];
+            
+            // Previous Button
+            if (currentPage > 1) {
+              const prevParams = new URLSearchParams(searchParams as Record<string, string>);
+              prevParams.set('page', (currentPage - 1).toString());
+              pages.push(
+                <Link key="prev" href={`/search?${prevParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                </Link>
+              );
+            }
+
+            // Page Numbers
+            for (let i = 1; i <= totalPages; i++) {
+              const pageParams = new URLSearchParams(searchParams as Record<string, string>);
+              pageParams.set('page', i.toString());
+              pages.push(
+                <Link 
+                  key={i} 
+                  href={`/search?${pageParams.toString()}`} 
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg border ${currentPage === i ? 'bg-purple-600 border-purple-600 text-white font-bold' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                >
+                  {i}
+                </Link>
+              );
+            }
+
+            // Next Button
+            if (currentPage < totalPages) {
+              const nextParams = new URLSearchParams(searchParams as Record<string, string>);
+              nextParams.set('page', (currentPage + 1).toString());
+              pages.push(
+                <Link key="next" href={`/search?${nextParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                </Link>
+              );
+            }
+
+            return pages;
+          })()}
+        </div>
+      )}
     </div>
   );
 }
