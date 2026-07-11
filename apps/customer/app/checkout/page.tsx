@@ -1,6 +1,7 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { createBooking } from './actions';
+import CheckoutClientForm from './CheckoutClientForm';
 
 export default async function CheckoutPage({ searchParams }: { searchParams: { location_id?: string, in?: string, out?: string, bags?: string, price?: string } | Promise<{ location_id?: string, in?: string, out?: string, bags?: string, price?: string }> }) {
   const resolvedParams = await searchParams;
@@ -90,52 +91,12 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
             </div>
           </div>
 
-          {/* Confirm Action */}
-          <div className="p-6 bg-gray-50 border-t border-gray-100">
-            <form action={createBooking}>
-              <input type="hidden" name="location_id" value={location.id} />
-              <input type="hidden" name="partner_id" value={location.partners?.id} />
-              <input type="hidden" name="check_in" value={resolvedParams.in} />
-              <input type="hidden" name="check_out" value={resolvedParams.out} />
-              <input type="hidden" name="bags" value={resolvedParams.bags} />
-              <input type="hidden" name="total_amount" value={resolvedParams.price} />
-
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex justify-between items-center mb-6">
-                  <span className="font-bold text-gray-900">Total (inclusive of taxes)</span>
-                  <span className="text-2xl font-black text-purple-600">₹{parseFloat(resolvedParams.price || '0').toFixed(2)}</span>
-                </div>
-
-                <div className="mb-8">
-                  <h3 className="text-sm font-bold text-gray-900 mb-3">Payment Method</h3>
-                  <div className="space-y-3">
-                    <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
-                      <input type="radio" name="payment_method" value="pay_at_location" defaultChecked className="w-5 h-5 text-purple-600 focus:ring-purple-500" />
-                      <div className="ml-3">
-                        <span className="block font-bold text-gray-900">Pay at Location</span>
-                        <span className="block text-sm text-gray-500">Pay with Cash or UPI when you drop off your bags.</span>
-                      </div>
-                    </label>
-                    
-                    <label className="flex items-center p-4 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors opacity-60">
-                      <input type="radio" name="payment_method" value="razorpay" disabled className="w-5 h-5 text-purple-600 focus:ring-purple-500" />
-                      <div className="ml-3">
-                        <span className="block font-bold text-gray-900">Pay Online Now (Coming Soon)</span>
-                        <span className="block text-sm text-gray-500">Credit Card, Debit Card, Netbanking via Razorpay.</span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-              
-              <button type="submit" className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg shadow-gray-200">
-                Request Booking
-              </button>
-            </form>
-            <p className="text-center text-xs text-gray-500 mt-4">
-              By confirming, you agree to the StashInn Terms of Service. Payment gateway integration will be added in Stage 3.
-            </p>
-          </div>
+          {/* Checkout Client Form */}
+          <CheckoutClientForm 
+            location={location} 
+            resolvedParams={resolvedParams} 
+            razorpayKey={process.env.RAZORPAY_KEY_ID || ''} 
+          />
         </div>
       </main>
     </div>

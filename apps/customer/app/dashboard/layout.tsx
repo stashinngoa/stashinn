@@ -1,6 +1,7 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import NotificationBell from '../../components/NotificationBell';
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +22,13 @@ export default async function DashboardLayout({
     redirect('/login');
   };
 
+  const { data: notifications } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
   return (
     <div className="min-h-screen bg-gray-100 font-inter flex flex-col">
       {/* Top Header */}
@@ -29,6 +37,7 @@ export default async function DashboardLayout({
           StashInn
         </Link>
         <div className="flex items-center gap-4">
+          <NotificationBell initialNotifications={notifications || []} />
           <span className="text-sm font-medium text-gray-600 hidden sm:block">{user.email}</span>
           <form action={logout}>
             <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-bold text-sm transition-colors">

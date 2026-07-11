@@ -47,3 +47,39 @@ export async function updatePassword(formData: FormData) {
 
   return { success: true };
 }
+
+export async function updateNotificationPreferences(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: 'Unauthorized' };
+  }
+
+  const in_app = formData.get('in_app') === 'on';
+  const email = formData.get('email') === 'on';
+  const whatsapp = formData.get('whatsapp') === 'on';
+  const sms = formData.get('sms') === 'on';
+  const push = formData.get('push') === 'on';
+
+  const { error } = await supabase
+    .from('notification_preferences')
+    .upsert(
+      {
+        user_id: user.id,
+        in_app,
+        email,
+        whatsapp,
+        sms,
+        push
+      },
+      { onConflict: 'user_id' }
+    );
+
+  if (error) {
+    return { error: error.message };
+  }
+
+  revalidatePath('/dashboard/profile');
+  return { success: true };
+}
