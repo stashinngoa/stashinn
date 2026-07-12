@@ -1,5 +1,5 @@
-import { createClient } from '../supabase/server.js';
-import { AdminRole } from '../types/index.js';
+import { createClient } from '../supabase/server';
+import { AdminRole } from '../types/index';
 
 interface BroadcastParams {
   title: string;

@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/server.js';
+import { createClient } from '../supabase/server';
 
 export interface RenderedEmail {
   subject: string;
@@ -40,23 +40,4 @@ export async function renderTemplate(slug: string, payload: Record<string, strin
     subject: parsedSubject,
     html: parsedHtml
   };
-}
-
-/**
- * Synchronous parser for previewing templates in the UI without a database roundtrip.
- */
-export function renderPreview(html: string, variables: string[]): string {
-  if (!html) return '';
-  
-  // Replace declared variables with dummy values
-  let previewHtml = html;
-  variables.forEach(v => {
-    const regex = new RegExp(`\\{\\{\\s*${v}\\s*\\}\\}`, 'g');
-    previewHtml = previewHtml.replace(regex, `[Sample ${v}]`);
-  });
-
-  // Replace any undeclared variables left over
-  previewHtml = previewHtml.replace(/\{\{\s*([\w]+)\s*\}\}/g, `[Sample $1]`);
-  
-  return previewHtml;
 }

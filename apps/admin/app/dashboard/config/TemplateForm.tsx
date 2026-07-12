@@ -2,7 +2,7 @@
 
 import { useTransition, useState } from 'react';
 import { updateEmailTemplate } from './actions';
-import { renderPreview } from '@stashinn/lib/services/email';
+import { renderPreview } from '@stashinn/lib/services/emailParser';
 
 export default function TemplateForm({ template }: { template: any }) {
   const [isPending, startTransition] = useTransition();

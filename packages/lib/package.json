@@ -13,6 +13,7 @@
     "./types": "./src/types/index.ts",
     "./constants": "./src/constants/index.ts",
     "./services/email": "./src/services/email.ts",
+    "./services/emailParser": "./src/services/emailParser.ts",
     "./services/notifications": "./src/services/notifications.ts"
   },
   "scripts": {

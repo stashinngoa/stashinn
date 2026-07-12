@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderPreview } from '../src/services/email';
+import { renderPreview } from '../src/services/emailParser';
 
 describe('Email Template Parser Engine', () => {
   it('Should replace defined variables with sample text in preview mode', () => {
