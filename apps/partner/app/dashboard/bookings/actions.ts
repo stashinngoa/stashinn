@@ -183,7 +183,6 @@ export async function verifyCheckOutOTP(formData: FormData) {
     new_values: { type: 'checkout', status: 'checked_out' }
   });
 
-  if (error) return { error: error.message };
 
   if (booking?.customer_id) {
     const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
