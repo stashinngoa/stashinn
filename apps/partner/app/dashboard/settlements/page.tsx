@@ -1,5 +1,6 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import UploadProofForm from './UploadProofForm';
+import DownloadPDFButton from './DownloadPDFButton';
 
 export default async function SettlementsPage() {
   const supabase = await createClient();
@@ -115,6 +116,7 @@ export default async function SettlementsPage() {
                        <a href={tx.transfer_proof} target="_blank" rel="noreferrer" className="text-purple-600 hover:text-purple-800 text-xs font-medium underline">
                          View Proof
                        </a>
+                       <DownloadPDFButton transaction={tx} />
                      </div>
                    </div>
                  ))}

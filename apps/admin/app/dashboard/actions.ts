@@ -2,19 +2,25 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 
-export async function getAdminAnalytics() {
+export async function getAdminAnalytics(startDate?: string, endDate?: string) {
   const supabase = await createClient();
 
+  // Helper to apply date filters
+  const applyDateFilter = (query: any, column = 'created_at') => {
+    if (startDate) query = query.gte(column, startDate);
+    if (endDate) query = query.lte(column, endDate);
+    return query;
+  };
+
   // Total Users (customers)
-  const { count: totalCustomers } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'customer');
+  const { count: totalCustomers } = await applyDateFilter(
+    supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer')
+  );
 
   // Total Partners
-  const { count: totalPartners } = await supabase
-    .from('partners')
-    .select('*', { count: 'exact', head: true });
+  const { count: totalPartners } = await applyDateFilter(
+    supabase.from('partners').select('*', { count: 'exact', head: true })
+  );
 
   // Pending Partners
   const { count: pendingPartners } = await supabase
@@ -22,31 +28,38 @@ export async function getAdminAnalytics() {
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pending');
 
-  // Total Bookings
-  const { count: totalBookings } = await supabase
-    .from('bookings')
-    .select('*', { count: 'exact', head: true });
+  // Bookings with amounts for trends
+  const { data: bookingsData } = await applyDateFilter(
+    supabase.from('bookings').select('created_at, status, total_amount, commission_amount')
+  );
 
-  // Active Bookings (confirmed + checked_in)
-  const { count: activeBookings } = await supabase
-    .from('bookings')
-    .select('*', { count: 'exact', head: true })
-    .in('status', ['confirmed', 'checked_in']);
+  const totalBookings = bookingsData?.length || 0;
+  const activeBookings = bookingsData?.filter((b: any) => b.status === 'confirmed' || b.status === 'checked_in').length || 0;
+  const completedBookings = bookingsData?.filter((b: any) => b.status === 'checked_out') || [];
 
-  // Total Revenue (sum of paid payments)
-  const { data: revenueData } = await supabase
-    .from('payments')
-    .select('amount')
-    .eq('status', 'paid');
+  const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + Number(b.total_amount), 0);
+  const totalCommission = completedBookings.reduce((sum: number, b: any) => sum + Number(b.commission_amount), 0);
 
-  const totalRevenue = revenueData?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+  // Daily Trends
+  const dailyTrendsMap: Record<string, { revenue: number, bookings: number }> = {};
+  
+  if (bookingsData) {
+    bookingsData.forEach((b: any) => {
+      const dateStr = b.created_at.split('T')[0];
+      if (!dailyTrendsMap[dateStr]) {
+        dailyTrendsMap[dateStr] = { revenue: 0, bookings: 0 };
+      }
+      dailyTrendsMap[dateStr].bookings += 1;
+      if (b.status === 'checked_out') {
+        dailyTrendsMap[dateStr].revenue += Number(b.total_amount);
+      }
+    });
+  }
 
-  // Total Commission
-  const { data: commissionData } = await supabase
-    .from('partner_transactions')
-    .select('commission');
-
-  const totalCommission = commissionData?.reduce((sum, t) => sum + Number(t.commission), 0) || 0;
+  const dailyTrends = Object.keys(dailyTrendsMap).sort().map(date => ({
+    date,
+    ...dailyTrendsMap[date]
+  }));
 
   // Total Locations
   const { count: totalLocations } = await supabase
@@ -83,5 +96,7 @@ export async function getAdminAnalytics() {
     totalLocations: totalLocations || 0,
     recentBookings: recentBookings || [],
     pendingPartnersList: pendingPartnersList || [],
+    dailyTrends
   };
 }
+

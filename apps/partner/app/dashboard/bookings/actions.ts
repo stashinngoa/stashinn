@@ -40,13 +40,21 @@ export async function acceptBooking(formData: FormData) {
       category: 'booking'
     });
     
-    // Notify Customer via SMS
-    const { data: customerData } = await supabaseService.from('users').select('phone').eq('id', booking.customer_id).single();
+    // Notify Customer via SMS and Email
+    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
     if (customerData) {
       await sendSMS({
         to: customerData.phone || '+1234567890',
         message: `StashInn: Your booking at ${(booking.partner_locations as any)?.name || 'the partner'} was accepted! Your Check-in OTP is ${checkinOtp}.`
       });
+      const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+      if (customerData.email) {
+        await ExternalNotificationService.sendEmail(
+          customerData.email,
+          'Booking Accepted - StashInn',
+          `Good news! Your booking at ${(booking.partner_locations as any)?.name} was accepted.\n\nYour Check-in OTP is: ${checkinOtp}\n\nPlease present this OTP at the location.`
+        );
+      }
     }
   }
 
@@ -85,13 +93,21 @@ export async function declineBooking(formData: FormData) {
       category: 'booking'
     });
     
-    // Notify Customer via SMS
-    const { data: customerData } = await supabaseService.from('users').select('phone').eq('id', booking.customer_id).single();
+    // Notify Customer via SMS and Email
+    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
     if (customerData) {
       await sendSMS({
         to: customerData.phone || '+1234567890',
         message: `StashInn: Unfortunately, your booking at ${(booking.partner_locations as any)?.name || 'the partner'} was declined. Any charges will be voided/refunded.`
       });
+      const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+      if (customerData.email) {
+        await ExternalNotificationService.sendEmail(
+          customerData.email,
+          'Booking Declined - StashInn',
+          `Unfortunately, your booking at ${(booking.partner_locations as any)?.name} was declined due to capacity issues. Any charges have been voided.`
+        );
+      }
     }
   }
 
@@ -109,7 +125,7 @@ export async function verifyCheckInOTP(formData: FormData) {
   if (!user) return { error: 'Unauthorized' };
 
   // Fetch booking to verify
-  const { data: booking } = await supabase.from('bookings').select('checkin_otp, status').eq('id', bookingId).single();
+  const { data: booking } = await supabase.from('bookings').select('customer_id, checkin_otp, status').eq('id', bookingId).single();
   
   if (!booking) return { error: 'Booking not found.' };
   if (booking.status !== 'pending' && booking.status !== 'confirmed') return { error: 'Booking is not pending.' };
@@ -139,6 +155,24 @@ export async function verifyCheckInOTP(formData: FormData) {
     entity_id: bookingId,
     new_values: { type: 'checkin', status: 'checked_in' }
   });
+
+  // Notify customer of check-in
+  if (booking?.customer_id) {
+    const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+    const supabaseService = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+    const { data: customerData } = await supabaseService.from('users').select('email, phone').eq('id', booking.customer_id).single();
+    if (customerData?.email) {
+      const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+      await ExternalNotificationService.sendEmail(
+        customerData.email,
+        'Bags Checked In - StashInn',
+        `Your bags have been successfully checked in. We will keep them safe!`
+      );
+    }
+  }
 
   revalidatePath(`/dashboard/bookings/${bookingId}`);
   revalidatePath('/dashboard/bookings');
@@ -201,10 +235,20 @@ export async function verifyCheckOutOTP(formData: FormData) {
     });
     
     // SMS reminder
+    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
     await sendSMS({
-      to: '+1234567890',
+      to: customerData?.phone || '+1234567890',
       message: `StashInn: Thanks for using StashInn! Rate your experience at ${(booking.partner_locations as any)?.name || 'the partner'}.`
     });
+
+    if (customerData?.email) {
+      const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+      await ExternalNotificationService.sendEmail(
+        customerData.email,
+        'Checkout Complete - StashInn',
+        `Thank you for using StashInn! Your bags have been checked out from ${(booking.partner_locations as any)?.name}. Please leave a review!`
+      );
+    }
   }
 
   revalidatePath(`/dashboard/bookings/${bookingId}`);

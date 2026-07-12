@@ -89,27 +89,12 @@ export async function createBooking(formData: FormData) {
       transfer_status: 'pending'
     });
 
-  // Fetch Partner's user_id to send Notification
-  const { data: partnerRecord } = await supabase
-    .from('partners')
-    .select('user_id')
-    .eq('id', partnerId)
-    .single();
-
-  if (partnerRecord?.user_id) {
-    const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
-    const supabaseService = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-    
-    await supabaseService.from('notifications').insert({
-      user_id: partnerRecord.user_id,
-      title: 'New Booking Request',
-      message: `You have a new request for ${bags} bags. Please accept or decline in your dashboard.`,
-      category: 'booking'
-    });
-  }
+  // Dispatch Partner Notifications based on Preferences
+  const { notifyPartnerExternal } = await import('@stashinn/lib/services/notifications');
+  await notifyPartnerExternal(partnerId, {
+    title: 'New Booking Request',
+    message: `You have a new request for ${bags} bags (Booking ${booking.id.split('-')[0]}). Please accept or decline in your dashboard.`
+  });
 
   // Trigger Mock SMS & WhatsApp Confirmations
   await sendSMS({

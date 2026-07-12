@@ -1,9 +1,12 @@
 import { getAdminAnalytics } from './actions';
+import DateRangeFilter from './DateRangeFilter';
+import TrendChart from './TrendChart';
 
 export const revalidate = 60; // Cache for 60 seconds to improve dashboard performance
 
-export default async function AdminDashboard() {
-  const analytics = await getAdminAnalytics();
+export default async function AdminDashboard({ searchParams }: { searchParams: Promise<{ [key: string]: string | undefined }> }) {
+  const params = await searchParams;
+  const analytics = await getAdminAnalytics(params.startDate, params.endDate);
 
   const kpiCards = [
     { label: 'Total Revenue', value: `₹${analytics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '₹', color: 'from-green-500 to-emerald-600', bgColor: 'bg-green-500/10', textColor: 'text-green-400', href: '/dashboard/bookings' },
@@ -30,9 +33,21 @@ export default async function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white">Dashboard Overview</h1>
-        <p className="text-gray-500 mt-1">Platform-wide metrics and recent activity.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-white">Dashboard Overview</h1>
+          <p className="text-gray-500 mt-1">Platform-wide metrics and recent activity.</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <DateRangeFilter />
+          <a 
+            href={`/api/export-analytics?startDate=${params.startDate || ''}&endDate=${params.endDate || ''}`}
+            className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export
+          </a>
+        </div>
       </div>
 
       {/* KPI Grid */}
@@ -46,6 +61,22 @@ export default async function AdminDashboard() {
             <span className={`text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r ${card.color}`}>{card.value}</span>
           </a>
         ))}
+      </div>
+
+      {/* Analytics Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TrendChart 
+          title="Revenue Trends (₹)" 
+          data={analytics.dailyTrends} 
+          dataKey="revenue" 
+          format="currency" 
+        />
+        <TrendChart 
+          title="Booking Volume Trends" 
+          data={analytics.dailyTrends} 
+          dataKey="bookings" 
+          format="number" 
+        />
       </div>
 
       {/* Two-Column: Recent Bookings + Pending Partners */}

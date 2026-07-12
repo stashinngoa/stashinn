@@ -1,5 +1,6 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { processSettlement } from './actions';
+import DownloadPDFButton from './DownloadPDFButton';
 
 export default async function AdminSettlementsPage() {
   const supabase = await createClient();
@@ -66,7 +67,7 @@ export default async function AdminSettlementsPage() {
                 </form>
               </div>
 
-              <div className="p-6 md:w-1/2 flex items-center justify-center bg-gray-950">
+              <div className="p-6 md:w-1/2 flex items-center justify-center bg-gray-950 relative">
                 <div className="w-full h-full min-h-[200px] flex items-center justify-center">
                   {item.transaction.transfer_proof ? (
                     item.transaction.transfer_proof.endsWith('.pdf') ? (
@@ -87,6 +88,11 @@ export default async function AdminSettlementsPage() {
                     )
                   ) : (
                     <span className="text-gray-600 text-sm italic">No proof URL attached.</span>
+                  )}
+                  {item.transaction && (
+                    <div className="absolute top-4 right-4 bg-gray-900/80 p-2 rounded-lg backdrop-blur">
+                      <DownloadPDFButton transaction={{...item.transaction, bookings: item.payment.bookings}} />
+                    </div>
                   )}
                 </div>
               </div>
