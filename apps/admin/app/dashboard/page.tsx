@@ -1,17 +1,19 @@
 import { getAdminAnalytics } from './actions';
 
+export const revalidate = 60; // Cache for 60 seconds to improve dashboard performance
+
 export default async function AdminDashboard() {
   const analytics = await getAdminAnalytics();
 
   const kpiCards = [
-    { label: 'Total Revenue', value: `₹${analytics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '₹', color: 'from-green-500 to-emerald-600', bgColor: 'bg-green-500/10', textColor: 'text-green-400' },
-    { label: 'Platform Commission', value: `₹${analytics.totalCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '%', color: 'from-orange-500 to-red-500', bgColor: 'bg-orange-500/10', textColor: 'text-orange-400' },
-    { label: 'Total Bookings', value: analytics.totalBookings.toString(), icon: '#', color: 'from-blue-500 to-indigo-600', bgColor: 'bg-blue-500/10', textColor: 'text-blue-400' },
-    { label: 'Active Bookings', value: analytics.activeBookings.toString(), icon: '⚡', color: 'from-yellow-500 to-amber-500', bgColor: 'bg-yellow-500/10', textColor: 'text-yellow-400' },
-    { label: 'Registered Customers', value: analytics.totalCustomers.toString(), icon: '👤', color: 'from-purple-500 to-pink-500', bgColor: 'bg-purple-500/10', textColor: 'text-purple-400' },
-    { label: 'Total Partners', value: analytics.totalPartners.toString(), icon: '🏪', color: 'from-teal-500 to-cyan-500', bgColor: 'bg-teal-500/10', textColor: 'text-teal-400' },
-    { label: 'Pending Approvals', value: analytics.pendingPartners.toString(), icon: '⏳', color: 'from-red-500 to-rose-500', bgColor: 'bg-red-500/10', textColor: 'text-red-400' },
-    { label: 'Storage Locations', value: analytics.totalLocations.toString(), icon: '📍', color: 'from-indigo-500 to-violet-500', bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-400' },
+    { label: 'Total Revenue', value: `₹${analytics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '₹', color: 'from-green-500 to-emerald-600', bgColor: 'bg-green-500/10', textColor: 'text-green-400', href: '/dashboard/bookings' },
+    { label: 'Platform Commission', value: `₹${analytics.totalCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '%', color: 'from-orange-500 to-red-500', bgColor: 'bg-orange-500/10', textColor: 'text-orange-400', href: '/dashboard/settlements' },
+    { label: 'Total Bookings', value: analytics.totalBookings.toString(), icon: '#', color: 'from-blue-500 to-indigo-600', bgColor: 'bg-blue-500/10', textColor: 'text-blue-400', href: '/dashboard/bookings' },
+    { label: 'Active Bookings', value: analytics.activeBookings.toString(), icon: '⚡', color: 'from-yellow-500 to-amber-500', bgColor: 'bg-yellow-500/10', textColor: 'text-yellow-400', href: '/dashboard/bookings' },
+    { label: 'Registered Customers', value: analytics.totalCustomers.toString(), icon: '👤', color: 'from-purple-500 to-pink-500', bgColor: 'bg-purple-500/10', textColor: 'text-purple-400', href: '/dashboard/customers' },
+    { label: 'Total Partners', value: analytics.totalPartners.toString(), icon: '🏪', color: 'from-teal-500 to-cyan-500', bgColor: 'bg-teal-500/10', textColor: 'text-teal-400', href: '/dashboard/partners' },
+    { label: 'Pending Approvals', value: analytics.pendingPartners.toString(), icon: '⏳', color: 'from-red-500 to-rose-500', bgColor: 'bg-red-500/10', textColor: 'text-red-400', href: '/dashboard/partners' },
+    { label: 'Storage Locations', value: analytics.totalLocations.toString(), icon: '📍', color: 'from-indigo-500 to-violet-500', bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-400', href: '/dashboard/partners' },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -36,13 +38,13 @@ export default async function AdminDashboard() {
       {/* KPI Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiCards.map((card) => (
-          <div key={card.label} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-colors">
+          <a href={card.href} key={card.label} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition-colors block group">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{card.label}</span>
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider group-hover:text-gray-300 transition-colors">{card.label}</span>
               <span className={`text-lg ${card.bgColor} ${card.textColor} w-8 h-8 flex items-center justify-center rounded-lg`}>{card.icon}</span>
             </div>
             <span className={`text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r ${card.color}`}>{card.value}</span>
-          </div>
+          </a>
         ))}
       </div>
 

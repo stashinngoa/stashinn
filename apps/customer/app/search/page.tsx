@@ -4,6 +4,8 @@ import LocationList from './LocationList';
 import MapWrapper from './MapWrapper';
 import SearchHeader from './SearchHeader';
 
+export const revalidate = 300; // Cache search locations for 5 minutes
+
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string } | Promise<{ q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string }> }) {
   const resolvedParams = await searchParams;
   const supabase = await createClient();

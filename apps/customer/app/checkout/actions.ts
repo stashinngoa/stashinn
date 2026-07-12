@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { sendSMS, sendWhatsApp } from '@stashinn/lib/services/messaging';
 
 export async function createBooking(formData: FormData) {
   const supabase = await createClient();
@@ -22,10 +23,26 @@ export async function createBooking(formData: FormData) {
   const bags = parseInt(formData.get('bags') as string);
   const totalAmount = parseFloat(formData.get('total_amount') as string);
 
-  // Calculate Commission (15%)
-  const commissionRate = 0.15;
-  const commissionAmount = totalAmount * commissionRate;
-  const partnerAmount = totalAmount - commissionAmount;
+  // 1. Validation: Booking Window
+  const startDate = new Date(checkIn);
+  const endDate = new Date(checkOut);
+  const now = new Date();
+  
+  // Allow a 5-minute grace period for "past" bookings (since users take time to checkout)
+  const gracePeriod = new Date(now.getTime() - 5 * 60000);
+  if (startDate < gracePeriod) {
+    redirect('/search?error=invalid_start_time');
+  }
+  
+  if (endDate.getTime() - startDate.getTime() < 60 * 60 * 1000) { // Min 1 hour
+    redirect('/search?error=min_duration_1h');
+  }
+
+  // Calculate Commission dynamically (fallback to 15%)
+  const { data: configRows } = await supabase.from('system_config').select('value').eq('key', 'default_commission_rate').single();
+  const commissionRate = configRows?.value ? parseFloat(configRows.value as string) : 0.15;
+  const commissionAmount = Math.round(totalAmount * commissionRate * 100) / 100;
+  const partnerAmount = Math.round((totalAmount - commissionAmount) * 100) / 100;
 
   const { data: booking, error } = await supabase
     .from('bookings')
@@ -93,6 +110,17 @@ export async function createBooking(formData: FormData) {
       category: 'booking'
     });
   }
+
+  // Trigger Mock SMS & WhatsApp Confirmations
+  await sendSMS({
+    to: user.phone || '+1234567890',
+    message: `StashInn: Your booking request for ${bags} bags is received. Awaiting partner approval.`
+  });
+  
+  await sendWhatsApp({
+    to: user.phone || '+1234567890',
+    message: `StashInn: Booking ${booking.id} created successfully! We will notify you once the partner confirms.`
+  });
 
   redirect('/dashboard');
 }

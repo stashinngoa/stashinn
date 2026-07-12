@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { sendSMS, sendWhatsApp } from '@stashinn/lib/services/messaging';
 
 export async function getPartners(statusFilter?: string) {
   const supabase = await createClient();
@@ -84,6 +85,15 @@ export async function updatePartnerStatus(formData: FormData) {
       message: notifMsg,
       category: 'system'
     });
+
+    // Also send an SMS
+    const { data: userData } = await supabase.from('users').select('phone').eq('id', updatedPartner.user_id).single();
+    if (userData) {
+      await sendSMS({
+        to: userData.phone || '+1234567890',
+        message: `StashInn: ${notifMsg}`
+      });
+    }
   }
 
   revalidatePath('/dashboard/partners');
@@ -97,8 +107,8 @@ export async function getKycDocs(partnerId: string) {
 
   // Generate public URLs for each file
   const docs = data
-    .filter(file => file.name !== '.emptyFolderPlaceholder')
-    .map(file => {
+    .filter((file: any) => file.name !== '.emptyFolderPlaceholder')
+    .map((file: any) => {
       const { data: { publicUrl } } = supabase.storage
         .from('kyc-documents')
         .getPublicUrl(`${partnerId}/${file.name}`);

@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { sendSMS } from '@stashinn/lib/services/messaging';
 
 export async function resolveDispute(formData: FormData) {
   const supabase = await createClient();
@@ -12,6 +13,17 @@ export async function resolveDispute(formData: FormData) {
 
   if (!['submitted', 'under_review', 'resolved_refund', 'resolved_no_action', 'escalated'].includes(status)) {
     throw new Error('Invalid status');
+  }
+
+  // Validate refund amount limits
+  if (status === 'resolved_refund' && refund_amount > 0) {
+    const { data: disputeInfo } = await supabase.from('damage_reports').select('booking_id').eq('id', id).single();
+    if (disputeInfo) {
+      const { data: bookingInfo } = await supabase.from('bookings').select('total_amount').eq('id', disputeInfo.booking_id).single();
+      if (bookingInfo && refund_amount > bookingInfo.total_amount) {
+        throw new Error(`Refund amount (₹${refund_amount}) cannot exceed the total booking amount (₹${bookingInfo.total_amount}).`);
+      }
+    }
   }
 
   const { error } = await supabase
@@ -28,12 +40,24 @@ export async function resolveDispute(formData: FormData) {
     throw new Error(error.message);
   }
 
+  // Insert Audit Log for dispute resolution
+  const { data: { user: adminUser } } = await supabase.auth.getUser();
+  if (adminUser) {
+    await supabase.from('audit_logs').insert({
+      user_id: adminUser.id,
+      action: 'dispute.resolved',
+      entity_type: 'damage_reports',
+      entity_id: id,
+      new_values: { status, admin_notes, refund_amount }
+    });
+  }
+
   // If resolved_refund is true, trigger the payment gateway refund
   if (status === 'resolved_refund' && refund_amount > 0) {
     // Get the booking ID for this dispute
     const { data: dispute } = await supabase
       .from('damage_reports')
-      .select('booking_id')
+      .select('booking_id, bookings(customer_id, partner_id, partners(user_id))')
       .eq('id', id)
       .single();
 
@@ -81,6 +105,30 @@ export async function resolveDispute(formData: FormData) {
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', payment.id);
+                
+              // Notify customer of refund
+              if ((dispute.bookings as any)?.customer_id) {
+                await supabase.from('notifications').insert({
+                  user_id: (dispute.bookings as any).customer_id,
+                  title: 'Refund Issued',
+                  message: `A refund of ₹${refund_amount} has been issued for your dispute.`,
+                  category: 'payment'
+                });
+                await sendSMS({
+                  to: '+1234567890', // In real app, fetch customer phone
+                  message: `StashInn: We have initiated a refund of ₹${refund_amount} for your recent dispute. It will reflect in 5-7 days.`
+                });
+              }
+              // Notify partner
+              if ((dispute.bookings as any)?.partners?.user_id || (dispute.bookings as any)?.partners?.[0]?.user_id) {
+                const pUserId = (dispute.bookings as any).partners.user_id || (dispute.bookings as any).partners[0].user_id;
+                await supabase.from('notifications').insert({
+                  user_id: pUserId,
+                  title: 'Dispute Resolved',
+                  message: `Dispute ${id} was resolved. A refund of ₹${refund_amount} was issued to the customer.`,
+                  category: 'damage'
+                });
+              }
             } else {
               const errBody = await rzpRes.text();
               console.error('Razorpay Refund API Error:', errBody);

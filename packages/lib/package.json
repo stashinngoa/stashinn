@@ -14,7 +14,10 @@
     "./constants": "./src/constants/index.ts",
     "./services/email": "./src/services/email.ts",
     "./services/emailParser": "./src/services/emailParser.ts",
-    "./services/notifications": "./src/services/notifications.ts"
+    "./services/messaging": "./src/services/messaging.ts",
+    "./services/notifications": "./src/services/notifications.ts",
+    "./services/rateLimiter": "./src/services/rateLimiter.ts",
+    "./services/logger": "./src/services/logger.ts"
   },
   "scripts": {
     "lint": "eslint --max-warnings 0",

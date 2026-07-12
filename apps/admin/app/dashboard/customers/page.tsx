@@ -50,12 +50,12 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
                 customers.map((customer: any) => (
                   <tr key={customer.id} className="hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                      <a href={`/dashboard/customers/${customer.id}`} className="flex items-center gap-3 hover:opacity-80">
                         <div className="h-8 w-8 rounded-full bg-purple-900/50 text-purple-400 flex items-center justify-center font-bold text-xs border border-purple-700/30">
                           {(customer.full_name || customer.email || '?').charAt(0).toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-200">{customer.full_name || '—'}</span>
-                      </div>
+                        <span className="text-sm font-medium text-purple-400 underline-offset-4 hover:underline">{customer.full_name || '—'}</span>
+                      </a>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-400">{customer.email}</td>
                     <td className="px-6 py-4 text-sm text-gray-400 font-mono">{customer.phone || '—'}</td>

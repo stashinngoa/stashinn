@@ -41,18 +41,18 @@ export default async function DashboardOverview() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Bookings</div>
+        <a href="/dashboard/bookings" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition-all group block">
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-purple-600 transition-colors">Total Bookings</div>
           <div className="text-4xl font-black text-gray-900">{totalBookings}</div>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-purple-200 bg-purple-50">
-          <div className="text-sm font-bold text-purple-600 uppercase tracking-wider mb-2">Active Bags (Checked In)</div>
+        </a>
+        <a href="/dashboard/bookings" className="bg-white p-6 rounded-2xl shadow-sm border border-purple-200 bg-purple-50 hover:shadow-md transition-all group block">
+          <div className="text-sm font-bold text-purple-600 uppercase tracking-wider mb-2 group-hover:text-purple-800 transition-colors">Active Bags (Checked In)</div>
           <div className="text-4xl font-black text-purple-900">{activeBags}</div>
-        </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Total Revenue (Completed)</div>
+        </a>
+        <a href="/dashboard/settlements" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-green-300 hover:shadow-md transition-all group block">
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-green-600 transition-colors">Total Revenue (Completed)</div>
           <div className="text-4xl font-black text-gray-900">₹{totalRevenue.toFixed(2)}</div>
-        </div>
+        </a>
       </div>
 
       <div className="mt-8">

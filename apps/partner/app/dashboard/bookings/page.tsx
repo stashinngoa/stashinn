@@ -2,7 +2,7 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 
-export default async function PartnerBookingsPage() {
+export default async function PartnerBookingsPage({ searchParams }: { searchParams: { status?: string, date?: string } }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -11,12 +11,27 @@ export default async function PartnerBookingsPage() {
   const { data: partner } = await supabase.from('partners').select('id').eq('user_id', user.id).single();
   if (!partner) redirect('/onboarding');
 
-  // Fetch all bookings for this partner
-  const { data: bookings } = await supabase
+  let query = supabase
     .from('bookings')
     .select('*, partner_locations(name, city), users(email, full_name)')
     .eq('partner_id', partner.id)
     .order('created_at', { ascending: false });
+
+  if (searchParams.status) {
+    query = query.eq('status', searchParams.status);
+  }
+
+  if (searchParams.date) {
+    const filterDate = new Date(searchParams.date);
+    const nextDay = new Date(filterDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    
+    query = query
+      .gte('start_time', filterDate.toISOString())
+      .lt('start_time', nextDay.toISOString());
+  }
+
+  const { data: bookings } = await query;
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -31,8 +46,28 @@ export default async function PartnerBookingsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center border-b pb-4">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 gap-4">
         <h1 className="text-3xl font-bold text-gray-900">Bookings Management</h1>
+        <form method="GET" className="flex items-center gap-3">
+          <select name="status" defaultValue={searchParams.status || ''} className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white">
+            <option value="">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="checked_in">Checked In</option>
+            <option value="checked_out">Checked Out</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <input type="date" name="date" defaultValue={searchParams.date || ''} className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white" />
+          <button type="submit" className="px-4 py-2 bg-gray-900 text-white text-sm font-bold rounded-lg hover:bg-gray-800 transition-colors">
+            Filter
+          </button>
+          <a 
+            href={`/api/export-bookings?status=${searchParams.status || ''}&date=${searchParams.date || ''}`} 
+            className="px-4 py-2 bg-green-100 text-green-800 text-sm font-bold rounded-lg hover:bg-green-200 transition-colors border border-green-200"
+          >
+            Export CSV
+          </a>
+        </form>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
