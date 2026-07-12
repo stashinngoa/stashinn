@@ -11,7 +11,9 @@
     "./supabase/server": "./src/supabase/server.ts",
     "./supabase/middleware": "./src/supabase/middleware.ts",
     "./types": "./src/types/index.ts",
-    "./constants": "./src/constants/index.ts"
+    "./constants": "./src/constants/index.ts",
+    "./services/email": "./src/services/email.ts",
+    "./services/notifications": "./src/services/notifications.ts"
   },
   "scripts": {
     "lint": "eslint --max-warnings 0",

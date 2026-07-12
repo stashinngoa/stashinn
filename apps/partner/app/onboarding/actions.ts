@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
 export async function submitOnboarding(formData: FormData) {
   const supabase = await createClient();
@@ -113,6 +114,15 @@ export async function submitOnboarding(formData: FormData) {
       // but admins will see they don't have a document in the bucket.
     }
   }
+
+  // Route notification to Operations and Superadmin
+  await notifyAdmins({
+    title: 'New Partner Onboarding',
+    message: `${formData.get('business_name')} has submitted their KYC documents and is pending review.`,
+    category: 'system',
+    targetRoles: ['ops'],
+    action_url: '/dashboard/partners'
+  });
 
   // Redirect on absolute success
   redirect('/dashboard');
