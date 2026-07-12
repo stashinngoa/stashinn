@@ -1,10 +1,10 @@
 'use client';
 
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-
 export default function DownloadPDFButton({ transaction }: { transaction: any }) {
-  const handleDownload = () => {
+  const handleDownload = async () => {
+    const { jsPDF } = await import('jspdf');
+    const autoTable = (await import('jspdf-autotable')).default;
+
     const doc = new jsPDF();
     
     // Header

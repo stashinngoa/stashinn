@@ -1,6 +1,6 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { processSettlement } from './actions';
-import DownloadPDFButton from './DownloadPDFButton';
+import DownloadPDFWrapper from './DownloadPDFWrapper';
 
 export default async function AdminSettlementsPage() {
   const supabase = await createClient();
@@ -91,7 +91,7 @@ export default async function AdminSettlementsPage() {
                   )}
                   {item.transaction && (
                     <div className="absolute top-4 right-4 bg-gray-900/80 p-2 rounded-lg backdrop-blur">
-                      <DownloadPDFButton transaction={{...item.transaction, bookings: item.payment.bookings}} />
+                      <DownloadPDFWrapper transaction={{...item.transaction, bookings: item.payment.bookings}} />
                     </div>
                   )}
                 </div>
