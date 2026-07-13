@@ -150,6 +150,46 @@ Development follows 8 sequential stages (see [Implementation Plans](./docs/) for
 7. **Stage 7**: Post Release Enhancements
 8. **Stage 8**: Extreme Enhancements
 
+## 🔐 Authentication & Session Validation
+
+StashInn implements a secure, role-based session validation system using Supabase Auth (`@supabase/ssr`) and Next.js Middleware.
+
+### Architecture
+- **JWT Middleware Guards:** Every application runs a `middleware.ts` that decodes and refreshes the user's active session.
+- **Role Verification:** User roles (`customer`, `partner`, `admin`) are verified against the database profile and enforced in the middleware to prevent cross-portal access (e.g., customers attempting to access partner dashboards).
+- **Audit & Security Logging:** Suspicious activities (such as role mismatches) and authentication failures are recorded via `@stashinn/lib/services/logger`.
+
+### Logging & Suspicious Activity
+To maintain compliance and detect potential intrusions, the system triggers alerts under the following scenarios:
+- **Role Mismatch Warning (`logger.warn`):** Triggered when a logged-in user attempts to bypass middleware role guards. Captures `userId`, `userRole`, `requestedPath`, and `ip`.
+- **Role Fetch Failure Error (`logger.error`):** Logged if profile retrieval fails for an authenticated session.
+- **Auth Failure Warnings (`logger.warn` / `logger.error`):** Logged when customer, partner, or admin credentials fail verification during login/registration.
+
+### Example Usage (Server-side Auth Client)
+
+To verify a session and get a user's role inside Next.js Server Components or Server Actions:
+
+```typescript
+import { createClient } from '@stashinn/lib/supabase/server';
+
+// Initialize server client
+const supabase = await createClient();
+
+// Retrieve authenticated user
+const { data: { user }, error } = await supabase.auth.getUser();
+
+if (user) {
+  // Query public profile role
+  const { data: profile } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', user.id)
+    .single();
+    
+  console.log('Session User Role:', profile?.role); // 'customer' | 'partner' | 'admin'
+}
+```
+
 ## 📄 License
 
 Private — All rights reserved.

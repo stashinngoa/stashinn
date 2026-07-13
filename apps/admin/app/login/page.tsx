@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@stashinn/lib/supabase/server';
+import { logger } from '@stashinn/lib/services/logger';
 
 export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
@@ -12,7 +13,10 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) return redirect('/login?error=Invalid admin credentials');
+    if (error) {
+      logger.warn('Auth Failure: Admin login failed', { email, error: error.message });
+      return redirect('/login?error=Invalid admin credentials');
+    }
     return redirect(nextUrl || '/dashboard');
   };
 

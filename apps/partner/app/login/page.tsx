@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@stashinn/lib/supabase/server';
+import { logger } from '@stashinn/lib/services/logger';
 
 export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string }> }) {
   const searchParams = await props.searchParams;
@@ -12,7 +13,10 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
     const supabase = await createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (error) return redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    if (error) {
+      logger.warn('Auth Failure: Partner login failed', { email, error: error.message });
+      return redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    }
     return redirect(nextUrl || '/dashboard');
   };
 
@@ -29,7 +33,10 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
       options: { data: { full_name: fullName, role: 'partner' } },
     });
 
-    if (error) return redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    if (error) {
+      logger.error('Auth Failure: Partner signup failed', { email, error: error.message });
+      return redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    }
     return redirect('/dashboard');
   };
 

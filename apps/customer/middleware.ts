@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@stashinn/lib/supabase/middleware';
+import { logger } from '@stashinn/lib/services/logger';
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Update the session using the shared supabase setup
@@ -9,8 +10,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const path = request.nextUrl.pathname;
   
   // Define public routes
-  const isPublicRoute = path === '/login' || path === '/register' || path === '/';
-
+  const isPublicRoute = 
+    path === '/' || 
+    path === '/login' || 
+    path === '/register' || 
+    path.startsWith('/search') || 
+    path.startsWith('/locations');
   // Check auth state
   const {
     data: { user },
@@ -19,23 +24,37 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   // If user is not logged in and tries to access a protected route
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
+    const fullPath = request.nextUrl.search ? `${path}${request.nextUrl.search}` : path;
     url.pathname = '/login';
-    url.searchParams.set('next', path);
+    url.searchParams.set('next', fullPath);
     return NextResponse.redirect(url);
   }
 
   // Check role authorization for the Customer app
   if (user) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single();
 
+    if (profileError) {
+      logger.error('Auth Error: Failed to fetch user profile role', {
+        userId: user.id,
+        error: profileError.message,
+      });
+    }
+
     const role = profile?.role;
 
     // If a logged-in user is NOT a customer, they shouldn't be using this portal
     if (role && role !== 'customer' && !path.startsWith('/403')) {
+      logger.warn('Suspicious activity: Mismatched role access attempt', {
+        userId: user.id,
+        userRole: role,
+        requestedPath: path,
+        ip: request.headers.get('x-forwarding-for') || request.headers.get('x-real-ip') || 'unknown',
+      });
       const url = request.nextUrl.clone();
       url.pathname = '/403';
       return NextResponse.rewrite(url);
