@@ -16,6 +16,7 @@ This document provides a detailed reference for all environment variables used a
 | `NEXT_PUBLIC_CUSTOMER_URL` | `localhost:3000` | `staging.stashinn.com` | `stashinn.com` | Vercel Env Vars |
 | `NEXT_PUBLIC_PARTNER_URL` | `localhost:3001` | `partner-staging.stashinn.com` | `partner.stashinn.com` | Vercel Env Vars |
 | `NEXT_PUBLIC_ADMIN_URL` | `localhost:3002` | `admin-staging.stashinn.com` | `admin.stashinn.com` | Vercel Env Vars |
+| `RESEND_API_KEY` | `re_*` (test) | `re_*` (test) | `re_*` (live) | Vercel Env Vars (Sensitive) |
 
 ## Where Secrets Are Stored
 
@@ -25,6 +26,7 @@ This document provides a detailed reference for all environment variables used a
 | **GitHub Secrets** | CI/CD build secrets (`TURBO_TOKEN`, Supabase keys for builds) | GitHub → Repo → Settings → Secrets and Variables → Actions |
 | **Supabase Dashboard** | Database passwords, API keys | Supabase Dashboard → Project Settings → API |
 | **Razorpay Dashboard** | Payment keys | Razorpay Dashboard → Settings → API Keys |
+| **Resend Dashboard** | Email API keys | Resend Dashboard → API Keys |
 
 ## Naming Conventions
 

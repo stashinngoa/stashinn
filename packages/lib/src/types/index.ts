@@ -4,6 +4,11 @@
 export type UserRole = "customer" | "partner" | "admin";
 
 /**
+ * Granular admin roles.
+ */
+export type AdminRole = "superadmin" | "finance" | "support" | "ops";
+
+/**
  * Base user profile stored in the `users` table alongside Supabase Auth.
  */
 export interface UserProfile {
@@ -12,6 +17,7 @@ export interface UserProfile {
   full_name: string;
   phone?: string;
   role: UserRole;
+  admin_role?: AdminRole;
   avatar_url?: string;
   created_at: string;
   updated_at: string;
@@ -33,6 +39,7 @@ export type BookingStatus =
  */
 export type PaymentStatus =
   | "pending"
+  | "pending_validation"
   | "paid"
   | "refunded"
   | "partially_refunded"
