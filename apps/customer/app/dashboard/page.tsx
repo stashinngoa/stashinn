@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { cancelBooking } from './actions';
 import Link from 'next/link';
 import SortSelect from './SortSelect';
+import ExportButton from './ExportButton';
 
 export default async function Dashboard({ searchParams }: { searchParams: { filter?: string, page?: string, sort?: string } | Promise<{ filter?: string, page?: string, sort?: string }> }) {
   const resolvedParams = await searchParams;
@@ -63,13 +64,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { filt
         <h1 className="text-3xl font-extrabold text-gray-900">My Bookings</h1>
         <div className="flex items-center gap-4">
           <SortSelect currentSort={sort} currentFilter={filter} />
-          <a 
-            href="/api/export-history"
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-bold rounded-lg transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            Export CSV
-          </a>
+          <ExportButton />
         </div>
       </div>
 

@@ -26,7 +26,7 @@ export default function CustomerSearch({ defaultValue }: { defaultValue: string 
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name or email..."
+          placeholder="Search by name, email, or phone..."
           className="w-full pl-10 pr-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
         />
       </div>

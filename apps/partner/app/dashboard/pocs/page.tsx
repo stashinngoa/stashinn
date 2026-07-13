@@ -1,7 +1,5 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import PocForm from './PocForm';
-import { deletePoc } from './actions';
-
 export default async function PocManagementPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -38,22 +36,17 @@ export default async function PocManagementPage() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-lg font-bold text-gray-900">{poc.name}</h3>
                   {poc.is_primary && <span className="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded font-medium">Primary</span>}
+                  {poc.is_verified ? (
+                    <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded font-medium">Verified</span>
+                  ) : (
+                    <span className="bg-amber-100 text-amber-700 text-xs px-2 py-0.5 rounded font-medium">Pending Verification</span>
+                  )}
                 </div>
                 <div className="text-sm text-gray-500 mt-1">{poc.phone} • {poc.email || 'No email provided'}</div>
                 <div className="text-sm font-medium text-gray-700 mt-2">
                   📍 {poc.partner_locations?.name || 'All Locations (HQ)'}
                 </div>
               </div>
-              <form action={async () => {
-                'use server';
-                await deletePoc(poc.id);
-              }}>
-                <button type="submit" className="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </form>
             </div>
           ))}
           {(!pocs || pocs.length === 0) && (

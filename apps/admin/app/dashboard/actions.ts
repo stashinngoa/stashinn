@@ -85,6 +85,41 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
     .order('created_at', { ascending: false })
     .limit(5);
 
+  // Fetch Payments for refund anomaly highlights
+  const { data: paymentsData } = await applyDateFilter(
+    supabase.from('payments').select('refund_amount, created_at')
+  );
+
+  const dailyRefunds: Record<string, number> = {};
+  let totalRefunded = 0;
+
+  if (paymentsData) {
+    paymentsData.forEach((p: any) => {
+      const dateStr = p.created_at.split('T')[0];
+      const rAmount = Number(p.refund_amount) || 0;
+      if (rAmount > 0) {
+        dailyRefunds[dateStr] = (dailyRefunds[dateStr] || 0) + rAmount;
+        totalRefunded += rAmount;
+      }
+    });
+  }
+
+  const refundDays = Object.values(dailyRefunds);
+  const avgRefund = refundDays.length > 0 ? refundDays.reduce((a, b) => a + b, 0) / refundDays.length : 0;
+  const anomalies: { date: string; amount: number; reason: string }[] = [];
+
+  Object.entries(dailyRefunds).forEach(([date, amount]) => {
+    if (amount > 1000 || (avgRefund > 0 && amount > avgRefund * 2)) {
+      anomalies.push({
+        date,
+        amount,
+        reason: amount > 1000 
+          ? `High refund volume (₹${amount.toFixed(2)} exceeds ₹1,000 limit)` 
+          : `Refund spike (₹${amount.toFixed(2)} is 2x above average daily refunds)`
+      });
+    }
+  });
+
   return {
     totalCustomers: totalCustomers || 0,
     totalPartners: totalPartners || 0,
@@ -96,7 +131,9 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
     totalLocations: totalLocations || 0,
     recentBookings: recentBookings || [],
     pendingPartnersList: pendingPartnersList || [],
-    dailyTrends
+    dailyTrends,
+    totalRefunded,
+    anomalies
   };
 }
 

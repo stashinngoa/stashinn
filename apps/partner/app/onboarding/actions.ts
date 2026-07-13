@@ -38,20 +38,69 @@ export async function submitOnboarding(formData: FormData) {
     .update({ phone: formData.get('contact_phone') as string })
     .eq('id', user.id);
 
+  // Insert default notification preferences
+  await supabase
+    .from('notification_preferences')
+    .insert({
+      user_id: user.id,
+      in_app: true,
+      email: true,
+      whatsapp: false,
+      sms: false,
+      push: false
+    });
+
+  // Geocode Address helper using Nominatim (free of cost)
+  const geocodeAddress = async (address: string, city: string, state: string, pincode: string) => {
+    const queries = [
+      `${address}, ${city}, ${state}, ${pincode}, India`,
+      `${address}, ${city}, India`,
+      `${city}, ${pincode}, India`,
+      `${city}, India`
+    ];
+
+    for (const q of queries) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+          headers: { 'User-Agent': 'StashInn/1.0' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            return {
+              lat: parseFloat(data[0].lat),
+              lng: parseFloat(data[0].lon)
+            };
+          }
+        }
+      } catch (err) {
+        console.error(`Nominatim Geocoding Failed for: ${q}`, err);
+      }
+    }
+    return { lat: 20.5937, lng: 78.9629 }; // Fallback to India center
+  };
+
+  const address = formData.get('address_line1') as string;
+  const city = formData.get('city') as string;
+  const state = formData.get('state') as string;
+  const pincode = formData.get('postal_code') as string;
+  
+  const coords = await geocodeAddress(address, city, state, pincode);
+
   // 2. Insert into public.partner_locations (Initial Location)
   const { error: locationError } = await supabase
     .from('partner_locations')
     .insert({
       partner_id: partnerData.id,
       name: `${formData.get('business_name')} - Main Location`,
-      address_line1: formData.get('address_line1') as string,
+      address_line1: address,
       address_line2: formData.get('address_line2') as string || null,
-      city: formData.get('city') as string,
-      state: formData.get('state') as string,
-      pincode: formData.get('postal_code') as string,
+      city: city,
+      state: state,
+      pincode: pincode,
       country: 'India',
-      latitude: 0, // Default for now, we will add geocoding later
-      longitude: 0 // Default for now
+      latitude: coords.lat,
+      longitude: coords.lng
     });
 
   if (locationError) {

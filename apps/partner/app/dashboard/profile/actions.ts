@@ -88,6 +88,13 @@ export async function updateNotificationPreferences(formData: FormData) {
   const sms = formData.get('sms') === 'on';
   const push = formData.get('push') === 'on';
 
+  // Fetch old preferences first for diff logging
+  const { data: oldPrefs } = await supabase
+    .from('notification_preferences')
+    .select('in_app, email, whatsapp, sms, push')
+    .eq('user_id', user.id)
+    .single();
+
   const { error } = await supabase
     .from('notification_preferences')
     .upsert(
@@ -105,6 +112,16 @@ export async function updateNotificationPreferences(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  // Insert settings change audit log
+  await supabase.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'partner.notifications_preferences_updated',
+    entity_type: 'notification_preferences',
+    entity_id: user.id,
+    old_values: oldPrefs || {},
+    new_values: { in_app, email, whatsapp, sms, push }
+  });
 
   revalidatePath('/dashboard/profile');
   return { success: true };

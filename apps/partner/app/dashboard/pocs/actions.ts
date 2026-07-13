@@ -27,13 +27,3 @@ export async function addPoc(formData: FormData) {
   revalidatePath('/dashboard/pocs');
 }
 
-export async function deletePoc(pocId: string) {
-  const supabase = await createClient();
-  
-  await supabase
-    .from('partner_pocs')
-    .delete()
-    .eq('id', pocId);
-    
-  revalidatePath('/dashboard/pocs');
-}

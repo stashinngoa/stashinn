@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import { ExternalNotificationService } from '../src/services/notifications';
 
 // Mock representation of the notifications list state
 type Notification = {
@@ -109,5 +110,25 @@ describe('Notification Filters', () => {
     const result = filterNotifications(mockData, { dateRange: 'week', status: 'archived' });
     // Item 3 is archived, but it's 10 days old, so it shouldn't match 'week'
     expect(result.length).toBe(0);
+  });
+});
+
+describe('External Notification Service Deliverability & Fallbacks', () => {
+  it('Should simulate/send external email successfully', async () => {
+    const res = await ExternalNotificationService.sendEmail('test@stashinn.com', 'Welcome', 'Hello partner!');
+    expect(res.success).toBe(true);
+    expect(res.messageId).toBeDefined();
+  });
+
+  it('Should simulate/send external SMS successfully', async () => {
+    const res = await ExternalNotificationService.sendSMS('+919999999999', 'Verify code: 1234');
+    expect(res.success).toBe(true);
+    expect(res.messageId).toBeDefined();
+  });
+
+  it('Should simulate/send external WhatsApp successfully', async () => {
+    const res = await ExternalNotificationService.sendWhatsApp('+919999999999', 'booking_alert', { message: 'New booking check-in' });
+    expect(res.success).toBe(true);
+    expect(res.messageId).toBeDefined();
   });
 });

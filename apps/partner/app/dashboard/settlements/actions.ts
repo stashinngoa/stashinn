@@ -20,6 +20,10 @@ export async function submitSettlementProof(formData: FormData) {
   if (!txnId || txnId.length < 8) {
     throw new Error('Please enter a valid Transaction/Reference ID (min 8 chars).');
   }
+  const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+  if (!alphanumericRegex.test(txnId)) {
+    throw new Error('Transaction/Reference ID must be alphanumeric (no spaces or special characters).');
+  }
   const declaredAmount = parseFloat(amountStr);
   if (isNaN(declaredAmount) || declaredAmount <= 0) {
     throw new Error('Please enter a valid amount.');

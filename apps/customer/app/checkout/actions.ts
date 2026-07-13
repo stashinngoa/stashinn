@@ -3,6 +3,7 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendSMS, sendWhatsApp } from '@stashinn/lib/services/messaging';
+import crypto from 'crypto';
 
 export async function createBooking(formData: FormData) {
   const supabase = await createClient();
@@ -23,6 +24,22 @@ export async function createBooking(formData: FormData) {
   const bags = parseInt(formData.get('bags') as string);
   const totalAmount = parseFloat(formData.get('total_amount') as string);
 
+  // Signature verification for Razorpay payments
+  if (paymentMethod === 'razorpay') {
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      redirect('/search?error=payment_verification_failed');
+    }
+    const generatedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${rzpOrderId}|${rzpPaymentId}`)
+      .digest('hex');
+
+    if (generatedSignature !== rzpSignature) {
+      redirect('/search?error=invalid_payment_signature');
+    }
+  }
+
   // 1. Validation: Booking Window
   const startDate = new Date(checkIn);
   const endDate = new Date(checkOut);
@@ -38,9 +55,13 @@ export async function createBooking(formData: FormData) {
     redirect('/search?error=min_duration_1h');
   }
 
-  // Calculate Commission dynamically (fallback to 15%)
+  // Calculate Commission dynamically (fetch partner custom rate or fall back to system config)
+  const { data: partnerData } = await supabase.from('partners').select('commission_rate').eq('id', partnerId).single();
   const { data: configRows } = await supabase.from('system_config').select('value').eq('key', 'default_commission_rate').single();
-  const commissionRate = configRows?.value ? parseFloat(configRows.value as string) : 0.15;
+  
+  const defaultRate = configRows?.value ? parseFloat(configRows.value as string) : 0.15;
+  const commissionRate = partnerData?.commission_rate ? (parseFloat(partnerData.commission_rate as any) / 100) : defaultRate;
+  
   const commissionAmount = Math.round(totalAmount * commissionRate * 100) / 100;
   const partnerAmount = Math.round((totalAmount - commissionAmount) * 100) / 100;
 

@@ -1,7 +1,17 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import EarningsTrendChart from './EarningsTrendChart';
 
-export default async function EarningsPage() {
+export default async function EarningsPage(props: {
+  searchParams: Promise<{
+    startDate?: string;
+    endDate?: string;
+  }>;
+}) {
+  const searchParams = await props.searchParams;
+  const startDate = searchParams?.startDate || '';
+  const endDate = searchParams?.endDate || '';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -16,7 +26,7 @@ export default async function EarningsPage() {
   if (!partner) redirect('/onboarding');
 
   // Fetch transactions joined with bookings and payments
-  const { data: transactions, error } = await supabase
+  let query = supabase
     .from('partner_transactions')
     .select(`
       *,
@@ -31,6 +41,15 @@ export default async function EarningsPage() {
     `)
     .eq('partner_id', partner.id)
     .order('created_at', { ascending: false });
+
+  if (startDate) {
+    query = query.gte('created_at', startDate);
+  }
+  if (endDate) {
+    query = query.lte('created_at', endDate);
+  }
+
+  const { data: transactions, error } = await query;
 
   if (error) {
     console.error('Error fetching transactions:', error);
@@ -62,19 +81,102 @@ export default async function EarningsPage() {
     }
   });
 
+  // Compare with previous month
+  const now = new Date();
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  
+  const prevMonthDate = new Date();
+  prevMonthDate.setMonth(now.getMonth() - 1);
+  const prevMonthStr = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+  let currentMonthEarnings = 0;
+  let prevMonthEarnings = 0;
+
+  txs.forEach(tx => {
+    const txDate = new Date(tx.created_at);
+    const txMonthStr = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`;
+    if (txMonthStr === currentMonthStr) {
+      currentMonthEarnings += Number(tx.amount);
+    } else if (txMonthStr === prevMonthStr) {
+      prevMonthEarnings += Number(tx.amount);
+    }
+  });
+
+  const diff = currentMonthEarnings - prevMonthEarnings;
+  const percentChange = prevMonthEarnings > 0 ? (diff / prevMonthEarnings) * 100 : 0;
+
+  // Group transactions for the trend chart
+  const dailyMap = new Map<string, number>();
+  txs.forEach(tx => {
+    const dateStr = new Date(tx.created_at).toISOString().split('T')[0]!;
+    dailyMap.set(dateStr, (dailyMap.get(dateStr) || 0) + Number(tx.amount));
+  });
+
+  const chartData = Array.from(dailyMap.entries())
+    .map(([date, amount]) => ({ date, amount }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(-10); // Display the latest 10 days for cleaner chart sizing
+
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-gray-900">Earnings & Payouts</h1>
-        <p className="text-gray-500 mt-2">Track your revenue, commissions, and settlement status.</p>
+    <div className="max-w-6xl mx-auto space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900">Earnings & Payouts</h1>
+          <p className="text-gray-500 mt-2">Track your revenue, commissions, and settlement status.</p>
+        </div>
+        <div className="flex items-center">
+          <a
+            href={`/api/export-earnings?startDate=${startDate}&endDate=${endDate}`}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            Export CSV
+          </a>
+        </div>
       </div>
 
+      {/* Date Filters Form */}
+      <form method="GET" action="/dashboard/earnings" className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Date</label>
+          <input 
+            type="date" 
+            name="startDate" 
+            defaultValue={startDate} 
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500" 
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Date</label>
+          <input 
+            type="date" 
+            name="endDate" 
+            defaultValue={endDate} 
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:border-blue-500" 
+          />
+        </div>
+        <div className="flex items-end">
+          <button type="submit" className="w-full py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-bold rounded-lg transition-colors shadow-sm">
+            Apply Filters
+          </button>
+        </div>
+      </form>
+
+      {/* Earnings Trend Chart */}
+      <EarningsTrendChart data={chartData} />
+
       {/* Aggregate Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <span className="block text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Net Earnings</span>
           <div className="text-3xl font-black text-gray-900">₹{totalRevenue.toFixed(2)}</div>
-          <p className="text-xs text-gray-400 mt-2">Total revenue after 15% platform fee</p>
+          {prevMonthEarnings > 0 ? (
+            <div className={`text-xs font-bold mt-2 ${percentChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              {percentChange >= 0 ? '▲ +' : '▼ '}{percentChange.toFixed(1)}% vs last month (₹{prevMonthEarnings.toFixed(2)})
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mt-2">Total revenue after commission</p>
+          )}
         </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
@@ -83,10 +185,10 @@ export default async function EarningsPage() {
           <p className="text-xs text-gray-400 mt-2">Total commission deducted</p>
         </div>
 
-        <div className="bg-purple-50 p-6 rounded-2xl border border-purple-100">
-          <span className="block text-sm font-bold text-purple-700 uppercase tracking-wider mb-2">Pending Payouts (Online)</span>
-          <div className="text-3xl font-black text-purple-900">₹{pendingOnlinePayouts.toFixed(2)}</div>
-          <p className="text-xs text-purple-600 mt-2">To be transferred to your bank</p>
+        <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+          <span className="block text-sm font-bold text-blue-700 uppercase tracking-wider mb-2">Pending Payouts (Online)</span>
+          <div className="text-3xl font-black text-blue-900">₹{pendingOnlinePayouts.toFixed(2)}</div>
+          <p className="text-xs text-blue-600 mt-2">To be transferred to your bank</p>
         </div>
 
         <div className="bg-yellow-50 p-6 rounded-2xl border border-yellow-100">
@@ -113,7 +215,7 @@ export default async function EarningsPage() {
                   <th className="px-6 py-4">Booking ID</th>
                   <th className="px-6 py-4">Payment Method</th>
                   <th className="px-6 py-4">Gross Amount</th>
-                  <th className="px-6 py-4">Commission (-15%)</th>
+                  <th className="px-6 py-4">Commission</th>
                   <th className="px-6 py-4">Your Cut</th>
                   <th className="px-6 py-4">Status</th>
                 </tr>

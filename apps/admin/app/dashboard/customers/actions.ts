@@ -13,7 +13,7 @@ export async function getCustomers(search?: string) {
     .order('created_at', { ascending: false });
 
   if (search) {
-    query = query.or(`email.ilike.%${search}%,full_name.ilike.%${search}%`);
+    query = query.or(`email.ilike.%${search}%,full_name.ilike.%${search}%,phone.ilike.%${search}%`);
   }
 
   const { data, error } = await query.limit(100);

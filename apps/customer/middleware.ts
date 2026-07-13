@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@stashinn/lib/supabase/middleware';
+import { logger } from '@stashinn/lib/services/logger';
 
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   // Update the session using the shared supabase setup
@@ -31,16 +32,29 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   // Check role authorization for the Customer app
   if (user) {
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('role')
       .eq('id', user.id)
       .single();
 
+    if (profileError) {
+      logger.error('Auth Error: Failed to fetch user profile role', {
+        userId: user.id,
+        error: profileError.message,
+      });
+    }
+
     const role = profile?.role;
 
     // If a logged-in user is NOT a customer, they shouldn't be using this portal
     if (role && role !== 'customer' && !path.startsWith('/403')) {
+      logger.warn('Suspicious activity: Mismatched role access attempt', {
+        userId: user.id,
+        userRole: role,
+        requestedPath: path,
+        ip: request.headers.get('x-forwarding-for') || request.headers.get('x-real-ip') || 'unknown',
+      });
       const url = request.nextUrl.clone();
       url.pathname = '/403';
       return NextResponse.rewrite(url);

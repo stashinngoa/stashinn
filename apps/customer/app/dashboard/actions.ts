@@ -66,9 +66,11 @@ export async function cancelBooking(formData: FormData) {
             body: JSON.stringify({ amount: Math.round(refundAmount * 100) })
           });
           if (rzpRes.ok) {
+            const rzpData = await rzpRes.json();
             await supabase.from('payments').update({
               status: 'refunded',
               refund_amount: payment.refund_amount + refundAmount,
+              refund_reason: `Razorpay Refund ID: ${rzpData.id}. Customer cancellation.`,
               updated_at: new Date().toISOString()
             }).eq('id', payment.id);
           }

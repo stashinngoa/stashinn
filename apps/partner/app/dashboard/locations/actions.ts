@@ -4,6 +4,35 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
+async function geocodeAddress(address: string, city: string, state: string, pincode: string): Promise<{ lat: number, lng: number }> {
+  const queries = [
+    `${address}, ${city}, ${state}, ${pincode}, India`,
+    `${address}, ${city}, India`,
+    `${city}, ${pincode}, India`,
+    `${city}, India`
+  ];
+
+  for (const q of queries) {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`, {
+        headers: { 'User-Agent': 'StashInn/1.0' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.length > 0) {
+          return {
+            lat: parseFloat(data[0].lat),
+            lng: parseFloat(data[0].lon)
+          };
+        }
+      }
+    } catch (err) {
+      console.error(`Nominatim Geocoding Failed for: ${q}`, err);
+    }
+  }
+  return { lat: 20.5937, lng: 78.9629 }; // Fallback to India center
+}
+
 export async function addLocation(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,6 +69,19 @@ export async function addLocation(formData: FormData) {
     }
   }
 
+  let latitude = parseFloat(formData.get('latitude') as string) || 0;
+  let longitude = parseFloat(formData.get('longitude') as string) || 0;
+
+  if (latitude === 0 && longitude === 0) {
+    const address = formData.get('address_line1') as string;
+    const city = formData.get('city') as string;
+    const state = formData.get('state') as string;
+    const pincode = formData.get('pincode') as string;
+    const coords = await geocodeAddress(address, city, state, pincode);
+    latitude = coords.lat;
+    longitude = coords.lng;
+  }
+
   const { data: locData, error } = await supabase
     .from('partner_locations')
     .insert({
@@ -50,8 +92,8 @@ export async function addLocation(formData: FormData) {
       city: formData.get('city') as string,
       state: formData.get('state') as string,
       pincode: formData.get('pincode') as string,
-      latitude: parseFloat(formData.get('latitude') as string) || 0,
-      longitude: parseFloat(formData.get('longitude') as string) || 0,
+      latitude,
+      longitude,
       max_bags: parseInt(formData.get('max_bags') as string),
       available_bags: parseInt(formData.get('max_bags') as string),
       operating_hours: {
@@ -162,6 +204,19 @@ export async function updateLocation(formData: FormData) {
   const { data: existingLoc } = await supabase.from('partner_locations').select('photos').eq('id', locationId).single();
   const finalPhotos = photoUrls.length > 0 ? [...(existingLoc?.photos || []), ...photoUrls] : (existingLoc?.photos || []);
 
+  let latitude = parseFloat(formData.get('latitude') as string) || 0;
+  let longitude = parseFloat(formData.get('longitude') as string) || 0;
+
+  if (latitude === 0 && longitude === 0) {
+    const address = formData.get('address_line1') as string;
+    const city = formData.get('city') as string;
+    const state = formData.get('state') as string;
+    const pincode = formData.get('pincode') as string;
+    const coords = await geocodeAddress(address, city, state, pincode);
+    latitude = coords.lat;
+    longitude = coords.lng;
+  }
+
   const { error } = await supabase
     .from('partner_locations')
     .update({
@@ -171,8 +226,8 @@ export async function updateLocation(formData: FormData) {
       city: formData.get('city') as string,
       state: formData.get('state') as string,
       pincode: formData.get('pincode') as string,
-      latitude: parseFloat(formData.get('latitude') as string) || 0,
-      longitude: parseFloat(formData.get('longitude') as string) || 0,
+      latitude,
+      longitude,
       max_bags: parseInt(formData.get('max_bags') as string),
       operating_hours: {
         open: formData.get('open_time') as string,

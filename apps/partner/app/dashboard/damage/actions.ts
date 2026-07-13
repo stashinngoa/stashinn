@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
 export async function submitDamageReport(formData: FormData) {
   const supabase = await createClient();
@@ -39,6 +40,17 @@ export async function submitDamageReport(formData: FormData) {
   
   for (const file of files) {
     if (file.size > 0 && file.name) {
+      // 1. Validate Image size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('Image size must be less than 5MB.');
+      }
+      
+      // 2. Validate Image mime type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.');
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${bookingId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
       const filePath = `${partner.id}/${fileName}`;
@@ -58,6 +70,7 @@ export async function submitDamageReport(formData: FormData) {
         photos.push(publicUrl);
       } else {
         console.error('File upload failed:', uploadError);
+        throw new Error(`Upload failed for ${file.name}`);
       }
     }
   }
@@ -77,6 +90,15 @@ export async function submitDamageReport(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  // Notify support admin
+  await notifyAdmins({
+    title: 'New Dispute Claim Filed',
+    message: `Partner has filed a new dispute claim for booking ID ${bookingId.split('-')[0]}.`,
+    category: 'damage',
+    targetRoles: ['support'],
+    action_url: '/dashboard/disputes'
+  });
 
   revalidatePath('/dashboard/damage');
 }

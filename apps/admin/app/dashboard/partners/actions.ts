@@ -86,13 +86,47 @@ export async function updatePartnerStatus(formData: FormData) {
       category: 'system'
     });
 
-    // Also send an SMS
-    const { data: userData } = await supabase.from('users').select('phone').eq('id', updatedPartner.user_id).single();
+    // Also send an SMS and email
+    const { data: userData } = await supabase
+      .from('users')
+      .select('phone, email, full_name')
+      .eq('id', updatedPartner.user_id)
+      .single();
+
     if (userData) {
       await sendSMS({
         to: userData.phone || '+1234567890',
         message: `StashInn: ${notifMsg}`
       });
+
+      // Send Email Confirmation on Approval
+      if (newStatus === 'approved' && userData.email) {
+        try {
+          const { renderTemplate } = await import('@stashinn/lib/services/email');
+          const emailData = await renderTemplate('partner_approved', {
+            partner_name: userData.full_name || 'Partner',
+            business_name: oldPartner.business_name || 'your business',
+            partner_url: process.env.NEXT_PUBLIC_PARTNER_URL || 'https://partner.stashinn.com'
+          });
+
+          const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+          await ExternalNotificationService.sendEmail(
+            userData.email,
+            emailData.subject,
+            emailData.html
+          );
+        } catch (err) {
+          console.error('Failed to send partner approval email template:', err);
+          
+          // Fallback to plain text if template fails
+          const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+          await ExternalNotificationService.sendEmail(
+            userData.email,
+            'Your StashInn Partner Application is Approved! 🎉',
+            `Hello ${userData.full_name || 'Partner'},\n\nCongratulations! Your StashInn Partner Application has been approved and verified.\n\nYou can now log in to your partner portal dashboard to configure your storage locations, set operating hours, and begin accepting luggage storage bookings from travelers.\n\nBest regards,\nThe StashInn Team`
+          );
+        }
+      }
     }
   }
 
@@ -120,4 +154,36 @@ export async function getKycDocs(partnerId: string) {
     });
 
   return docs;
+}
+
+export async function updateLocationCoordinates(formData: FormData) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  if (!user) throw new Error('Unauthorized');
+
+  const locationId = formData.get('location_id') as string;
+  const partnerId = formData.get('partner_id') as string;
+  const latitude = parseFloat(formData.get('latitude') as string);
+  const longitude = parseFloat(formData.get('longitude') as string);
+
+  const { error } = await supabase
+    .from('partner_locations')
+    .update({ latitude, longitude })
+    .eq('id', locationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  // Audit log
+  await supabase.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'partner.location_coords_updated',
+    entity_type: 'partner_locations',
+    entity_id: locationId,
+    new_values: { latitude, longitude }
+  });
+
+  revalidatePath(`/dashboard/partners/${partnerId}/locations`);
 }

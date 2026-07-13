@@ -21,7 +21,10 @@ export default function PocForm({ partnerId, locations }: { partnerId: string, l
 
   return (
     <form action={handleSubmit} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-      <h3 className="text-lg font-bold text-gray-900 mb-4">Add New Contact</h3>
+      <h3 className="text-lg font-bold text-gray-900 mb-2">Add New Contact</h3>
+      <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg mb-4">
+        <strong>Note:</strong> Newly added contacts require Admin verification before they are fully active.
+      </p>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded">{error}</div>}
 

@@ -27,9 +27,41 @@ export default async function DashboardOverview() {
 
   const activeOrPendingBookings = bookings?.filter(b => ['pending', 'confirmed', 'checked_in'].includes(b.status)) || [];
 
-  const activeBags = bookings?.filter(b => b.status === 'checked_in').reduce((sum, b) => sum + b.num_bags, 0) || 0;
-  const totalBookings = bookings?.length || 0;
-  const totalRevenue = bookings?.filter(b => b.status === 'checked_out').reduce((sum, b) => sum + Number(b.total_amount), 0) || 0;
+  const activeBookingsCount = bookings?.filter(b => ['confirmed', 'checked_in'].includes(b.status)).length || 0;
+  
+  // Calculate Today's Checkins
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date();
+  endOfToday.setHours(23, 59, 59, 999);
+  const todaysCheckinsCount = bookings?.filter(b => {
+    const startTime = new Date(b.start_time);
+    return ['confirmed', 'checked_in'].includes(b.status) && startTime >= startOfToday && startTime <= endOfToday;
+  }).length || 0;
+
+  // Calculate Pending Payouts from partner_transactions
+  const { data: transactions } = await supabase
+    .from('partner_transactions')
+    .select(`
+      *,
+      bookings (
+        payments (
+          method
+        )
+      )
+    `)
+    .eq('partner_id', partner.id)
+    .eq('transfer_status', 'pending');
+
+  let pendingPayoutsVal = 0;
+  transactions?.forEach(tx => {
+    const payment = tx.bookings?.payments?.[0];
+    if (payment?.method === 'razorpay') {
+      pendingPayoutsVal += Number(tx.amount);
+    }
+  });
+
+  const avgRating = partner.avg_rating || 0;
 
   return (
     <div className="space-y-6">
@@ -40,18 +72,22 @@ export default async function DashboardOverview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <a href="/dashboard/bookings" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition-all group block">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-purple-600 transition-colors">Total Bookings</div>
-          <div className="text-4xl font-black text-gray-900">{totalBookings}</div>
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-purple-600 transition-colors">Active Bookings</div>
+          <div className="text-4xl font-black text-gray-900">{activeBookingsCount}</div>
         </a>
-        <a href="/dashboard/bookings" className="bg-white p-6 rounded-2xl shadow-sm border border-purple-200 bg-purple-50 hover:shadow-md transition-all group block">
-          <div className="text-sm font-bold text-purple-600 uppercase tracking-wider mb-2 group-hover:text-purple-800 transition-colors">Active Bags (Checked In)</div>
-          <div className="text-4xl font-black text-purple-900">{activeBags}</div>
+        <a href="/dashboard/bookings" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-purple-300 hover:shadow-md transition-all group block">
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-purple-600 transition-colors">Today's Check-ins</div>
+          <div className="text-4xl font-black text-gray-900">{todaysCheckinsCount}</div>
         </a>
         <a href="/dashboard/settlements" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-green-300 hover:shadow-md transition-all group block">
-          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-green-600 transition-colors">Total Revenue (Completed)</div>
-          <div className="text-4xl font-black text-gray-900">₹{totalRevenue.toFixed(2)}</div>
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-green-600 transition-colors">Pending Payouts</div>
+          <div className="text-4xl font-black text-gray-900">₹{pendingPayoutsVal.toFixed(2)}</div>
+        </a>
+        <a href="/dashboard/reviews" className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:border-yellow-300 hover:shadow-md transition-all group block">
+          <div className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-yellow-600 transition-colors">Average Rating</div>
+          <div className="text-4xl font-black text-gray-900">★ {avgRating ? Number(avgRating).toFixed(1) : '—'}</div>
         </a>
       </div>
 

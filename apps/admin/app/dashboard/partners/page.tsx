@@ -1,6 +1,7 @@
 import { getPartners, updatePartnerStatus } from './actions';
 import PartnerFilter from './PartnerFilter';
 import KycDocsViewer from './KycDocsViewer';
+import Link from 'next/link';
 
 export default async function PartnersPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams;
@@ -93,6 +94,12 @@ export default async function PartnersPage(props: { searchParams: Promise<{ stat
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <Link href={`/dashboard/partners/${partner.id}/locations`} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-700 text-gray-300 hover:bg-gray-800 transition-colors">
+                          Locations
+                        </Link>
+                        <Link href={`/dashboard/partners/${partner.id}/pocs`} className="px-3 py-1.5 text-xs font-bold rounded-lg border border-purple-700/50 text-purple-400 hover:bg-purple-900/30 transition-colors">
+                          POCs
+                        </Link>
                         {partner.status === 'pending' && (
                           <>
                             <form action={updatePartnerStatus} className="inline">
