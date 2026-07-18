@@ -27,24 +27,44 @@ export default function LocationCard({ location }: { location: any }) {
              </svg>
           </div>
         )}
-        <div className="absolute top-3 right-3 bg-white px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-green-700 border border-green-100">
-          {location.is_active ? 'Active' : 'Inactive'}
+        <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
+          <div className="bg-white px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-green-700 border border-green-100">
+            {location.is_active ? 'Active' : 'Inactive'}
+          </div>
+          {location.location_type === 'garage' && (
+            <div className="bg-purple-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-purple-700">
+              Garage
+            </div>
+          )}
         </div>
       </div>
       <div className="p-5 flex-1 flex flex-col">
         <h3 className="text-lg font-bold text-gray-900 truncate">{location.name}</h3>
         <p className="text-sm text-gray-500 mt-1 line-clamp-2">{location.address_line1}, {location.city}</p>
         
-        <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-gray-600">
-          <div className="bg-gray-50 p-2 rounded">
-            <span className="block text-xs text-gray-400">Capacity</span>
-            <span className="font-semibold">{location.max_bags} Bags</span>
+        {location.location_type === 'luggage' ? (
+          <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-gray-600">
+            <div className="bg-gray-50 p-2 rounded">
+              <span className="block text-xs text-gray-400">Capacity</span>
+              <span className="font-semibold">{location.max_bags} Bags</span>
+            </div>
+            <div className="bg-gray-50 p-2 rounded">
+              <span className="block text-xs text-gray-400">Rate</span>
+              <span className="font-semibold">₹{location.price_per_hour}/hr</span>
+            </div>
           </div>
-          <div className="bg-gray-50 p-2 rounded">
-            <span className="block text-xs text-gray-400">Rate</span>
-            <span className="font-semibold">₹{location.price_per_hour}/hr</span>
+        ) : (
+          <div className="mt-4 text-sm text-gray-600 space-y-2">
+            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-500">Bike</span>
+              <span className="font-bold">{location.vehicle_pricing?.[0]?.bike_capacity || 0} Slots</span>
+            </div>
+            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-500">Sedan</span>
+              <span className="font-bold">{location.vehicle_pricing?.[0]?.sedan_capacity || 0} Slots</span>
+            </div>
           </div>
-        </div>
+        )}
         
         <div className="mt-6 flex gap-3 pt-4 border-t border-gray-50">
           <Link href={`/dashboard/locations/${location.id}`} className="flex-1 text-center py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200">

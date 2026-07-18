@@ -30,15 +30,26 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
 
   // Bookings with amounts for trends
   const { data: bookingsData } = await applyDateFilter(
-    supabase.from('bookings').select('created_at, status, total_amount, commission_amount')
+    supabase.from('bookings').select('created_at, status, total_amount, commission_amount, booking_type')
   );
 
   const totalBookings = bookingsData?.length || 0;
   const activeBookings = bookingsData?.filter((b: any) => b.status === 'confirmed' || b.status === 'checked_in').length || 0;
   const completedBookings = bookingsData?.filter((b: any) => b.status === 'checked_out') || [];
 
+  const luggageCompleted = completedBookings.filter((b: any) => b.booking_type === 'luggage');
+  const garageCompleted = completedBookings.filter((b: any) => b.booking_type === 'garage');
+
+  const luggageRevenue = luggageCompleted.reduce((sum: number, b: any) => sum + Number(b.total_amount), 0);
+  const luggageCommission = luggageCompleted.reduce((sum: number, b: any) => sum + Number(b.commission_amount), 0);
+
+  const vehicleRevenue = garageCompleted.reduce((sum: number, b: any) => sum + Number(b.total_amount), 0);
+  const vehicleCommission = garageCompleted.reduce((sum: number, b: any) => sum + Number(b.commission_amount), 0);
+
   const totalRevenue = completedBookings.reduce((sum: number, b: any) => sum + Number(b.total_amount), 0);
   const totalCommission = completedBookings.reduce((sum: number, b: any) => sum + Number(b.commission_amount), 0);
+
+  const activeVehicles = bookingsData?.filter((b: any) => b.booking_type === 'garage' && (b.status === 'confirmed' || b.status === 'checked_in')).length || 0;
 
   // Daily Trends
   const dailyTrendsMap: Record<string, { revenue: number, bookings: number }> = {};
@@ -70,7 +81,7 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
   const { data: recentBookings } = await supabase
     .from('bookings')
     .select(`
-      id, status, num_bags, total_amount, created_at,
+      id, status, num_bags, total_amount, created_at, booking_type, vehicle_make, model, plate,
       users!bookings_customer_id_fkey(full_name, email),
       partner_locations(name)
     `)
@@ -126,8 +137,13 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
     pendingPartners: pendingPartners || 0,
     totalBookings: totalBookings || 0,
     activeBookings: activeBookings || 0,
+    activeVehicles,
     totalRevenue,
     totalCommission,
+    luggageRevenue,
+    luggageCommission,
+    vehicleRevenue,
+    vehicleCommission,
     totalLocations: totalLocations || 0,
     recentBookings: recentBookings || [],
     pendingPartnersList: pendingPartnersList || [],

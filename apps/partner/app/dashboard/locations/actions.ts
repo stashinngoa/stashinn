@@ -82,6 +82,14 @@ export async function addLocation(formData: FormData) {
     longitude = coords.lng;
   }
 
+  const locationType = formData.get('location_type') as string || 'luggage';
+  const hasCctv = formData.get('has_cctv') === 'on';
+  const hasSecurityGuard = formData.get('has_security_guard') === 'on';
+  const hasEvCharging = formData.get('has_ev_charging') === 'on';
+  const hasLockableGate = formData.get('has_lockable_gate') === 'on';
+
+  const pocOption = formData.get('poc_option');
+
   const { data: locData, error } = await supabase
     .from('partner_locations')
     .insert({
@@ -94,15 +102,20 @@ export async function addLocation(formData: FormData) {
       pincode: formData.get('pincode') as string,
       latitude,
       longitude,
-      max_bags: parseInt(formData.get('max_bags') as string),
-      available_bags: parseInt(formData.get('max_bags') as string),
+      max_bags: locationType === 'luggage' ? parseInt(formData.get('max_bags') as string) : 0,
+      available_bags: locationType === 'luggage' ? parseInt(formData.get('max_bags') as string) : 0,
       operating_hours: {
         open: formData.get('open_time') as string,
         close: formData.get('close_time') as string
       },
       amenities,
       photos: photoUrls,
-      is_active: formData.get('is_active') === 'true'
+      is_active: pocOption === 'new' ? false : formData.get('is_active') === 'true',
+      location_type: locationType,
+      has_cctv: hasCctv,
+      has_security_guard: hasSecurityGuard,
+      has_ev_charging: hasEvCharging,
+      has_lockable_gate: hasLockableGate
     })
     .select('id')
     .single();
@@ -112,8 +125,24 @@ export async function addLocation(formData: FormData) {
     return { error: error?.message || 'Failed to create location' };
   }
 
+  // If garage, upsert vehicle_pricing
+  if (locationType === 'garage') {
+    await supabase.from('vehicle_pricing').insert({
+      location_id: locData.id,
+      bike_capacity: parseInt(formData.get('bike_capacity') as string) || 0,
+      bike_rate_hr: parseFloat(formData.get('bike_rate_hr') as string) || null,
+      bike_rate_day: parseFloat(formData.get('bike_rate_day') as string) || null,
+      sedan_capacity: parseInt(formData.get('sedan_capacity') as string) || 0,
+      sedan_rate_hr: parseFloat(formData.get('sedan_rate_hr') as string) || null,
+      sedan_rate_day: parseFloat(formData.get('sedan_rate_day') as string) || null,
+      suv_capacity: parseInt(formData.get('suv_capacity') as string) || 0,
+      suv_rate_hr: parseFloat(formData.get('suv_rate_hr') as string) || null,
+      suv_rate_day: parseFloat(formData.get('suv_rate_day') as string) || null
+    });
+  }
+
   // Handle POC Creation / Duplication
-  const pocOption = formData.get('poc_option');
+  
   
   if (pocOption === 'existing') {
     const existingPocId = formData.get('existing_poc_id') as string;
@@ -217,6 +246,17 @@ export async function updateLocation(formData: FormData) {
     longitude = coords.lng;
   }
 
+  const locationType = formData.get('location_type') as string || 'luggage';
+  const hasCctv = formData.get('has_cctv') === 'on';
+  const hasSecurityGuard = formData.get('has_security_guard') === 'on';
+  const hasEvCharging = formData.get('has_ev_charging') === 'on';
+  const hasLockableGate = formData.get('has_lockable_gate') === 'on';
+
+  // Check if location has a verified POC
+  const { data: pocs } = await supabase.from('partner_pocs').select('is_verified').eq('location_id', locationId);
+  const hasVerifiedPoc = pocs && pocs.some((p: any) => p.is_verified);
+  const isActive = hasVerifiedPoc ? formData.get('is_active') === 'true' : false;
+
   const { error } = await supabase
     .from('partner_locations')
     .update({
@@ -228,20 +268,49 @@ export async function updateLocation(formData: FormData) {
       pincode: formData.get('pincode') as string,
       latitude,
       longitude,
-      max_bags: parseInt(formData.get('max_bags') as string),
+      max_bags: locationType === 'luggage' ? parseInt(formData.get('max_bags') as string) : 0,
       operating_hours: {
         open: formData.get('open_time') as string,
         close: formData.get('close_time') as string
       },
       amenities,
       photos: finalPhotos,
-      is_active: formData.get('is_active') === 'true'
+      is_active: isActive,
+      location_type: locationType,
+      has_cctv: hasCctv,
+      has_security_guard: hasSecurityGuard,
+      has_ev_charging: hasEvCharging,
+      has_lockable_gate: hasLockableGate
     })
     .eq('id', locationId);
 
   if (error) {
     console.error('Update Location Error:', error);
     return { error: error.message };
+  }
+
+  // If garage, upsert vehicle_pricing
+  if (locationType === 'garage') {
+    const { data: existingPricing } = await supabase.from('vehicle_pricing').select('id').eq('location_id', locationId).single();
+    
+    const pricingData = {
+      location_id: locationId,
+      bike_capacity: parseInt(formData.get('bike_capacity') as string) || 0,
+      bike_rate_hr: parseFloat(formData.get('bike_rate_hr') as string) || null,
+      bike_rate_day: parseFloat(formData.get('bike_rate_day') as string) || null,
+      sedan_capacity: parseInt(formData.get('sedan_capacity') as string) || 0,
+      sedan_rate_hr: parseFloat(formData.get('sedan_rate_hr') as string) || null,
+      sedan_rate_day: parseFloat(formData.get('sedan_rate_day') as string) || null,
+      suv_capacity: parseInt(formData.get('suv_capacity') as string) || 0,
+      suv_rate_hr: parseFloat(formData.get('suv_rate_hr') as string) || null,
+      suv_rate_day: parseFloat(formData.get('suv_rate_day') as string) || null
+    };
+
+    if (existingPricing) {
+      await supabase.from('vehicle_pricing').update(pricingData).eq('id', existingPricing.id);
+    } else {
+      await supabase.from('vehicle_pricing').insert(pricingData);
+    }
   }
 
   revalidatePath('/dashboard/locations');

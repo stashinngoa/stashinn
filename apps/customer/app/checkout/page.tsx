@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { createBooking } from './actions';
 import CheckoutClientForm from './CheckoutClientForm';
 
-export default async function CheckoutPage({ searchParams }: { searchParams: { location_id?: string, in?: string, out?: string, bags?: string, price?: string } | Promise<{ location_id?: string, in?: string, out?: string, bags?: string, price?: string }> }) {
+export default async function CheckoutPage({ searchParams }: { searchParams: { location_id?: string, in?: string, out?: string, bags?: string, price?: string, mode?: string, vehicleType?: string } | Promise<{ location_id?: string, in?: string, out?: string, bags?: string, price?: string, mode?: string, vehicleType?: string }> }) {
   const resolvedParams = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -68,8 +68,17 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
                 <span className="font-semibold text-gray-900">{new Date(resolvedParams.out || '').toLocaleString()}</span>
               </div>
               <div>
-                <span className="block text-xs text-gray-500 mb-1">Luggage</span>
-                <span className="font-semibold text-gray-900">{resolvedParams.bags} Bags</span>
+                {resolvedParams.mode === 'garage' ? (
+                  <>
+                    <span className="block text-xs text-gray-500 mb-1">Vehicle Type</span>
+                    <span className="font-semibold text-gray-900 capitalize">{resolvedParams.vehicleType}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="block text-xs text-gray-500 mb-1">Luggage</span>
+                    <span className="font-semibold text-gray-900">{resolvedParams.bags} Bags</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -78,7 +87,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
           <div className="p-6">
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Price Breakdown</h3>
             <div className="flex justify-between text-gray-600 mb-2">
-              <span>Storage fee ({resolvedParams.bags} bags)</span>
+              <span>{resolvedParams.mode === 'garage' ? 'Parking fee' : `Storage fee (${resolvedParams.bags} bags)`}</span>
               <span>₹{resolvedParams.price}</span>
             </div>
             <div className="flex justify-between text-gray-600 mb-4">

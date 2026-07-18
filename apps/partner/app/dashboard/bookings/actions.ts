@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { sendSMS, sendWhatsApp } from '@stashinn/lib/services/messaging';
 import { checkRateLimit } from '@stashinn/lib/services/rateLimiter';
 
@@ -254,4 +255,76 @@ export async function verifyCheckOutOTP(formData: FormData) {
   revalidatePath(`/dashboard/bookings/${bookingId}`);
   revalidatePath('/dashboard/bookings');
   return { success: true };
+}
+
+export async function verifyGarageCheckIn(formData: FormData) {
+  const bookingId = formData.get('booking_id') as string;
+  const customerId = formData.get('customer_id') as string;
+  const otpInput = formData.get('otp') as string;
+  const photos = formData.getAll('photos') as File[];
+  
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Unauthorized' };
+
+  // Fetch booking to verify
+  const { data: booking } = await supabase.from('bookings').select('checkin_otp, status, check_in_photos').eq('id', bookingId).single();
+  
+  if (!booking) return { error: 'Booking not found.' };
+  if (booking.status !== 'pending' && booking.status !== 'confirmed') return { error: 'Booking is not pending.' };
+  
+  const rateLimit = await checkRateLimit(`otp_checkin_${bookingId}`, 5);
+  
+  if (booking.checkin_otp !== otpInput) {
+    rateLimit.recordFailure();
+    return { error: 'Invalid Check-in OTP.' };
+  }
+  
+  rateLimit.reset();
+
+  let photoUrls: string[] = booking.check_in_photos || [];
+
+  if (photos && photos.length > 0) {
+    for (let i = 0; i < Math.min(photos.length, 4); i++) {
+      const file = photos[i];
+      if (file && typeof file !== 'string' && file.size > 0) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `partner-${Date.now()}-${i}.${fileExt}`;
+        const filePath = `${customerId}/${bookingId}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('vehicle-condition-photos')
+          .upload(filePath, file);
+          
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabase.storage
+            .from('vehicle-condition-photos')
+            .getPublicUrl(filePath);
+          photoUrls.push(publicUrl);
+        } else {
+          console.error("Upload error:", uploadError);
+        }
+      }
+    }
+  }
+
+  // Update status and timestamp
+  const { error } = await supabase.from('bookings').update({
+    status: 'checked_in',
+    actual_checkin: new Date().toISOString(),
+    check_in_photos: photoUrls.length > 0 ? photoUrls : null
+  }).eq('id', bookingId);
+
+  if (error) return { error: error.message };
+  
+  // Insert Audit Log for OTP
+  await supabase.from('audit_logs').insert({
+    user_id: user.id,
+    action: 'booking.otp_verified_garage',
+    entity_type: 'bookings',
+    entity_id: bookingId,
+    new_values: { type: 'checkin', status: 'checked_in' }
+  });
+
+  redirect(`/dashboard/bookings/${bookingId}`);
 }

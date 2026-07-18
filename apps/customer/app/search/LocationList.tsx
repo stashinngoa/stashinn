@@ -16,14 +16,27 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
   }
 
   const queryParams = new URLSearchParams(searchParams as Record<string, string>).toString();
+  const mode = searchParams.mode || 'luggage';
+  const vehicleType = searchParams.vehicleType || 'sedan';
 
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">{totalCount > 0 ? totalCount : locations.length} storage spots found</h2>
+        <h2 className="text-xl font-bold text-gray-900">{totalCount > 0 ? totalCount : locations.length} {mode === 'luggage' ? 'storage spots' : 'parking spots'} found</h2>
       </div>
       
-      {locations.map((loc) => (
+      {locations.map((loc) => {
+        let pricePerDay = loc.price_per_day;
+        let capacity = null;
+        
+        if (mode === 'garage' && loc.vehicle_pricing && loc.vehicle_pricing.length > 0) {
+          const vp = loc.vehicle_pricing[0];
+          if (vehicleType === 'bike') { pricePerDay = vp.bike_rate_day || loc.price_per_day; capacity = vp.bike_capacity; }
+          if (vehicleType === 'sedan') { pricePerDay = vp.sedan_rate_day || loc.price_per_day; capacity = vp.sedan_capacity; }
+          if (vehicleType === 'suv') { pricePerDay = vp.suv_rate_day || loc.price_per_day; capacity = vp.suv_capacity; }
+        }
+
+        return (
         <div key={loc.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col sm:flex-row group">
           <div className="sm:w-48 h-48 sm:h-auto bg-gray-100 relative shrink-0">
             {loc.photos && loc.photos.length > 0 ? (
@@ -57,14 +70,28 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                {loc.amenities && loc.amenities.length > 0 ? (
-                  loc.amenities.map((feature: string) => (
-                    <span key={feature} className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">
-                      {feature}
-                    </span>
-                  ))
+                {mode === 'luggage' ? (
+                  loc.amenities && loc.amenities.length > 0 ? (
+                    loc.amenities.map((feature: string) => (
+                      <span key={feature} className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">
+                        {feature}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400">Basic Storage</span>
+                  )
                 ) : (
-                  <span className="text-xs text-gray-400">Basic Storage</span>
+                  <>
+                    {capacity !== null && (
+                      <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded">
+                        {capacity} Slots Available
+                      </span>
+                    )}
+                    {loc.has_cctv && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">CCTV</span>}
+                    {loc.has_security_guard && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">Guard</span>}
+                    {loc.has_ev_charging && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">EV Charging</span>}
+                    {loc.has_lockable_gate && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">Gate</span>}
+                  </>
                 )}
               </div>
             </div>
@@ -72,7 +99,7 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
             <div className="mt-4 flex items-end justify-between pt-4 border-t border-gray-50">
               <div>
                 <span className="text-xs text-gray-500 block">Starting from</span>
-                <span className="text-lg font-black text-gray-900">₹{loc.price_per_day} <span className="text-sm font-normal text-gray-500">/ day</span></span>
+                <span className="text-lg font-black text-gray-900">₹{pricePerDay} <span className="text-sm font-normal text-gray-500">/ day</span></span>
               </div>
               <Link href={`/locations/${loc.id}?${queryParams}`} className="px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors">
                 View & Book
@@ -80,7 +107,7 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
             </div>
           </div>
         </div>
-      ))}
+      )})}
 
       {/* Pagination Controls */}
       {totalCount > 0 && (

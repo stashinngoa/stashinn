@@ -99,23 +99,37 @@ export default function OTPTerminal({ booking }: { booking: any }) {
 
       {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm mb-4 border border-red-500/20">{error}</div>}
 
-      <div className="flex gap-4">
-        <input 
-          type="text" 
-          maxLength={4}
-          value={otp}
-          onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-          placeholder="0000"
-          className="w-full bg-gray-800 border border-gray-700 rounded-xl px-6 py-4 text-3xl font-mono text-white tracking-[0.3em] text-center focus:border-purple-500 outline-none transition-colors"
-        />
-      </div>
-      <button 
-        onClick={handleVerify}
-        disabled={otp.length !== 4 || isSubmitting}
-        className="w-full mt-4 py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-colors disabled:opacity-50"
-      >
-        {isSubmitting ? 'Verifying...' : (isCheckin ? 'Verify Drop-off' : 'Verify Pick-up')}
-      </button>
+      {isCheckin && booking.partner_locations?.location_type === 'garage' ? (
+        <div className="text-center">
+          <p className="text-yellow-400 text-sm mb-4">Garage check-in requires vehicle condition photos.</p>
+          <a 
+            href={`/dashboard/bookings/${booking.id}/check-in`}
+            className="block w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-colors"
+          >
+            Proceed to Vehicle Check-In
+          </a>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-4">
+            <input 
+              type="text" 
+              maxLength={4}
+              value={otp}
+              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+              placeholder="0000"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-6 py-4 text-3xl font-mono text-white tracking-[0.3em] text-center focus:border-purple-500 outline-none transition-colors"
+            />
+          </div>
+          <button 
+            onClick={handleVerify}
+            disabled={otp.length !== 4 || isSubmitting}
+            className="w-full mt-4 py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? 'Verifying...' : (isCheckin ? 'Verify Drop-off' : 'Verify Pick-up')}
+          </button>
+        </>
+      )}
     </div>
   );
 }

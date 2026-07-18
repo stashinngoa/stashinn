@@ -1,19 +1,29 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 
-export default async function AdminBookingsPage() {
+export default async function AdminBookingsPage(props: { searchParams: Promise<{ type?: string }> }) {
+  const search = await props.searchParams;
+  const typeFilter = search?.type || 'all';
   const supabase = await createClient();
 
-  const { data: bookings } = await supabase
+  let query = supabase
     .from('bookings')
     .select(`
       id, status, num_bags, total_amount, base_amount, commission_amount,
       start_time, end_time, created_at, cancellation_reason, cancelled_by,
+      booking_type, vehicle_make, model, plate, check_in_photos,
       users!bookings_customer_id_fkey(full_name, email),
       partners(business_name),
       partner_locations(name, city)
     `)
-    .order('created_at', { ascending: false })
-    .limit(100);
+    .order('created_at', { ascending: false });
+
+  if (typeFilter === 'luggage') {
+    query = query.eq('booking_type', 'luggage');
+  } else if (typeFilter === 'vehicle') {
+    query = query.eq('booking_type', 'garage');
+  }
+
+  const { data: bookings } = await query.limit(100);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -34,6 +44,26 @@ export default async function AdminBookingsPage() {
         <p className="text-gray-500 mt-1">Full ledger of all bookings across the platform.</p>
       </div>
 
+      <div className="flex gap-2 pb-4 border-b border-gray-800">
+        {[
+          { label: 'ALL BOOKINGS', value: 'all' },
+          { label: 'LUGGAGE STORAGE', value: 'luggage' },
+          { label: 'VEHICLE PARKING', value: 'vehicle' }
+        ].map(t => (
+          <a
+            key={t.value}
+            href={`/dashboard/bookings?type=${t.value}`}
+            className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${
+              typeFilter === t.value
+                ? 'bg-purple-900/30 text-purple-400 border-purple-700/50'
+                : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-gray-200'
+            }`}
+          >
+            {t.label}
+          </a>
+        ))}
+      </div>
+
       <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -41,7 +71,7 @@ export default async function AdminBookingsPage() {
               <tr className="border-b border-gray-800">
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Partner / Location</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Bags</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type & Details</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Total</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Commission</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
@@ -64,7 +94,15 @@ export default async function AdminBookingsPage() {
                       <span className="text-sm text-gray-300 block">{(b.partners as any)?.business_name || '—'}</span>
                       <span className="text-xs text-gray-500">{(b.partner_locations as any)?.name} — {(b.partner_locations as any)?.city}</span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-400">{b.num_bags}</td>
+                    <td className="px-6 py-4 text-sm text-gray-400">
+                      {b.booking_type === 'garage' ? (
+                        <span className="font-semibold text-purple-400">
+                          🚗 {b.vehicle_make} {b.model} ({b.plate})
+                        </span>
+                      ) : (
+                        <span>👜 {b.num_bags} Bags</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-mono text-gray-300">₹{Number(b.total_amount).toFixed(2)}</td>
                     <td className="px-6 py-4 text-sm font-mono text-orange-400">₹{Number(b.commission_amount).toFixed(2)}</td>
                     <td className="px-6 py-4">
