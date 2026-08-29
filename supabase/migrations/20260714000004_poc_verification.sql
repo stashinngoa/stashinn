@@ -4,7 +4,7 @@
 
 -- 1. Add is_verified to partner_pocs
 ALTER TABLE public.partner_pocs 
-  ADD COLUMN is_verified BOOLEAN NOT NULL DEFAULT FALSE;
+  ADD COLUMN IF NOT EXISTS is_verified BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- 2. Backfill existing POCs to verified (assuming existing approved partners have valid POCs)
 UPDATE public.partner_pocs
