@@ -21,7 +21,13 @@ export async function createBooking(formData: FormData) {
   const rzpOrderId = formData.get('razorpay_order_id') as string;
   const rzpPaymentId = formData.get('razorpay_payment_id') as string;
   const rzpSignature = formData.get('razorpay_signature') as string;
-  const bags = parseInt(formData.get('bags') as string);
+  const mode = formData.get('mode') as string;
+  const bags = mode === 'luggage' ? parseInt(formData.get('bags') as string) : 0;
+  const vehicleType = mode === 'garage' ? formData.get('vehicleType') as string : null;
+  const vehicleMake = formData.get('vehicle_make') as string;
+  const model = formData.get('model') as string;
+  const plate = formData.get('plate') as string;
+  const checkInPhotos = formData.getAll('check_in_photos') as File[];
   const totalAmount = parseFloat(formData.get('total_amount') as string);
 
   // Signature verification for Razorpay payments
@@ -65,9 +71,45 @@ export async function createBooking(formData: FormData) {
   const commissionAmount = Math.round(totalAmount * commissionRate * 100) / 100;
   const partnerAmount = Math.round((totalAmount - commissionAmount) * 100) / 100;
 
+  const bookingId = crypto.randomUUID();
+  let photoUrls: string[] = [];
+
+  // Initialize service client for uploads
+  const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
+  const supabaseService = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Upload vehicle condition photos
+  if (mode === 'garage' && checkInPhotos && checkInPhotos.length > 0) {
+    for (let i = 0; i < Math.min(checkInPhotos.length, 4); i++) {
+      const file = checkInPhotos[i];
+      if (file && typeof file !== 'string' && file.size > 0) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${i}.${fileExt}`;
+        const filePath = `${user.id}/${bookingId}/${fileName}`;
+        
+        const { error: uploadError } = await supabaseService.storage
+          .from('vehicle-condition-photos')
+          .upload(filePath, file);
+          
+        if (!uploadError) {
+          const { data: { publicUrl } } = supabaseService.storage
+            .from('vehicle-condition-photos')
+            .getPublicUrl(filePath);
+          photoUrls.push(publicUrl);
+        } else {
+          console.error("Upload error:", uploadError);
+        }
+      }
+    }
+  }
+
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
+      id: bookingId,
       customer_id: user.id,
       partner_id: partnerId,
       location_id: locationId,
@@ -77,7 +119,11 @@ export async function createBooking(formData: FormData) {
       end_time: checkOut,
       base_amount: totalAmount,
       commission_amount: commissionAmount,
-      total_amount: totalAmount
+      total_amount: totalAmount,
+      vehicle_make: vehicleMake || null,
+      model: model || null,
+      plate: plate || null,
+      check_in_photos: photoUrls.length > 0 ? photoUrls : null
     })
     .select('id')
     .single();
@@ -114,13 +160,13 @@ export async function createBooking(formData: FormData) {
   const { notifyPartnerExternal } = await import('@stashinn/lib/services/notifications');
   await notifyPartnerExternal(partnerId, {
     title: 'New Booking Request',
-    message: `You have a new request for ${bags} bags (Booking ${booking.id.split('-')[0]}). Please accept or decline in your dashboard.`
+    message: `You have a new request for ${mode === 'garage' ? vehicleType + ' parking' : bags + ' bags'} (Booking ${booking.id.split('-')[0]}). Please accept or decline in your dashboard.`
   });
 
   // Trigger Mock SMS & WhatsApp Confirmations
   await sendSMS({
     to: user.phone || '+1234567890',
-    message: `StashInn: Your booking request for ${bags} bags is received. Awaiting partner approval.`
+    message: `StashInn: Your booking request for ${mode === 'garage' ? vehicleType : bags + ' bags'} is received. Awaiting partner approval.`
   });
   
   await sendWhatsApp({

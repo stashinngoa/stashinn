@@ -14,7 +14,7 @@ VALUES (
   TRUE,
   2097152,  -- 2 MB
   ARRAY['image/jpeg', 'image/png', 'image/webp']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- 2. Location Photos — public read (displayed in search results)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -24,7 +24,7 @@ VALUES (
   TRUE,
   5242880,  -- 5 MB
   ARRAY['image/jpeg', 'image/png', 'image/webp']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- 3. KYC Documents — private (admin + partner only)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -34,7 +34,7 @@ VALUES (
   FALSE,
   10485760,  -- 10 MB
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- 4. Damage Evidence Photos — private (partner + admin only)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -44,7 +44,7 @@ VALUES (
   FALSE,
   5242880,  -- 5 MB
   ARRAY['image/jpeg', 'image/png', 'image/webp']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- 5. Payment Transfer Proofs — private (partner + admin only)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -54,7 +54,7 @@ VALUES (
   FALSE,
   5242880,  -- 5 MB
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-);
+) ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- Storage RLS Policies

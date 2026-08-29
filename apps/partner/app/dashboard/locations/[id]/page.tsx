@@ -16,7 +16,7 @@ export default async function EditLocationPage({ params }: { params: { id: strin
 
   const { data: location } = await supabase
     .from('partner_locations')
-    .select('*')
+    .select('*, vehicle_pricing(*)')
     .eq('id', resolvedParams.id)
     .eq('partner_id', partner?.id)
     .single();

@@ -14,7 +14,7 @@ export default async function LocationsList() {
 
   const { data: locations } = await supabase
     .from('partner_locations')
-    .select('*')
+    .select('*, vehicle_pricing(*)')
     .eq('partner_id', partner?.id)
     .order('created_at', { ascending: false });
 

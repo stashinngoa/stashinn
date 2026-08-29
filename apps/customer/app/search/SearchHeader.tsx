@@ -38,6 +38,8 @@ export default function SearchHeader({ initialSearch }: { initialSearch: any }) 
   const [outTime, setOutTime] = useState(initialOut.t);
   
   const [bags, setBags] = useState(parseInt(initialSearch.bags || '1'));
+  const [mode, setMode] = useState<'luggage' | 'garage'>(initialSearch.mode || 'luggage');
+  const [vehicleType, setVehicleType] = useState<'bike' | 'sedan' | 'suv'>(initialSearch.vehicleType || 'sedan');
 
   // Filter States
   const [showFilters, setShowFilters] = useState(false);
@@ -107,7 +109,13 @@ export default function SearchHeader({ initialSearch }: { initialSearch: any }) 
     if (lon) params.append('lon', lon.toString());
     params.append('in', checkInISO);
     params.append('out', checkOutISO);
-    params.append('bags', bags.toString());
+    params.append('mode', mode);
+
+    if (mode === 'luggage') {
+      params.append('bags', bags.toString());
+    } else {
+      params.append('vehicleType', vehicleType);
+    }
     
     // Filters & Sorting
     if (sort !== 'distance') params.append('sort', sort);
@@ -179,10 +187,22 @@ export default function SearchHeader({ initialSearch }: { initialSearch: any }) 
       </div>
 
       <div className="flex items-center px-2">
-        <select value={bags} onChange={(e) => setBags(parseInt(e.target.value))} className="bg-transparent text-sm text-gray-700 outline-none cursor-pointer">
-          {[1,2,3,4,5,6,7,8,9,10].map(n => (
-            <option key={n} value={n}>{n} {n === 1 ? 'Bag' : 'Bags'}</option>
-          ))}
+        <select 
+          value={mode === 'luggage' ? bags : vehicleType} 
+          onChange={(e) => mode === 'luggage' ? setBags(parseInt(e.target.value)) : setVehicleType(e.target.value as any)} 
+          className="bg-transparent text-sm font-semibold text-gray-700 outline-none cursor-pointer"
+        >
+          {mode === 'luggage' ? (
+            [1,2,3,4,5,6,7,8,9,10].map(n => (
+              <option key={n} value={n}>{n} {n === 1 ? 'Bag' : 'Bags'}</option>
+            ))
+          ) : (
+            <>
+              <option value="bike">Bike / 2W</option>
+              <option value="sedan">Sedan / 4W</option>
+              <option value="suv">SUV / Truck</option>
+            </>
+          )}
         </select>
       </div>
 
@@ -243,10 +263,13 @@ export default function SearchHeader({ initialSearch }: { initialSearch: any }) 
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Amenities</label>
             <div className="space-y-2">
-              {['CCTV', '24/7 Security', 'AC Storage', 'Locker Available'].map(am => (
+              {(mode === 'luggage' 
+                ? ['CCTV', '24/7 Security', 'AC Storage', 'Locker Available'] 
+                : ['has_cctv', 'has_security_guard', 'has_ev_charging', 'has_lockable_gate']
+              ).map(am => (
                 <label key={am} className="flex items-center space-x-2 text-sm text-gray-600 cursor-pointer">
                   <input type="checkbox" checked={amenities.includes(am)} onChange={() => toggleAmenity(am)} className="text-purple-600 focus:ring-purple-500 rounded border-gray-300" />
-                  <span>{am}</span>
+                  <span>{am.replace('has_', '').replace('_', ' ')}</span>
                 </label>
               ))}
             </div>

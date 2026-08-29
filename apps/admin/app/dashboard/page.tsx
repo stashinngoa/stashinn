@@ -11,12 +11,12 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
   const kpiCards = [
     { label: 'Total Revenue', value: `₹${analytics.totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '₹', color: 'from-green-500 to-emerald-600', bgColor: 'bg-green-500/10', textColor: 'text-green-400', href: '/dashboard/bookings' },
     { label: 'Platform Commission', value: `₹${analytics.totalCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '%', color: 'from-orange-500 to-red-500', bgColor: 'bg-orange-500/10', textColor: 'text-orange-400', href: '/dashboard/settlements' },
-    { label: 'Total Bookings', value: analytics.totalBookings.toString(), icon: '#', color: 'from-blue-500 to-indigo-600', bgColor: 'bg-blue-500/10', textColor: 'text-blue-400', href: '/dashboard/bookings' },
     { label: 'Active Bookings', value: analytics.activeBookings.toString(), icon: '⚡', color: 'from-yellow-500 to-amber-500', bgColor: 'bg-yellow-500/10', textColor: 'text-yellow-400', href: '/dashboard/bookings' },
-    { label: 'Registered Customers', value: analytics.totalCustomers.toString(), icon: '👤', color: 'from-purple-500 to-pink-500', bgColor: 'bg-purple-500/10', textColor: 'text-purple-400', href: '/dashboard/customers' },
+    { label: 'Active Vehicles', value: analytics.activeVehicles.toString(), icon: '🚗', color: 'from-purple-500 to-violet-600', bgColor: 'bg-purple-500/10', textColor: 'text-purple-400', href: '/dashboard/bookings?type=vehicle' },
+    { label: 'Vehicle Revenue', value: `₹${analytics.vehicleRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '💰', color: 'from-pink-500 to-rose-600', bgColor: 'bg-pink-500/10', textColor: 'text-pink-400', href: '/dashboard/bookings?type=vehicle' },
+    { label: 'Vehicle Commission', value: `₹${analytics.vehicleCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, icon: '🪙', color: 'from-indigo-500 to-indigo-600', bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-400', href: '/dashboard/settlements' },
+    { label: 'Registered Customers', value: analytics.totalCustomers.toString(), icon: '👤', color: 'from-blue-500 to-cyan-500', bgColor: 'bg-blue-500/10', textColor: 'text-blue-400', href: '/dashboard/customers' },
     { label: 'Total Partners', value: analytics.totalPartners.toString(), icon: '🏪', color: 'from-teal-500 to-cyan-500', bgColor: 'bg-teal-500/10', textColor: 'text-teal-400', href: '/dashboard/partners' },
-    { label: 'Pending Approvals', value: analytics.pendingPartners.toString(), icon: '⏳', color: 'from-red-500 to-rose-500', bgColor: 'bg-red-500/10', textColor: 'text-red-400', href: '/dashboard/partners' },
-    { label: 'Storage Locations', value: analytics.totalLocations.toString(), icon: '📍', color: 'from-indigo-500 to-violet-500', bgColor: 'bg-indigo-500/10', textColor: 'text-indigo-400', href: '/dashboard/partners' },
   ];
 
   const getStatusBadge = (status: string) => {
@@ -112,7 +112,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                 <tr className="border-b border-gray-800">
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Customer</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Bags</th>
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type & Details</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 </tr>
@@ -131,7 +131,15 @@ export default async function AdminDashboard({ searchParams }: { searchParams: P
                       <td className="px-6 py-3">
                         <span className="text-sm text-gray-400">{(booking.partner_locations as any)?.name || '—'}</span>
                       </td>
-                      <td className="px-6 py-3 text-sm text-gray-400">{booking.num_bags}</td>
+                      <td className="px-6 py-3 text-sm text-gray-400">
+                        {booking.booking_type === 'garage' ? (
+                          <span className="font-semibold text-purple-400">
+                            🚗 {booking.vehicle_make} {booking.model} ({booking.plate})
+                          </span>
+                        ) : (
+                          <span>👜 {booking.num_bags} Bags</span>
+                        )}
+                      </td>
                       <td className="px-6 py-3 text-sm font-mono text-gray-300">₹{Number(booking.total_amount).toFixed(2)}</td>
                       <td className="px-6 py-3">
                         <span className={`inline-flex px-2.5 py-0.5 text-xs font-bold rounded-full border ${getStatusBadge(booking.status)}`}>

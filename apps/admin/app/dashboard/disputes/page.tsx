@@ -10,7 +10,7 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
     .from('damage_reports')
     .select(`
       *,
-      bookings ( id, total_amount ),
+      bookings ( id, total_amount, booking_type, vehicle_make, model, plate, check_in_photos ),
       partners ( business_name, user_id, users(email) ),
       users!damage_reports_customer_id_fkey ( full_name, email )
     `)
@@ -93,6 +93,28 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                       <p className="text-xs text-gray-500">{dispute.users?.email}</p>
                     </div>
                   </div>
+
+                  {dispute.bookings?.booking_type === 'garage' && (
+                    <div className="bg-purple-950/20 p-4 rounded-lg border border-purple-900/50 space-y-3">
+                      <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Vehicle Details</h4>
+                      <p className="text-sm text-gray-200">
+                        🚗 <strong className="text-white">{dispute.bookings.vehicle_make} {dispute.bookings.model}</strong> — Plate: <strong className="font-mono text-white">{dispute.bookings.plate}</strong>
+                      </p>
+                      
+                      {dispute.bookings.check_in_photos && dispute.bookings.check_in_photos.length > 0 && (
+                        <div>
+                          <p className="text-xs font-bold text-gray-400 mb-2">Check-in Condition Photos (To compare against claim):</p>
+                          <div className="flex gap-4 overflow-x-auto pb-2">
+                            {dispute.bookings.check_in_photos.map((url: string, idx: number) => (
+                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="block shrink-0">
+                                <img src={url} alt="Check-in condition" className="w-28 h-28 object-cover rounded-lg border border-gray-800 hover:border-purple-500 transition-colors" />
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div>
                     <h4 className="text-xs font-bold text-gray-400 mb-2">Partner's Incident Report:</h4>
