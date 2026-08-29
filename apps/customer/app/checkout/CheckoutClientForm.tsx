@@ -30,7 +30,14 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
     formData.append('partner_id', location.partners?.id);
     formData.append('check_in', resolvedParams.in);
     formData.append('check_out', resolvedParams.out);
-    formData.append('bags', resolvedParams.bags);
+    formData.append('mode', resolvedParams.mode || 'luggage');
+    
+    if (resolvedParams.mode === 'garage') {
+      formData.append('vehicleType', resolvedParams.vehicleType || 'sedan');
+    } else {
+      formData.append('bags', resolvedParams.bags || '1');
+    }
+
     formData.append('total_amount', resolvedParams.price);
     formData.append('payment_method', paymentMethod);
 
@@ -102,6 +109,31 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
             <span className="font-bold text-gray-900">Total (inclusive of taxes)</span>
             <span className="text-2xl font-black text-purple-600">₹{totalAmount.toFixed(2)}</span>
           </div>
+
+          {resolvedParams.mode === 'garage' && (
+            <div className="mb-8 pt-6 border-t border-gray-100">
+              <h3 className="text-sm font-bold text-gray-900 mb-4">Vehicle Details</h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Make *</label>
+                  <input type="text" name="vehicle_make" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. Honda" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Model *</label>
+                  <input type="text" name="model" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. City" />
+                </div>
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">License Plate *</label>
+                <input type="text" name="plate" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. MH12 AB 1234" />
+              </div>
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Condition Photos (Up to 4) *</label>
+                <input type="file" name="check_in_photos" accept="image/*" multiple required className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 outline-none" />
+                <p className="text-xs text-gray-400 mt-1">Please take photos of all 4 sides of your vehicle before dropping it off.</p>
+              </div>
+            </div>
+          )}
 
           <div className="mb-8">
             <h3 className="text-sm font-bold text-gray-900 mb-3">Payment Method</h3>

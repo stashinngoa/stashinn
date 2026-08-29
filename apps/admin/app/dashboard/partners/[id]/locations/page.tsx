@@ -25,7 +25,7 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
   // Fetch locations
   const { data: locations } = await supabase
     .from('partner_locations')
-    .select('*')
+    .select('*, vehicle_pricing(*)')
     .eq('partner_id', partnerId);
 
   return (
@@ -51,11 +51,30 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
           locations.map((loc) => (
             <div key={loc.id} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-4">
               <div>
-                <h3 className="text-lg font-bold text-gray-200">{loc.name}</h3>
+                <h3 className="text-lg font-bold text-gray-200">{loc.name} <span className="text-sm font-normal text-gray-400 capitalize bg-gray-800 px-2 py-0.5 rounded ml-2">{loc.location_type || 'luggage'}</span></h3>
                 <p className="text-sm text-gray-500">{loc.address_line1}, {loc.city}, {loc.state} - {loc.pincode}</p>
-                <span className={`inline-block mt-2 px-2 py-0.5 text-xs font-bold rounded ${loc.is_active ? 'bg-green-900/40 text-green-400 border border-green-700/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
-                  {loc.is_active ? 'Active' : 'Inactive'}
-                </span>
+                <div className="flex gap-2 mt-2">
+                  <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded ${loc.is_active ? 'bg-green-900/40 text-green-400 border border-green-700/30' : 'bg-gray-800 text-gray-400 border border-gray-700'}`}>
+                    {loc.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                  {loc.location_type === 'garage' && (
+                    <>
+                      {loc.has_cctv && <span className="inline-block px-2 py-0.5 text-xs bg-purple-900/40 text-purple-400 border border-purple-700/30 rounded">CCTV</span>}
+                      {loc.has_security_guard && <span className="inline-block px-2 py-0.5 text-xs bg-purple-900/40 text-purple-400 border border-purple-700/30 rounded">Guard</span>}
+                    </>
+                  )}
+                </div>
+
+                {loc.location_type === 'garage' && loc.vehicle_pricing && loc.vehicle_pricing.length > 0 && (
+                  <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50 text-xs">
+                    <p className="font-bold text-gray-300 mb-2 uppercase tracking-wide">Vehicle Rates & Capacity</p>
+                    <div className="grid grid-cols-3 gap-2 text-gray-400">
+                      <div><span className="text-gray-300">Bike:</span> {loc.vehicle_pricing[0].bike_capacity} slots (₹{loc.vehicle_pricing[0].bike_rate_day}/d)</div>
+                      <div><span className="text-gray-300">Sedan:</span> {loc.vehicle_pricing[0].sedan_capacity} slots (₹{loc.vehicle_pricing[0].sedan_rate_day}/d)</div>
+                      <div><span className="text-gray-300">SUV:</span> {loc.vehicle_pricing[0].suv_capacity} slots (₹{loc.vehicle_pricing[0].suv_rate_day}/d)</div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <form action={updateLocationCoordinates} className="space-y-4 pt-4 border-t border-gray-800">

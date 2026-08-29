@@ -6,7 +6,7 @@ import SearchHeader from './SearchHeader';
 
 export const revalidate = 300; // Cache search locations for 5 minutes
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string } | Promise<{ q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string }> }) {
+export default async function SearchPage({ searchParams }: { searchParams: { q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string, mode?: string, vehicleType?: string } | Promise<{ q?: string, in?: string, out?: string, bags?: string, lat?: string, lon?: string, sort?: string, max_price?: string, min_rating?: string, amenities?: string, page?: string, mode?: string, vehicleType?: string }> }) {
   const resolvedParams = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -38,27 +38,39 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
   const minRating = resolvedParams.min_rating ? parseFloat(resolvedParams.min_rating as string) : null;
   const amenities = resolvedParams.amenities ? (resolvedParams.amenities as string).split(',') : [];
   const page = parseInt(resolvedParams.page as string || '1');
+  const mode = resolvedParams.mode || 'luggage';
+  const vehicleType = resolvedParams.vehicleType || 'sedan';
   const limit = 10;
   const offset = (page - 1) * limit;
 
   // Cached Search Function
   const getCachedSearchResults = unstable_cache(
-    async (sLat, sLon, sSort, sMaxPrice, sMinRating, sAmenities, sPage) => {
+    async (sLat, sLon, sSort, sMaxPrice, sMinRating, sAmenities, sPage, sMode, sVehicleType) => {
       // Use standard @supabase/supabase-js client without cookies for caching
       const { createClient: createGenericClient } = require('@supabase/supabase-js');
       const anonClient = createGenericClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
-      let query = anonClient.rpc('search_nearby_locations_v2', {
+      let query = anonClient.rpc('search_nearby_locations_v3', {
         search_lat: sLat,
         search_lng: sLon,
-        radius_km: 50.0
+        radius_km: 50.0,
+        p_location_type: sMode
       }, { count: 'exact' });
 
       // Apply Filters
       if (sMaxPrice) query = query.lte('price_per_day', sMaxPrice);
       if (sMinRating) query = query.gte('avg_rating', sMinRating);
       if (sAmenities && sAmenities.length > 0) {
-        query = query.contains('amenities', sAmenities);
+        if (sMode === 'luggage') {
+          query = query.contains('amenities', sAmenities);
+        } else {
+          sAmenities.forEach((am: string) => {
+            if (am === 'has_cctv') query = query.eq('has_cctv', true);
+            if (am === 'has_security_guard') query = query.eq('has_security_guard', true);
+            if (am === 'has_ev_charging') query = query.eq('has_ev_charging', true);
+            if (am === 'has_lockable_gate') query = query.eq('has_lockable_gate', true);
+          });
+        }
       }
 
       // Apply Sorting
@@ -82,15 +94,16 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
   if (lat && lon) {
     // We pass serialized string representations for arrays/nulls to keep cache keys primitive
-    const res = await getCachedSearchResults(lat, lon, sort, maxPrice, minRating, amenities, page);
+    const res = await getCachedSearchResults(lat, lon, sort, maxPrice, minRating, amenities, page, mode, vehicleType);
     locations = res.data;
     totalCount = res.count || 0;
   } else {
     // V1 Fallback: Generic text search (skip cache for fallback for now)
     const { data: fallbackData, count: fallbackCount } = await supabase
       .from('partner_locations')
-      .select('*, partners!inner(id)', { count: 'exact' })
+      .select('*, partners!inner(id), vehicle_pricing(*)', { count: 'exact' })
       .eq('is_active', true)
+      .eq('location_type', mode)
       .or(`city.ilike.%${city}%,name.ilike.%${city}%,address_line1.ilike.%${city}%`)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);

@@ -30,6 +30,8 @@ export default function HomePage() {
   const [outTime, setOutTime] = useState(`${String(today.getHours() + 2).padStart(2, '0')}:00`);
   
   const [bags, setBags] = useState(1);
+  const [mode, setMode] = useState<'luggage' | 'garage'>('luggage');
+  const [vehicleType, setVehicleType] = useState<'bike' | 'sedan' | 'suv'>('sedan');
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
@@ -101,7 +103,13 @@ export default function HomePage() {
     if (lon) params.append('lon', lon.toString());
     params.append('in', checkInISO);
     params.append('out', checkOutISO);
-    params.append('bags', bags.toString());
+    params.append('mode', mode);
+    
+    if (mode === 'luggage') {
+      params.append('bags', bags.toString());
+    } else {
+      params.append('vehicleType', vehicleType);
+    }
 
     router.push(`/search?${params.toString()}`);
   };
@@ -150,6 +158,24 @@ export default function HomePage() {
           <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto font-medium">
             Find secure, convenient storage spots at local hotels and shops. Drop your bags and enjoy your day without the extra weight.
           </p>
+
+          {/* Mode Toggle */}
+          <div className="flex justify-center mb-8">
+            <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full inline-flex shadow-sm border border-gray-100">
+              <button 
+                onClick={() => setMode('luggage')}
+                className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${mode === 'luggage' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                Store Bags
+              </button>
+              <button 
+                onClick={() => setMode('garage')}
+                className={`px-6 py-2.5 rounded-full text-sm font-bold transition-all duration-300 ${mode === 'garage' ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-50'}`}
+              >
+                Park Vehicle
+              </button>
+            </div>
+          </div>
 
           {/* Search Box - WIDER max-w-6xl */}
           <div className="bg-white p-3 rounded-3xl shadow-xl border border-gray-100 mx-auto w-full relative group">
@@ -248,14 +274,27 @@ export default function HomePage() {
 
               <div className="hidden xl:block w-px h-12 bg-gray-200"></div>
 
-              {/* Bags */}
-              <div className="w-full xl:w-32 px-4 py-3 bg-gray-50 rounded-2xl border border-transparent hover:border-purple-200 focus-within:border-purple-500 focus-within:bg-white transition-all duration-300 shrink-0">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Bags</label>
-                <select value={bags} onChange={(e) => setBags(parseInt(e.target.value))} className="w-full bg-transparent text-gray-900 font-medium outline-none cursor-pointer">
-                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                    <option key={n} value={n}>{n} {n === 1 ? 'Bag' : 'Bags'}</option>
-                  ))}
-                </select>
+              {/* Bags or Vehicle Type */}
+              <div className="w-full xl:w-40 px-4 py-3 bg-gray-50 rounded-2xl border border-transparent hover:border-purple-200 focus-within:border-purple-500 focus-within:bg-white transition-all duration-300 shrink-0">
+                {mode === 'luggage' ? (
+                  <>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Bags</label>
+                    <select value={bags} onChange={(e) => setBags(parseInt(e.target.value))} className="w-full bg-transparent text-gray-900 font-medium outline-none cursor-pointer">
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <option key={n} value={n}>{n} {n === 1 ? 'Bag' : 'Bags'}</option>
+                      ))}
+                    </select>
+                  </>
+                ) : (
+                  <>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Vehicle Type</label>
+                    <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as any)} className="w-full bg-transparent text-gray-900 font-medium outline-none cursor-pointer">
+                      <option value="bike">Bike / 2W</option>
+                      <option value="sedan">Sedan / 4W</option>
+                      <option value="suv">SUV / Truck</option>
+                    </select>
+                  </>
+                )}
               </div>
 
               {/* Submit */}
