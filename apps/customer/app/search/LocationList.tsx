@@ -20,11 +20,12 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
   const vehicleType = searchParams.vehicleType || 'sedan';
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between mb-4">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-900">{totalCount > 0 ? totalCount : locations.length} {mode === 'luggage' ? 'storage spots' : 'parking spots'} found</h2>
       </div>
       
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 lg:gap-6">
       {locations.map((loc) => {
         let pricePerDay = loc.price_per_day;
         let capacity = null;
@@ -37,8 +38,14 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
         }
 
         return (
-        <div key={loc.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col sm:flex-row group">
-          <div className="sm:w-48 h-48 sm:h-auto bg-gray-100 relative shrink-0">
+        <Link 
+          key={loc.id} 
+          href={`/locations/${loc.id}?${queryParams}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col group h-full"
+        >
+          <div className="w-full aspect-[4/3] bg-gray-100 relative shrink-0">
             {loc.photos && loc.photos.length > 0 ? (
               <img src={loc.photos[0]} alt={loc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             ) : (
@@ -96,18 +103,16 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
               </div>
             </div>
             
-            <div className="mt-4 flex items-end justify-between pt-4 border-t border-gray-50">
+            <div className="mt-4 pt-4 border-t border-gray-50">
               <div>
                 <span className="text-xs text-gray-500 block">Starting from</span>
                 <span className="text-lg font-black text-gray-900">₹{pricePerDay} <span className="text-sm font-normal text-gray-500">/ day</span></span>
               </div>
-              <Link href={`/locations/${loc.id}?${queryParams}`} className="px-5 py-2.5 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-800 transition-colors">
-                View & Book
-              </Link>
             </div>
           </div>
-        </div>
+        </Link>
       )})}
+      </div>
 
       {/* Pagination Controls */}
       {totalCount > 0 && (

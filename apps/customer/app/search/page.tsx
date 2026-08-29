@@ -50,7 +50,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       const { createClient: createGenericClient } = require('@supabase/supabase-js');
       const anonClient = createGenericClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
 
-      let query = anonClient.rpc('search_nearby_locations_v3', {
+      let query = anonClient.rpc('search_nearby_locations_v4', {
         search_lat: sLat,
         search_lng: sLon,
         radius_km: 50.0,
@@ -99,14 +99,22 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     totalCount = res.count || 0;
   } else {
     // V1 Fallback: Generic text search (skip cache for fallback for now)
-    const { data: fallbackData, count: fallbackCount } = await supabase
-      .from('partner_locations')
-      .select('*, partners!inner(id), vehicle_pricing(*)', { count: 'exact' })
-      .eq('is_active', true)
-      .eq('location_type', mode)
-      .or(`city.ilike.%${city}%,name.ilike.%${city}%,address_line1.ilike.%${city}%`)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // V2 Fallback: Text search RPC enforcing POC verification
+    let query = supabase.rpc('search_locations_text_fallback_v1', {
+      search_term: city,
+      p_location_type: mode
+    }, { count: 'exact' });
+
+    // Apply Sorting
+    if (sort === 'price_asc') query = query.order('price_per_day', { ascending: true });
+    else if (sort === 'price_desc') query = query.order('price_per_day', { ascending: false });
+    else if (sort === 'rating') query = query.order('avg_rating', { ascending: false });
+
+    // Apply Pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: fallbackData, count: fallbackCount } = await query;
+    
     locations = fallbackData;
     totalCount = fallbackCount || 0;
   }
@@ -152,7 +160,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       {/* Split View */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-gray-100">
         {/* Left Side: List */}
-        <div className="w-full lg:w-[600px] h-full overflow-y-auto z-10 px-2 lg:px-4 pb-12 shadow-inner">
+        <div className="w-full lg:w-1/2 h-full overflow-y-auto z-10 px-2 lg:px-4 pb-12 shadow-inner">
           <LocationList locations={locations || []} searchParams={resolvedParams} totalCount={totalCount} />
         </div>
         
