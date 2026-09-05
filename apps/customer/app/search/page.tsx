@@ -1,5 +1,6 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { unstable_cache } from 'next/cache';
+import Link from 'next/link';
 import LocationList from './LocationList';
 import MapWrapper from './MapWrapper';
 import SearchHeader from './SearchHeader';
@@ -130,9 +131,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     <div className="h-screen flex flex-col font-inter bg-gray-100 overflow-hidden">
       {/* Header (Simplified) */}
       <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 sticky top-0 z-50">
-        <a href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 mr-8">
+        <Link href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600 mr-8">
           StashInn
-        </a>
+        </Link>
         
         {/* Active Search Context */}
         <SearchHeader initialSearch={resolvedParams} />
@@ -142,17 +143,17 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           <a href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} className="hidden lg:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors whitespace-nowrap">Become a Partner</a>
           {user ? (
             <div className="flex items-center space-x-4">
-              <a href="/dashboard" className="hidden md:block px-5 py-2.5 bg-gray-100 text-gray-900 text-sm font-bold rounded-full hover:bg-gray-200 transition-colors">
+              <Link href="/dashboard" className="hidden md:block px-5 py-2.5 bg-gray-100 text-gray-900 text-sm font-bold rounded-full hover:bg-gray-200 transition-colors">
                 My Bookings
-              </a>
-              <a href="/dashboard/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md hover:shadow-lg transition-all shrink-0" title="Profile Settings">
+              </Link>
+              <Link href="/dashboard/profile" className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold shadow-md hover:shadow-lg transition-all shrink-0" title="Profile Settings">
                 {user.user_metadata?.full_name ? user.user_metadata.full_name.charAt(0).toUpperCase() : 'U'}
-              </a>
+              </Link>
             </div>
           ) : (
-            <a href="/login" className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors shadow-sm shrink-0 whitespace-nowrap">
+            <Link href="/login" className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded-full hover:bg-gray-800 transition-colors shadow-sm shrink-0 whitespace-nowrap">
               Sign In
-            </a>
+            </Link>
           )}
         </div>
       </header>

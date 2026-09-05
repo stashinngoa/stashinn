@@ -31,6 +31,20 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
 
   return (
     <form action={handleSubmit} className="space-y-6">
+      {initialData.status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start space-x-3 mb-6">
+          <svg className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <h3 className="text-sm font-bold text-yellow-800">Application Pending Review</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              Your business application is currently being reviewed. You can update your onboarding details below if you made a mistake, but you cannot accept bookings or add new locations until you are approved.
+            </p>
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`p-4 rounded-lg text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {message.text}

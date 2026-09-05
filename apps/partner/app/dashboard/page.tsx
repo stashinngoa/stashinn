@@ -1,7 +1,15 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import WelcomeModal from './WelcomeModal';
 
-export default async function DashboardOverview() {
+export default async function DashboardOverview({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const params = await searchParams;
+  const showWelcomeModal = params?.onboarded === 'true';
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -65,6 +73,22 @@ export default async function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {showWelcomeModal && <WelcomeModal />}
+
+      {partner.status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start space-x-3 shadow-sm mb-6">
+          <svg className="w-6 h-6 text-yellow-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <h3 className="text-sm font-bold text-yellow-800">Your account is currently Pending Review</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              You cannot accept bookings or update your profile until our team has verified your details. You can review your onboarding application in the Profile tab.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center border-b pb-4">
         <h1 className="text-3xl font-bold text-gray-900">Overview</h1>
         <div className={`px-3 py-1 rounded-full text-sm font-semibold uppercase tracking-wider ${partner.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>

@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { deleteLocation } from './actions';
 import { useState } from 'react';
 
-export default function LocationCard({ location }: { location: any }) {
+export default function LocationCard({ location, partnerStatus, isPrimary }: { location: any, partnerStatus?: string, isPrimary?: boolean }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const isPending = partnerStatus === 'pending';
 
   const handleDelete = async () => {
     if (confirm('Are you sure you want to delete this location?')) {
@@ -28,9 +29,16 @@ export default function LocationCard({ location }: { location: any }) {
           </div>
         )}
         <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
-          <div className="bg-white px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-green-700 border border-green-100">
-            {location.is_active ? 'Active' : 'Inactive'}
-          </div>
+          {isPending ? (
+            <div className="bg-yellow-100 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-yellow-800 border border-yellow-200">
+              Pending Verification
+            </div>
+          ) : (
+            <div className={`px-2 py-1 rounded-md text-xs font-semibold shadow-sm border ${location.is_active ? 'bg-white text-green-700 border-green-100' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+              {location.is_active ? 'Active' : 'Inactive'}
+            </div>
+          )}
+          
           {location.location_type === 'garage' && (
             <div className="bg-purple-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-purple-700">
               Garage
@@ -39,18 +47,19 @@ export default function LocationCard({ location }: { location: any }) {
         </div>
       </div>
       <div className="p-5 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-gray-900 truncate">{location.name}</h3>
+        <h3 className="text-lg font-bold text-gray-900 truncate flex items-center gap-2">
+          {location.name}
+          {isPrimary && (
+            <span className="text-[10px] uppercase tracking-wider font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Primary</span>
+          )}
+        </h3>
         <p className="text-sm text-gray-500 mt-1 line-clamp-2">{location.address_line1}, {location.city}</p>
         
         {location.location_type === 'luggage' ? (
-          <div className="mt-4 grid grid-cols-2 gap-2 text-sm text-gray-600">
+          <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600">
             <div className="bg-gray-50 p-2 rounded">
               <span className="block text-xs text-gray-400">Capacity</span>
               <span className="font-semibold">{location.max_bags} Bags</span>
-            </div>
-            <div className="bg-gray-50 p-2 rounded">
-              <span className="block text-xs text-gray-400">Rate</span>
-              <span className="font-semibold">₹{location.price_per_hour}/hr</span>
             </div>
           </div>
         ) : (
@@ -70,9 +79,15 @@ export default function LocationCard({ location }: { location: any }) {
           <Link href={`/dashboard/locations/${location.id}`} className="flex-1 text-center py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200">
             Edit
           </Link>
-          <button onClick={handleDelete} disabled={isDeleting} className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 text-sm font-medium rounded-lg transition-colors border border-red-100">
-            {isDeleting ? '...' : 'Delete'}
-          </button>
+          {!isPrimary && (
+            <button 
+              onClick={handleDelete} 
+              disabled={isDeleting} 
+              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors border bg-red-50 hover:bg-red-100 text-red-600 border-red-100"
+            >
+              {isDeleting ? '...' : 'Delete'}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -1,9 +1,6 @@
-import DelayedLoader from '../components/DelayedLoader';
-
 export default function LoadingSearch() {
   return (
-    <DelayedLoader>
-      <div className="h-screen flex flex-col font-inter bg-gray-50 overflow-hidden animate-pulse">
+    <div className="h-screen flex flex-col font-inter bg-gray-50 overflow-hidden animate-pulse">
       {/* Header Skeleton */}
       <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6 sticky top-0 z-50">
         <div className="w-24 h-6 bg-gray-200 rounded-md mr-8"></div>
@@ -45,7 +42,6 @@ export default function LoadingSearch() {
           <div className="w-full h-full rounded-2xl overflow-hidden shadow-lg border border-gray-200 bg-gray-200"></div>
         </div>
       </div>
-      </div>
-    </DelayedLoader>
+    </div>
   );
 }

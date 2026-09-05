@@ -3,6 +3,7 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
 async function geocodeAddress(address: string, city: string, state: string, pincode: string): Promise<{ lat: number, lng: number }> {
   const queries = [
@@ -88,7 +89,7 @@ export async function addLocation(formData: FormData) {
   const hasEvCharging = formData.get('has_ev_charging') === 'on';
   const hasLockableGate = formData.get('has_lockable_gate') === 'on';
 
-  const pocOption = formData.get('poc_option');
+  const pocOption = formData.get('poc_option') as string || 'new';
 
   const { data: locData, error } = await supabase
     .from('partner_locations')
@@ -195,6 +196,16 @@ export async function addLocation(formData: FormData) {
     });
   }
 
+  if (partner?.status === 'pending') {
+    await notifyAdmins({
+      title: 'Pending Partner Added Location',
+      message: `${partner.business_name || 'A pending partner'} has added a new location while pending.`,
+      category: 'system',
+      targetRoles: ['ops'],
+      action_url: `/dashboard/locations`
+    });
+  }
+
   revalidatePath('/dashboard/locations');
   redirect('/dashboard/locations');
 }
@@ -228,10 +239,8 @@ export async function updateLocation(formData: FormData) {
     }
   }
 
-  // Fetch existing photos to merge if we uploaded new ones, or just let them overwrite?
-  // Since this is a simple implementation, if they upload new photos, we append to existing.
-  const { data: existingLoc } = await supabase.from('partner_locations').select('photos').eq('id', locationId).single();
-  const finalPhotos = photoUrls.length > 0 ? [...(existingLoc?.photos || []), ...photoUrls] : (existingLoc?.photos || []);
+  const existingPhotos = formData.getAll('existing_photos') as string[];
+  const finalPhotos = [...existingPhotos, ...photoUrls];
 
   let latitude = parseFloat(formData.get('latitude') as string) || 0;
   let longitude = parseFloat(formData.get('longitude') as string) || 0;
@@ -289,6 +298,52 @@ export async function updateLocation(formData: FormData) {
     return { error: error.message };
   }
 
+  // Handle POC assignment/creation on update
+  const pocOption = formData.get('poc_option') as string;
+  const { data: { user: authUser } } = await supabase.auth.getUser();
+  const { data: partnerForPoc } = await supabase.from('partners').select('id').eq('user_id', authUser?.id).single();
+
+  if (pocOption === 'existing') {
+    const existingPocId = formData.get('existing_poc_id') as string;
+    if (existingPocId && partnerForPoc) {
+      const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
+      if (existingPoc) {
+        // Delete current POCs for this location
+        await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+        
+        // Insert the selected POC
+        await supabase.from('partner_pocs').insert({
+          partner_id: partnerForPoc.id,
+          location_id: locationId,
+          name: existingPoc.name,
+          phone: existingPoc.phone,
+          email: existingPoc.email,
+          is_primary: true,
+          id_document_url: existingPoc.id_document_url,
+          photo_url: existingPoc.photo_url,
+          is_verified: existingPoc.is_verified
+        });
+      }
+    }
+  } else if (pocOption === 'new' && partnerForPoc) {
+    // Delete current POCs for this location
+    await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+
+    // Insert new POC
+    await supabase.from('partner_pocs').insert({
+      partner_id: partnerForPoc.id,
+      location_id: locationId,
+      name: formData.get('poc_name') as string,
+      phone: formData.get('poc_phone') as string,
+      email: formData.get('poc_email') as string || null,
+      is_primary: true,
+      is_verified: false
+    });
+
+    // Set location inactive since new POC needs verification
+    await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
+  }
+
   // If garage, upsert vehicle_pricing
   if (locationType === 'garage') {
     const { data: existingPricing } = await supabase.from('vehicle_pricing').select('id').eq('location_id', locationId).single();
@@ -311,6 +366,19 @@ export async function updateLocation(formData: FormData) {
     } else {
       await supabase.from('vehicle_pricing').insert(pricingData);
     }
+  }
+
+  const { data: { user: currentUser } } = await supabase.auth.getUser();
+  const { data: partnerRec } = await supabase.from('partners').select('business_name, status').eq('user_id', currentUser?.id).single();
+
+  if (partnerRec?.status === 'pending') {
+    await notifyAdmins({
+      title: 'Pending Location Updated',
+      message: `${partnerRec.business_name} has updated their pending location details.`,
+      category: 'system',
+      targetRoles: ['ops'],
+      action_url: `/dashboard/locations`
+    });
   }
 
   revalidatePath('/dashboard/locations');

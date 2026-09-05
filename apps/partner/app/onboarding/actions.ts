@@ -13,13 +13,22 @@ export async function submitOnboarding(formData: FormData) {
     return { error: 'Unauthorized session.' };
   }
 
+  const partnerType = formData.get('partner_type') as string;
+  const businessName = partnerType === 'individual' 
+    ? formData.get('full_name') as string 
+    : formData.get('business_name') as string;
+  const businessType = formData.get('business_type') as string || 'Individual';
+
+  const providesLuggage = formData.get('provides_luggage') === 'true';
+  const providesGarage = formData.get('provides_garage') === 'true';
+
   // 1. Insert into public.partners
   const { data: partnerData, error: partnerError } = await supabase
     .from('partners')
     .insert({
       user_id: user.id,
-      business_name: formData.get('business_name') as string,
-      business_type: formData.get('business_type') as string,
+      business_name: businessName,
+      business_type: businessType,
       gstin: formData.get('gst_number') as string || null,
       pan: formData.get('pan_number') as string,
       status: 'pending'
@@ -32,7 +41,7 @@ export async function submitOnboarding(formData: FormData) {
     return { error: partnerError?.message || 'Failed to create business profile.' };
   }
 
-  // Update public.users with the contact details (since phone is stored there)
+  // Update public.users with the contact details
   await supabase
     .from('users')
     .update({ phone: formData.get('contact_phone') as string })
@@ -50,7 +59,7 @@ export async function submitOnboarding(formData: FormData) {
       push: false
     });
 
-  // Geocode Address helper using Nominatim (free of cost)
+  // Geocode Address helper
   const geocodeAddress = async (address: string, city: string, state: string, pincode: string) => {
     const queries = [
       `${address}, ${city}, ${state}, ${pincode}, India`,
@@ -77,38 +86,106 @@ export async function submitOnboarding(formData: FormData) {
         console.error(`Nominatim Geocoding Failed for: ${q}`, err);
       }
     }
-    return { lat: 20.5937, lng: 78.9629 }; // Fallback to India center
+    return { lat: 20.5937, lng: 78.9629 }; // Fallback
   };
 
-  const address = formData.get('address_line1') as string;
-  const city = formData.get('city') as string;
-  const state = formData.get('state') as string;
-  const pincode = formData.get('postal_code') as string;
+  // 2. Build Location Objects
+  const uploadPhotos = async (files: File[], folderId: string) => {
+    const urls = [];
+    for (const file of files) {
+      if (file.size > 0) {
+        const ext = file.name.split('.').pop();
+        const path = `${folderId}/loc_{Date.now()}_{Math.random().toString(36).substring(7)}.{ext}`;
+        const { error } = await supabase.storage.from('location-photos').upload(path, file);
+        if (!error) {
+          const { data } = supabase.storage.from('location-photos').getPublicUrl(path);
+          urls.push(data.publicUrl);
+        }
+      }
+    }
+    return urls;
+  };
   
-  const coords = await geocodeAddress(address, city, state, pincode);
+  const locationsToInsert = [];
+  
+  // We need to insert them one by one to capture their IDs to handle vehicle_pricing for garages
+  const insertedLocationIds = [];
+  let primaryLocationId = null;
 
-  // 2. Insert into public.partner_locations (Initial Location)
-  const { error: locationError } = await supabase
-    .from('partner_locations')
-    .insert({
+  if (providesLuggage) {
+    const addr = formData.get('luggage_address_line1') as string;
+    const city = formData.get('luggage_city') as string;
+    const state = formData.get('luggage_state') as string;
+    const pin = formData.get('luggage_postal_code') as string;
+    const coords = await geocodeAddress(addr, city, state, pin);
+    
+    const { data: insertedLoc, error: locErr } = await supabase.from('partner_locations').insert({
       partner_id: partnerData.id,
-      name: `${formData.get('business_name')} - Main Location`,
-      address_line1: address,
-      address_line2: formData.get('address_line2') as string || null,
+      name: `${businessName} - Luggage Space`,
+      address_line1: addr,
+      address_line2: formData.get('luggage_address_line2') as string || null,
       city: city,
       state: state,
-      pincode: pincode,
+      pincode: pin,
       country: 'India',
       latitude: coords.lat,
-      longitude: coords.lng
-    });
+      longitude: coords.lng,
+      location_type: 'luggage',
+      max_bags: parseInt(formData.get('capacity_bags') as string || '0'),
+      is_active: false,
+      photos: await uploadPhotos(formData.getAll('luggage_photos') as File[], partnerData.id)
+    }).select('id').single();
+    
+    if (!locErr && insertedLoc) {
+      insertedLocationIds.push(insertedLoc.id);
+      primaryLocationId = insertedLoc.id;
+    } else {
+      console.error('Luggage Insert Error:', locErr);
+    }
+  }
 
-  if (locationError) {
-    console.error('Location Insert Error:', locationError);
-    // Note: the partner was already created, but we failed to add a location. 
-    // In production we would use a transaction or RPC for this.
-  } else {
-    // 2.5. Upload POC Files
+  if (providesGarage) {
+    const addr = formData.get('garage_address_line1') as string;
+    const city = formData.get('garage_city') as string;
+    const state = formData.get('garage_state') as string;
+    const pin = formData.get('garage_postal_code') as string;
+    const coords = await geocodeAddress(addr, city, state, pin);
+
+    const { data: insertedLoc, error: locErr } = await supabase.from('partner_locations').insert({
+      partner_id: partnerData.id,
+      name: `${businessName} - Garage Space`,
+      address_line1: addr,
+      address_line2: formData.get('garage_address_line2') as string || null,
+      city: city,
+      state: state,
+      pincode: pin,
+      country: 'India',
+      latitude: coords.lat,
+      longitude: coords.lng,
+      location_type: 'garage',
+      max_bags: 0,
+      is_active: false,
+      photos: await uploadPhotos(formData.getAll('garage_photos') as File[], partnerData.id)
+    }).select('id').single();
+
+    if (!locErr && insertedLoc) {
+      insertedLocationIds.push(insertedLoc.id);
+      if (!primaryLocationId) primaryLocationId = insertedLoc.id;
+      
+      // Insert Vehicle Pricing
+      await supabase.from('vehicle_pricing').insert({
+        location_id: insertedLoc.id,
+        bike_capacity: parseInt(formData.get('capacity_bikes') as string || '0'),
+        sedan_capacity: parseInt(formData.get('capacity_cars') as string || '0'), // assuming cars map to sedan
+        suv_capacity: 0
+      });
+    } else {
+      console.error('Garage Insert Error:', locErr);
+    }
+  }
+
+  // 2.5. Upload POC Files
+  if (primaryLocationId) {
     let idDocUrl = null;
     let photoUrl = null;
 
@@ -129,19 +206,16 @@ export async function submitOnboarding(formData: FormData) {
     }
 
     // 2.6 Insert POC
-    const { data: locData } = await supabase.from('partner_locations').select('id').eq('partner_id', partnerData.id).single();
-    if (locData) {
-      await supabase.from('partner_pocs').insert({
-        partner_id: partnerData.id,
-        location_id: locData.id,
-        name: formData.get('poc_name') as string,
-        phone: formData.get('poc_phone') as string,
-        email: formData.get('poc_email') as string || null,
-        is_primary: true,
-        id_document_url: idDocUrl,
-        photo_url: photoUrl
-      });
-    }
+    await supabase.from('partner_pocs').insert({
+      partner_id: partnerData.id,
+      location_id: primaryLocationId,
+      name: formData.get('poc_name') as string,
+      phone: formData.get('poc_phone') as string,
+      email: formData.get('poc_email') as string || null,
+      is_primary: true,
+      id_document_url: idDocUrl,
+      photo_url: photoUrl
+    });
   }
 
   // 3. Upload KYC Document to Storage
@@ -159,20 +233,18 @@ export async function submitOnboarding(formData: FormData) {
       
     if (uploadError) {
       console.error('Storage Upload Error:', uploadError);
-      // We don't fail the whole onboarding if document upload fails, 
-      // but admins will see they don't have a document in the bucket.
     }
   }
 
   // Route notification to Operations and Superadmin
   await notifyAdmins({
     title: 'New Partner Onboarding',
-    message: `${formData.get('business_name')} has submitted their KYC documents and is pending review.`,
+    message: `${businessName} has submitted their KYC documents and is pending review.`,
     category: 'system',
     targetRoles: ['ops'],
     action_url: '/dashboard/partners'
   });
 
   // Redirect on absolute success
-  redirect('/dashboard');
+  redirect('/dashboard?onboarded=true');
 }
