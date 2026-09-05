@@ -42,7 +42,7 @@ export async function addLocation(formData: FormData) {
 
   const { data: partner } = await supabase
     .from('partners')
-    .select('id')
+    .select('id, status, business_name')
     .eq('user_id', user.id)
     .single();
 
