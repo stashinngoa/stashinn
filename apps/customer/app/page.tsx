@@ -272,7 +272,8 @@ export default function HomePage() {
               { left: '40%', bottom: '65%', zIndex: 8, rotate: '40deg', scale: 0.7, dur: '1150ms', delay: 110 },
               { left: '80%', bottom: '25%', zIndex: 22, rotate: '-20deg', scale: 1.1, dur: '880ms', delay: 50 },
             ];
-            const style = styles[i] || styles[0];
+            const defaultStyle = { left: '0%', bottom: '5%', zIndex: 10, rotate: '-15deg', scale: 1.2, dur: '800ms', delay: 0 };
+            const style = styles[i] || defaultStyle;
             const isActive = mode === 'luggage' && i < bags;
             
             return (
@@ -342,7 +343,8 @@ export default function HomePage() {
               { right: '48%', bottom: '65%', zIndex: 10, rotate: '-28deg', scale: 0.8, dur: '1200ms', delay: 120 },
               { right: '78%', bottom: '25%', zIndex: 20, rotate: '16deg', scale: 1.05, dur: '920ms', delay: 60 },
             ];
-            const style = styles[i] || styles[0];
+            const defaultStyle = { right: '0%', bottom: '2%', zIndex: 12, rotate: '15deg', scale: 1.25, dur: '850ms', delay: 10 };
+            const style = styles[i] || defaultStyle;
             const isActive = mode === 'garage' && i < vehiclesCount;
             
             return (
