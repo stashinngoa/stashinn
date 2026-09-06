@@ -272,6 +272,7 @@ export default function HomePage() {
               { left: '40%', bottom: '65%', zIndex: 8, rotate: '40deg', scale: 0.7, dur: '1150ms', delay: 110 },
               { left: '80%', bottom: '25%', zIndex: 22, rotate: '-20deg', scale: 1.1, dur: '880ms', delay: 50 },
             ];
+            const style = styles[i] || styles[0];
             const isActive = mode === 'luggage' && i < bags;
             
             return (
@@ -279,15 +280,15 @@ export default function HomePage() {
                 key={i}
                 className="absolute text-[160px] drop-shadow-2xl"
                 style={{ 
-                  left: styles[i].left, 
-                  bottom: styles[i].bottom, 
-                  zIndex: styles[i].zIndex,
-                  transform: isActive ? `scale(${styles[i].scale}) rotate(${styles[i].rotate}) translateX(0)` : `scale(0.3) rotate(-90deg) translateX(-600px)`,
+                  left: style.left, 
+                  bottom: style.bottom, 
+                  zIndex: style.zIndex,
+                  transform: isActive ? `scale(${style.scale}) rotate(${style.rotate}) translateX(0)` : `scale(0.3) rotate(-90deg) translateX(-600px)`,
                   opacity: isActive ? 1 : 0,
                   transitionProperty: 'all',
-                  transitionDuration: styles[i].dur,
+                  transitionDuration: style.dur,
                   transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transitionDelay: isActive ? `${styles[i].delay}ms` : '0ms'
+                  transitionDelay: isActive ? `${style.delay}ms` : '0ms'
                 }}
               >
                 {icons[i]}
@@ -308,7 +309,7 @@ export default function HomePage() {
                 { char: '🏍️', hue: '35deg' },  // Orange motorcycle
                 { char: '🛵', hue: '60deg' },  // Yellow scooter
                 { char: '🏍️', hue: '260deg' }  // Purple motorcycle
-              ][i];
+              ][i] || { char: '🛵', hue: '0deg' };
               if (vehicleType === 'sedan') return [
                 { char: '🚗', hue: '0deg' }, { char: '🚕', hue: '0deg' }, { char: '🚘', hue: '0deg' }, { char: '🏎️', hue: '0deg' },
                 { char: '🚗', hue: '210deg' }, // Blue car
@@ -317,7 +318,7 @@ export default function HomePage() {
                 { char: '🏎️', hue: '210deg' }, // Blue racecar
                 { char: '🚗', hue: '35deg' },  // Orange car
                 { char: '🚘', hue: '320deg' }  // Pink front
-              ][i];
+              ][i] || { char: '🚗', hue: '0deg' };
               return [
                 { char: '🚙', hue: '0deg' }, { char: '🚐', hue: '0deg' }, { char: '🛻', hue: '0deg' }, { char: '🚚', hue: '0deg' }, { char: '🚛', hue: '0deg' },
                 { char: '🚙', hue: '130deg' }, // Red SUV
@@ -325,7 +326,7 @@ export default function HomePage() {
                 { char: '🚙', hue: '-50deg' }, // Purple SUV
                 { char: '🚙', hue: '-170deg' },// Orange SUV
                 { char: '🛻', hue: '-50deg' }  // Purple Pickup
-              ][i];
+              ][i] || { char: '🚙', hue: '0deg' };
             };
             const { char: iconChar, hue: hueVal } = getVehicle();
             
@@ -341,6 +342,7 @@ export default function HomePage() {
               { right: '48%', bottom: '65%', zIndex: 10, rotate: '-28deg', scale: 0.8, dur: '1200ms', delay: 120 },
               { right: '78%', bottom: '25%', zIndex: 20, rotate: '16deg', scale: 1.05, dur: '920ms', delay: 60 },
             ];
+            const style = styles[i] || styles[0];
             const isActive = mode === 'garage' && i < vehiclesCount;
             
             return (
@@ -348,16 +350,16 @@ export default function HomePage() {
                 key={i}
                 className="absolute text-[160px] drop-shadow-2xl"
                 style={{ 
-                  right: styles[i].right, 
-                  bottom: styles[i].bottom, 
-                  zIndex: styles[i].zIndex,
-                  transform: isActive ? `scale(${styles[i].scale}) rotate(${styles[i].rotate}) translateX(0)` : `scale(0.3) rotate(90deg) translateX(600px)`,
+                  right: style.right, 
+                  bottom: style.bottom, 
+                  zIndex: style.zIndex,
+                  transform: isActive ? `scale(${style.scale}) rotate(${style.rotate}) translateX(0)` : `scale(0.3) rotate(90deg) translateX(600px)`,
                   opacity: isActive ? 1 : 0,
                   filter: `hue-rotate(${hueVal})`,
                   transitionProperty: 'all',
-                  transitionDuration: styles[i].dur,
+                  transitionDuration: style.dur,
                   transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  transitionDelay: isActive ? `${styles[i].delay}ms` : '0ms'
+                  transitionDelay: isActive ? `${style.delay}ms` : '0ms'
                 }}
               >
                 {iconChar}
