@@ -204,29 +204,42 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
 
   return (
     <div className="relative max-w-3xl mx-auto pt-4 sm:pt-8 px-4">
-      <form onSubmit={() => setIsSubmitting(true)} action={async (formData) => {
-        setValidationError(null);
-        if (!kycRef.current?.files?.length) {
-          return setValidationError('KYC/ID Proof Document is required to submit.');
-        }
-        if (!agreedToTerms) {
-          return setValidationError('You must agree to the Terms of Service and Privacy Policy.');
-        }
-        
-        setIsSubmitting(true);
-        setError(null);
-        
-        formData.append('user_id', userId);
-        formData.append('partner_type', partnerType);
-        formData.append('provides_luggage', providesLuggage ? 'true' : 'false');
-        formData.append('provides_garage', providesGarage ? 'true' : 'false');
-        
-        const res = await submitOnboarding(formData);
-        if (res?.error) {
-          setError(res.error);
-          setIsSubmitting(false);
-        }
-      }}>
+      <form 
+        onSubmit={(e) => {
+          if (step < 4) {
+            e.preventDefault();
+            nextStep();
+            return;
+          }
+          setIsSubmitting(true);
+        }} 
+        action={async (formData) => {
+          if (step < 4) return;
+          
+          setValidationError(null);
+          if (!kycRef.current?.files?.length) {
+            setIsSubmitting(false);
+            return setValidationError('KYC/ID Proof Document is required to submit.');
+          }
+          if (!agreedToTerms) {
+            setIsSubmitting(false);
+            return setValidationError('You must agree to the Terms of Service and Privacy Policy.');
+          }
+          
+          setError(null);
+          
+          formData.append('user_id', userId);
+          formData.append('partner_type', partnerType);
+          formData.append('provides_luggage', providesLuggage ? 'true' : 'false');
+          formData.append('provides_garage', providesGarage ? 'true' : 'false');
+          
+          const res = await submitOnboarding(formData);
+          if (res?.error) {
+            setError(res.error);
+            setIsSubmitting(false);
+          }
+        }}
+      >
         
         {/* Minimal Progress Steps */}
         <div className="mb-10 mt-4">

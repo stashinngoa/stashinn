@@ -20,9 +20,9 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
   const vehicleType = searchParams.vehicleType || 'sedan';
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">{totalCount > 0 ? totalCount : locations.length} {mode === 'luggage' ? 'storage spots' : 'parking spots'} found</h2>
+    <div className="p-4 md:p-6 bg-gray-50 dark:bg-gray-950 transition-colors">
+      <div className="flex items-center justify-between mb-4 md:mb-6">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{totalCount > 0 ? totalCount : locations.length} {mode === 'luggage' ? 'storage spots' : 'parking spots'} found</h2>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 lg:gap-6">
@@ -43,13 +43,13 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
           href={`/locations/${loc.id}?${queryParams}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col group h-full"
+          className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex flex-col group h-full"
         >
-          <div className="w-full aspect-[4/3] bg-gray-100 relative shrink-0">
+          <div className="w-full aspect-[4/3] bg-gray-100 dark:bg-gray-800 relative shrink-0">
             {loc.photos && loc.photos.length > 0 ? (
               <img src={loc.photos[0]} alt={loc.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-300">
+              <div className="absolute inset-0 flex items-center justify-center text-gray-300 dark:text-gray-600">
                 <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
@@ -60,53 +60,53 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
           <div className="p-5 flex-1 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start">
-                <h3 className="text-lg font-bold text-gray-900 truncate pr-4">{loc.name}</h3>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 truncate pr-4">{loc.name}</h3>
                 {loc.distance_km && (
-                  <span className="text-xs font-semibold px-2 py-1 bg-purple-50 text-purple-700 rounded-full whitespace-nowrap">
+                  <span className="text-xs font-semibold px-2 py-1 bg-orange-50 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 rounded-full whitespace-nowrap">
                     {loc.distance_km.toFixed(1)} km
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500 mt-1 line-clamp-1">{loc.address_line1}, {loc.city}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-1">{loc.address_line1}, {loc.city}</p>
               
               <div className="flex items-center mt-2 space-x-1">
-                <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                 </svg>
-                <span className="text-sm font-bold text-gray-700">{loc.avg_rating || 'New'}</span>
+                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">{loc.avg_rating || 'New'}</span>
               </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
                 {mode === 'luggage' ? (
                   loc.amenities && loc.amenities.length > 0 ? (
                     loc.amenities.map((feature: string) => (
-                      <span key={feature} className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">
+                      <span key={feature} className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-2 py-1 rounded">
                         {feature}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-gray-400">Basic Storage</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Basic Storage</span>
                   )
                 ) : (
                   <>
                     {capacity !== null && (
-                      <span className="text-xs font-bold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded">
+                      <span className="text-xs font-bold text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800/50 px-2 py-1 rounded">
                         {capacity} Slots Available
                       </span>
                     )}
-                    {loc.has_cctv && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">CCTV</span>}
-                    {loc.has_security_guard && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">Guard</span>}
-                    {loc.has_ev_charging && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">EV Charging</span>}
-                    {loc.has_lockable_gate && <span className="text-xs text-gray-600 bg-gray-50 border border-gray-100 px-2 py-1 rounded">Gate</span>}
+                    {loc.has_cctv && <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-2 py-1 rounded">CCTV</span>}
+                    {loc.has_security_guard && <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-2 py-1 rounded">Guard</span>}
+                    {loc.has_ev_charging && <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-2 py-1 rounded">EV Charging</span>}
+                    {loc.has_lockable_gate && <span className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 px-2 py-1 rounded">Gate</span>}
                   </>
                 )}
               </div>
             </div>
             
-            <div className="mt-4 pt-4 border-t border-gray-50">
+            <div className="mt-5 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-4">
               <div>
-                <span className="text-xs text-gray-500 block">Starting from</span>
-                <span className="text-lg font-black text-gray-900">₹{pricePerDay} <span className="text-sm font-normal text-gray-500">/ day</span></span>
+                <span className="text-2xl font-black text-gray-900 dark:text-white">₹{pricePerDay || 0}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">/day</span>
               </div>
             </div>
           </div>
@@ -128,7 +128,7 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
               const prevParams = new URLSearchParams(searchParams as Record<string, string>);
               prevParams.set('page', (currentPage - 1).toString());
               pages.push(
-                <Link key="prev" href={`/search?${prevParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                <Link key="prev" href={`/search?${prevParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                 </Link>
               );
@@ -142,7 +142,7 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
                 <Link 
                   key={i} 
                   href={`/search?${pageParams.toString()}`} 
-                  className={`w-10 h-10 flex items-center justify-center rounded-lg border ${currentPage === i ? 'bg-purple-600 border-purple-600 text-white font-bold' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                  className={`w-10 h-10 flex items-center justify-center rounded-lg border transition-colors ${currentPage === i ? 'bg-orange-600 border-orange-600 text-white font-bold' : 'border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900'}`}
                 >
                   {i}
                 </Link>
@@ -154,7 +154,7 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
               const nextParams = new URLSearchParams(searchParams as Record<string, string>);
               nextParams.set('page', (currentPage + 1).toString());
               pages.push(
-                <Link key="next" href={`/search?${nextParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                <Link key="next" href={`/search?${nextParams.toString()}`} className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
                 </Link>
               );
