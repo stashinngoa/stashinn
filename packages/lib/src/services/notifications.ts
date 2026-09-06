@@ -29,6 +29,7 @@ export async function notifyAdmins(params: BroadcastParams) {
 
   // Filter admins based on routing rules
   const targetAdmins = admins.filter((admin: any) => 
+    !admin.admin_role || 
     admin.admin_role === 'superadmin' || 
     params.targetRoles.includes(admin.admin_role as AdminRole)
   );

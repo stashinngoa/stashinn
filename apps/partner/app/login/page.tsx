@@ -41,11 +41,18 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg border-t-4 border-purple-600">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Partner Login</h2>
-        </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-950 py-12 px-4 sm:px-6 lg:px-8 transition-colors">
+      <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-900 p-10 rounded-xl shadow-lg dark:shadow-2xl border-t-4 border-orange-600 dark:border-orange-500">
+          <div className="flex justify-center mb-4">
+            <div className="flex items-center gap-2">
+              <img src="/StashInn_Light_no_text.png" alt="StashInn" className="h-10 w-auto dark:hidden" />
+              <img src="/StashInn_Dark_no_text.png" alt="StashInn" className="h-10 w-auto hidden dark:block" />
+              <span className="text-3xl font-black tracking-tighter shrink-0">
+                <span className="text-gray-900 dark:text-white">Stash</span><span className="text-orange-500">Inn</span>
+              </span>
+            </div>
+          </div>
+          <h2 className="mt-2 text-center text-xl font-bold text-gray-500 dark:text-gray-400">Partner Portal</h2>
         
         {searchParams?.error && (
           <div className="bg-red-50 text-red-500 p-3 rounded text-sm text-center">
@@ -56,16 +63,16 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
         <form className="mt-8 space-y-6" action={login}>
           <input type="hidden" name="next" value={searchParams.next || ''} />
           <div className="rounded-md shadow-sm -space-y-px">
-            <input name="email" type="email" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="Partner Email" />
-            <input name="password" type="password" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm" placeholder="Password" />
+            <input name="email" type="email" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="Partner Email" />
+            <input name="password" type="password" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-orange-500 focus:border-orange-500 sm:text-sm" placeholder="Password" />
           </div>
-          <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700">
+          <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700">
             Sign In
           </button>
         </form>
 
         <div className="mt-6 border-t border-gray-200 pt-6">
-          <p className="text-center text-sm text-gray-600 mb-4">New Partner?</p>
+          <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-4">New Partner?</p>
           <form action={signup} className="space-y-2">
             <input name="full_name" type="text" required className="w-full px-3 py-2 border border-gray-300 rounded focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="Full Name" />
             <input name="email" type="email" required className="w-full px-3 py-2 border border-gray-300 rounded focus:border-purple-500 focus:ring-purple-500 text-sm" placeholder="Email address" />
