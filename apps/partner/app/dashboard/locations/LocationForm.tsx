@@ -64,9 +64,12 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
     }
   };
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    
+    const formData = new FormData(e.currentTarget);
     
     let res;
     if (initialData?.id) {
@@ -86,7 +89,7 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
   const amenities = initialData?.amenities || [];
 
   return (
-    <form action={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-4xl space-y-8">
+    <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100 max-w-4xl space-y-8">
       {error && (
         <div className="p-4 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm">{error}</div>
       )}
@@ -120,10 +123,17 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
           )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select name="is_active" defaultValue={initialData ? initialData.is_active.toString() : "true"} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none">
-              <option value="true">Active (Accepting Bookings)</option>
-              <option value="false">Inactive</option>
-            </select>
+            {initialData ? (
+              <div className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-600 font-medium">
+                {initialData.is_active ? '✅ Active (Accepting Bookings)' : '⏳ Inactive (Pending Verification)'}
+                <input type="hidden" name="is_active" value={initialData.is_active.toString()} />
+              </div>
+            ) : (
+              <div className="w-full px-4 py-2 border border-gray-200 bg-gray-50 rounded-lg text-sm text-gray-600 font-medium">
+                ⏳ Inactive (Pending Verification)
+                <input type="hidden" name="is_active" value="false" />
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -419,8 +429,13 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
 
       <div className="pt-6 flex justify-end gap-4">
         <a href="/dashboard/locations" className="px-6 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">Cancel</a>
-        <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-70">
-          {isSubmitting ? 'Saving...' : isEdit ? 'Update Location' : 'Add Location'}
+        <button type="submit" disabled={isSubmitting} className="px-8 py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors shadow-sm disabled:opacity-70 flex items-center justify-center min-w-[160px]">
+          {isSubmitting ? (
+            <span className="flex items-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              Saving...
+            </span>
+          ) : isEdit ? 'Update Location' : 'Add Location'}
         </button>
       </div>
     </form>

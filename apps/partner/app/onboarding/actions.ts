@@ -17,10 +17,17 @@ export async function submitOnboarding(formData: FormData) {
   const businessName = partnerType === 'individual' 
     ? formData.get('full_name') as string 
     : formData.get('business_name') as string;
-  const businessType = formData.get('business_type') as string || 'Individual';
-
+      
+  const businessType = partnerType === 'individual' 
+    ? 'Individual' 
+    : (formData.get('business_type') as string || 'Hostel');
+  
   const providesLuggage = formData.get('provides_luggage') === 'true';
   const providesGarage = formData.get('provides_garage') === 'true';
+    
+  const gstin = partnerType === 'individual' 
+    ? null 
+    : (formData.get('gst_number') as string || null);
 
   // 1. Insert into public.partners
   const { data: partnerData, error: partnerError } = await supabase
@@ -29,7 +36,7 @@ export async function submitOnboarding(formData: FormData) {
       user_id: user.id,
       business_name: businessName,
       business_type: businessType,
-      gstin: formData.get('gst_number') as string || null,
+      gstin: gstin,
       pan: formData.get('pan_number') as string,
       status: 'pending'
     })
@@ -95,7 +102,7 @@ export async function submitOnboarding(formData: FormData) {
     for (const file of files) {
       if (file.size > 0) {
         const ext = file.name.split('.').pop();
-        const path = `${folderId}/loc_{Date.now()}_{Math.random().toString(36).substring(7)}.{ext}`;
+        const path = `${folderId}/loc_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
         const { error } = await supabase.storage.from('location-photos').upload(path, file);
         if (!error) {
           const { data } = supabase.storage.from('location-photos').getPublicUrl(path);
@@ -133,6 +140,7 @@ export async function submitOnboarding(formData: FormData) {
       location_type: 'luggage',
       max_bags: parseInt(formData.get('capacity_bags') as string || '0'),
       is_active: false,
+      is_primary: true,
       photos: await uploadPhotos(formData.getAll('luggage_photos') as File[], partnerData.id)
     }).select('id').single();
     
@@ -165,6 +173,7 @@ export async function submitOnboarding(formData: FormData) {
       location_type: 'garage',
       max_bags: 0,
       is_active: false,
+      is_primary: true,
       photos: await uploadPhotos(formData.getAll('garage_photos') as File[], partnerData.id)
     }).select('id').single();
 
@@ -173,12 +182,13 @@ export async function submitOnboarding(formData: FormData) {
       if (!primaryLocationId) primaryLocationId = insertedLoc.id;
       
       // Insert Vehicle Pricing
-      await supabase.from('vehicle_pricing').insert({
+      const { error: vpErr } = await supabase.from('vehicle_pricing').insert({
         location_id: insertedLoc.id,
         bike_capacity: parseInt(formData.get('capacity_bikes') as string || '0'),
         sedan_capacity: parseInt(formData.get('capacity_cars') as string || '0'), // assuming cars map to sedan
-        suv_capacity: 0
+        suv_capacity: parseInt(formData.get('capacity_cars') as string || '0')
       });
+      if (vpErr) console.error('Vehicle Pricing Insert Error:', vpErr);
     } else {
       console.error('Garage Insert Error:', locErr);
     }
@@ -205,17 +215,18 @@ export async function submitOnboarding(formData: FormData) {
       if (!err) photoUrl = path;
     }
 
-    // 2.6 Insert POC
-    await supabase.from('partner_pocs').insert({
+    // 2.6 Insert POC for all onboarded locations
+    const pocInserts = insertedLocationIds.map(locId => ({
       partner_id: partnerData.id,
-      location_id: primaryLocationId,
+      location_id: locId,
       name: formData.get('poc_name') as string,
       phone: formData.get('poc_phone') as string,
       email: formData.get('poc_email') as string || null,
       is_primary: true,
       id_document_url: idDocUrl,
       photo_url: photoUrl
-    });
+    }));
+    await supabase.from('partner_pocs').insert(pocInserts);
   }
 
   // 3. Upload KYC Document to Storage

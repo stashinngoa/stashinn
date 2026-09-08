@@ -6,6 +6,7 @@ import { useState } from 'react';
 
 export default function LocationCard({ location, partnerStatus, isPrimary }: { location: any, partnerStatus?: string, isPrimary?: boolean }) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const isPending = partnerStatus === 'pending';
 
   const handleDelete = async () => {
@@ -39,18 +40,22 @@ export default function LocationCard({ location, partnerStatus, isPrimary }: { l
             </div>
           )}
           
-          {location.location_type === 'garage' && (
-            <div className="bg-purple-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-purple-700">
+          {location.location_type === 'garage' ? (
+            <div className="bg-blue-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-blue-700">
               Garage
+            </div>
+          ) : (
+            <div className="bg-purple-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-purple-700">
+              Luggage
             </div>
           )}
         </div>
       </div>
       <div className="p-5 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-gray-900 truncate flex items-center gap-2">
-          {location.name}
+        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 overflow-hidden">
+          <span className="truncate">{location.name}</span>
           {isPrimary && (
-            <span className="text-[10px] uppercase tracking-wider font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Primary</span>
+            <span className="text-[10px] uppercase tracking-wider font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded shrink-0">Primary</span>
           )}
         </h3>
         <p className="text-sm text-gray-500 mt-1 line-clamp-2">{location.address_line1}, {location.city}</p>
@@ -76,8 +81,14 @@ export default function LocationCard({ location, partnerStatus, isPrimary }: { l
         )}
         
         <div className="mt-6 flex gap-3 pt-4 border-t border-gray-50">
-          <Link href={`/dashboard/locations/${location.id}`} className="flex-1 text-center py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200">
-            Edit
+          <Link 
+            href={`/dashboard/locations/${location.id}`} 
+            onClick={() => setIsEditing(true)}
+            className="flex-1 flex justify-center items-center py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200"
+          >
+            {isEditing ? (
+              <svg className="animate-spin h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            ) : 'Edit'}
           </Link>
           {!isPrimary && (
             <button 

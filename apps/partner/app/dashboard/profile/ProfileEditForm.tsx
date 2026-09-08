@@ -7,6 +7,9 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  const [businessType, setBusinessType] = useState(initialData.business_type || 'Hostel');
+  const isIndividual = businessType.toLowerCase() === 'individual';
+
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true);
     setMessage(null);
@@ -53,13 +56,21 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
-          <input type="text" name="business_name" defaultValue={initialData.business_name} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {isIndividual ? 'Full Name *' : 'Business Name *'}
+          </label>
+          <input type="text" name="business_name" defaultValue={initialData.business_name} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-900 dark:text-white" />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
-          <select name="business_type" defaultValue={initialData.business_type || 'Hostel'} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Type</label>
+          <select 
+            name="business_type" 
+            value={businessType} 
+            onChange={(e) => setBusinessType(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-900 dark:text-white"
+          >
+            <option value="Individual">Individual (No registered business)</option>
             <option value="Hostel">Hostel</option>
             <option value="Hotel">Hotel</option>
             <option value="Cafe">Cafe / Restaurant</option>
@@ -69,18 +80,20 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <input type="text" readOnly value={initialData.status.toUpperCase()} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 font-semibold cursor-not-allowed" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+          <input type="text" readOnly value={initialData.status.toUpperCase()} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 font-bold cursor-not-allowed" />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
-          <input type="text" name="gstin" defaultValue={initialData.gstin || ''} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase" />
-        </div>
+        {!isIndividual && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GST Number</label>
+            <input type="text" name="gstin" defaultValue={initialData.gstin || ''} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase dark:bg-gray-900 dark:text-white" />
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number *</label>
-          <input type="text" name="pan" defaultValue={initialData.pan || ''} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase" />
+        <div className={isIndividual ? 'col-span-2' : ''}>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PAN Number *</label>
+          <input type="text" name="pan" defaultValue={initialData.pan || ''} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase dark:bg-gray-900 dark:text-white" />
         </div>
       </div>
 
