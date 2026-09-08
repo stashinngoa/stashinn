@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@stashinn/lib/supabase/server';
+import { createClient, createAdminClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
@@ -118,6 +118,7 @@ export async function submitOnboarding(formData: FormData) {
   // We need to insert them one by one to capture their IDs to handle vehicle_pricing for garages
   const insertedLocationIds = [];
   let primaryLocationId = null;
+  const adminClient = createAdminClient();
 
   if (providesLuggage) {
     const addr = formData.get('luggage_address_line1') as string;
@@ -126,7 +127,7 @@ export async function submitOnboarding(formData: FormData) {
     const pin = formData.get('luggage_postal_code') as string;
     const coords = await geocodeAddress(addr, city, state, pin);
     
-    const { data: insertedLoc, error: locErr } = await supabase.from('partner_locations').insert({
+    const { data: insertedLoc, error: locErr } = await adminClient.from('partner_locations').insert({
       partner_id: partnerData.id,
       name: `${businessName} - Luggage Space`,
       address_line1: addr,
@@ -140,7 +141,7 @@ export async function submitOnboarding(formData: FormData) {
       location_type: 'luggage',
       max_bags: parseInt(formData.get('capacity_bags') as string || '0'),
       is_active: false,
-      is_primary: true,
+      
       photos: await uploadPhotos(formData.getAll('luggage_photos') as File[], partnerData.id)
     }).select('id').single();
     
@@ -148,7 +149,7 @@ export async function submitOnboarding(formData: FormData) {
       insertedLocationIds.push(insertedLoc.id);
       primaryLocationId = insertedLoc.id;
     } else {
-      console.error('Luggage Insert Error:', locErr);
+      return { error: 'Luggage Insert Error: ' + JSON.stringify(locErr) }; require('fs').writeFileSync('d:/stashinn/stashinn-portal/loc_err.txt', JSON.stringify(locErr, null, 2));
     }
   }
 
@@ -159,7 +160,7 @@ export async function submitOnboarding(formData: FormData) {
     const pin = formData.get('garage_postal_code') as string;
     const coords = await geocodeAddress(addr, city, state, pin);
 
-    const { data: insertedLoc, error: locErr } = await supabase.from('partner_locations').insert({
+    const { data: insertedLoc, error: locErr } = await adminClient.from('partner_locations').insert({
       partner_id: partnerData.id,
       name: `${businessName} - Garage Space`,
       address_line1: addr,
@@ -173,7 +174,7 @@ export async function submitOnboarding(formData: FormData) {
       location_type: 'garage',
       max_bags: 0,
       is_active: false,
-      is_primary: true,
+      
       photos: await uploadPhotos(formData.getAll('garage_photos') as File[], partnerData.id)
     }).select('id').single();
 
@@ -182,7 +183,7 @@ export async function submitOnboarding(formData: FormData) {
       if (!primaryLocationId) primaryLocationId = insertedLoc.id;
       
       // Insert Vehicle Pricing
-      const { error: vpErr } = await supabase.from('vehicle_pricing').insert({
+      const { error: vpErr } = await adminClient.from('vehicle_pricing').insert({
         location_id: insertedLoc.id,
         bike_capacity: parseInt(formData.get('capacity_bikes') as string || '0'),
         sedan_capacity: parseInt(formData.get('capacity_cars') as string || '0'), // assuming cars map to sedan
@@ -190,7 +191,7 @@ export async function submitOnboarding(formData: FormData) {
       });
       if (vpErr) console.error('Vehicle Pricing Insert Error:', vpErr);
     } else {
-      console.error('Garage Insert Error:', locErr);
+      return { error: 'Garage Insert Error: ' + JSON.stringify(locErr) }; require('fs').writeFileSync('d:/stashinn/stashinn-portal/loc_err.txt', JSON.stringify(locErr, null, 2));
     }
   }
 
@@ -226,7 +227,7 @@ export async function submitOnboarding(formData: FormData) {
       id_document_url: idDocUrl,
       photo_url: photoUrl
     }));
-    await supabase.from('partner_pocs').insert(pocInserts);
+    await adminClient.from('partner_pocs').insert(pocInserts);
   }
 
   // 3. Upload KYC Document to Storage

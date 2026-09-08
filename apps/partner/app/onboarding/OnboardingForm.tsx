@@ -12,11 +12,11 @@ const FloatingInput = ({ label, name, type = "text", value, onChange, required =
       id={name}
       value={value}
       onChange={onChange}
-      className="peer w-full px-4 pt-6 pb-2 border-2 border-gray-100 rounded-xl outline-none focus:border-purple-500 focus:bg-white bg-gray-50 transition-all placeholder-transparent font-medium text-gray-900 shadow-sm"
+      className="peer w-full px-4 pt-6 pb-2 border-2 border-gray-100 rounded-xl outline-none focus:border-orange-500 focus:bg-white bg-gray-50 transition-all placeholder-transparent font-medium text-gray-900 shadow-sm"
       placeholder={label}
       {...props}
     />
-    <label htmlFor={name} className="absolute left-4 top-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-[14px] peer-placeholder-shown:font-medium peer-placeholder-shown:normal-case peer-placeholder-shown:text-gray-500 peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-purple-600 pointer-events-none">
+    <label htmlFor={name} className="absolute left-4 top-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider transition-all peer-placeholder-shown:text-sm peer-placeholder-shown:top-[14px] peer-placeholder-shown:font-medium peer-placeholder-shown:normal-case peer-placeholder-shown:text-gray-500 peer-focus:top-2 peer-focus:text-[10px] peer-focus:font-bold peer-focus:uppercase peer-focus:text-orange-600 pointer-events-none">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
   </div>
@@ -29,21 +29,21 @@ const FloatingSelect = ({ label, name, value, onChange, options, required = fals
       id={name}
       value={value}
       onChange={onChange}
-      className="peer w-full px-4 pt-6 pb-2 border-2 border-gray-100 rounded-xl outline-none focus:border-purple-500 bg-gray-50 focus:bg-white transition-all font-medium text-gray-900 shadow-sm appearance-none"
+      className="peer w-full px-4 pt-6 pb-2 border-2 border-gray-100 rounded-xl outline-none focus:border-orange-500 bg-gray-50 focus:bg-white transition-all font-medium text-gray-900 shadow-sm appearance-none"
     >
       {options.map((opt: string) => <option key={opt} value={opt}>{opt}</option>)}
     </select>
     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
     </div>
-    <label htmlFor={name} className="absolute left-4 top-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider pointer-events-none peer-focus:text-purple-600">
+    <label htmlFor={name} className="absolute left-4 top-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider pointer-events-none peer-focus:text-orange-600">
       {label} {required && <span className="text-red-500">*</span>}
     </label>
   </div>
 );
 
 // --- Main Form ---
-export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail: string, userId: string }) {
+export default function OnboardingForm({ defaultEmail, defaultName, userId }: { defaultEmail: string, defaultName?: string, userId: string }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +58,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
   const [providesLuggage, setProvidesLuggage] = useState(true);
   const [providesGarage, setProvidesGarage] = useState(false);
 
-  const [ownerName, setOwnerName] = useState('');
+  const [ownerName, setOwnerName] = useState(defaultName || '');
   const [ownerEmail, setOwnerEmail] = useState(defaultEmail);
   const [ownerPhone, setOwnerPhone] = useState('');
   
@@ -89,14 +89,21 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
   const [pocName, setPocName] = useState('');
   const [pocPhone, setPocPhone] = useState('');
   const [pocEmail, setPocEmail] = useState('');
+  const [pocIdFile, setPocIdFile] = useState<File | null>(null);
+  const [pocPhotoFile, setPocPhotoFile] = useState<File | null>(null);
   const pocIdRef = useRef<HTMLInputElement>(null);
   const pocPhotoRef = useRef<HTMLInputElement>(null);
 
   // Step 4: Verification
   const [contactEmail, setContactEmail] = useState(defaultEmail);
   const [contactPhone, setContactPhone] = useState('');
+  const [kycFile, setKycFile] = useState<File | null>(null);
   const kycRef = useRef<HTMLInputElement>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  
+  // File states for multiple
+  const [luggagePhotos, setLuggagePhotos] = useState<File[]>([]);
+  const [garagePhotos, setGaragePhotos] = useState<File[]>([]);
 
   // Postal Code Lookup
   useEffect(() => {
@@ -175,8 +182,8 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
       if (!pocName) return setValidationError('POC Name is required.'), false;
       if (!pocPhone || !isValidPhone(pocPhone)) return setValidationError('Valid 10-digit POC Phone is required.'), false;
       if (pocEmail && !isValidEmail(pocEmail)) return setValidationError('POC Email format is invalid.'), false;
-      if (!pocIdRef.current?.files?.length) return setValidationError('POC ID Document is required.'), false;
-      if (!pocPhotoRef.current?.files?.length) return setValidationError('POC Photo is required.'), false;
+      if (!pocIdFile && !pocIdRef.current?.files?.length) return setValidationError('POC ID Document is required.'), false;
+      if (!pocPhotoFile && !pocPhotoRef.current?.files?.length) return setValidationError('POC Photo is required.'), false;
     }
 
     return true;
@@ -217,13 +224,27 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
           if (step < 4) return;
           
           setValidationError(null);
-          if (!kycRef.current?.files?.length) {
+          if (!kycFile && !kycRef.current?.files?.length) {
             setIsSubmitting(false);
             return setValidationError('KYC/ID Proof Document is required to submit.');
           }
           if (!agreedToTerms) {
             setIsSubmitting(false);
             return setValidationError('You must agree to the Terms of Service and Privacy Policy.');
+          }
+          
+          if (kycFile) formData.set('kyc_document', kycFile);
+          if (pocIdFile) formData.set('poc_id_document', pocIdFile);
+          if (pocPhotoFile) formData.set('poc_photo', pocPhotoFile);
+          
+          if (luggagePhotos.length > 0) {
+            formData.delete('luggage_photos');
+            luggagePhotos.forEach(file => formData.append('luggage_photos', file));
+          }
+          
+          if (garagePhotos.length > 0) {
+            formData.delete('garage_photos');
+            garagePhotos.forEach(file => formData.append('garage_photos', file));
           }
           
           setError(null);
@@ -250,7 +271,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
               const isCurrent = step === num;
               return (
                 <div key={num} className="relative flex-1 text-center">
-                  <span className={`text-[10px] sm:text-[11px] uppercase tracking-wider font-bold whitespace-nowrap transition-colors duration-300 ${isCurrent ? 'text-purple-700' : isActive ? 'text-gray-800' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] sm:text-[11px] uppercase tracking-wider font-bold whitespace-nowrap transition-colors duration-300 ${isCurrent ? 'text-orange-700' : isActive ? 'text-gray-800' : 'text-gray-400'}`}>
                     {label}
                   </span>
                 </div>
@@ -258,7 +279,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             })}
           </div>
           <div className="relative h-1 bg-gray-100 rounded-full mx-2">
-            <div className="absolute left-0 top-0 h-1 bg-gradient-to-r from-purple-500 to-fuchsia-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${(step / 4) * 100}%` }}></div>
+            <div className="absolute left-0 top-0 h-1 bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-500 ease-out" style={{ width: `${(step / 4) * 100}%` }}></div>
           </div>
         </div>
 
@@ -307,12 +328,12 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             <div className="mb-10">
               <label className="block text-sm font-bold text-gray-900 mb-4">What spaces are you providing? <span className="text-red-500">*</span></label>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <label className={`cursor-pointer group relative flex flex-col p-4 sm:p-5 border-2 rounded-2xl transition-all duration-300 ${providesLuggage ? 'border-purple-500 bg-purple-50/30 shadow-md shadow-purple-100' : 'border-gray-100 hover:border-gray-200 bg-white shadow-sm'}`}>
+                <label className={`cursor-pointer group relative flex flex-col p-4 sm:p-5 border-2 rounded-2xl transition-all duration-300 ${providesLuggage ? 'border-orange-500 bg-orange-50/30 shadow-md shadow-orange-100' : 'border-gray-100 hover:border-gray-200 bg-white shadow-sm'}`}>
                   <input type="checkbox" className="sr-only" checked={providesLuggage} onChange={(e) => setProvidesLuggage(e.target.checked)} />
                   <span className="text-3xl sm:text-4xl mb-2 sm:mb-3 drop-shadow-sm">🧳</span>
-                  <span className={`text-sm sm:text-base font-extrabold ${providesLuggage ? 'text-purple-700' : 'text-gray-700'}`}>Luggage Space</span>
+                  <span className={`text-sm sm:text-base font-extrabold ${providesLuggage ? 'text-orange-700' : 'text-gray-700'}`}>Luggage Space</span>
                   <span className="text-[10px] sm:text-xs font-medium text-gray-500 mt-1">Store bags and suitcases</span>
-                  <div className={`absolute top-3 right-3 sm:top-4 sm:right-4 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full transition-all duration-300 ${providesLuggage ? 'bg-purple-500 scale-100' : 'bg-gray-100 scale-0'}`}>
+                  <div className={`absolute top-3 right-3 sm:top-4 sm:right-4 flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full transition-all duration-300 ${providesLuggage ? 'bg-orange-500 scale-100' : 'bg-gray-100 scale-0'}`}>
                     <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                   </div>
                 </label>
@@ -334,7 +355,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
                 <div className="min-h-0 space-y-4">
                   <FloatingInput label="Full Name" name="full_name" value={ownerName} onChange={(e: any) => { setOwnerName(e.target.value); if(isPocSameAsOwner) setPocName(e.target.value); }} required />
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <FloatingInput label="Email Address" type="email" name="owner_email" value={ownerEmail} onChange={(e: any) => setOwnerEmail(e.target.value)} required />
+                    <FloatingInput label="Email Address" type="email" name="owner_email" value={ownerEmail} readOnly className="opacity-70 cursor-not-allowed" required />
                     <FloatingInput label="Phone Number" type="tel" name="owner_phone" value={ownerPhone} onChange={(e: any) => setOwnerPhone(e.target.value)} required />
                   </div>
                 </div>
@@ -367,8 +388,8 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             
             <div className="space-y-8">
               {providesLuggage && (
-                <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-100 rounded-3xl p-6 sm:p-8 shadow-sm">
-                  <h3 className="text-lg font-black text-purple-900 mb-6 flex items-center"><span className="text-2xl mr-3 drop-shadow-sm">🧳</span> Luggage Location</h3>
+                <div className="bg-gradient-to-br from-orange-50 to-white border border-orange-100 rounded-3xl p-6 sm:p-8 shadow-sm">
+                  <h3 className="text-lg font-black text-orange-900 mb-6 flex items-center"><span className="text-2xl mr-3 drop-shadow-sm">🧳</span> Luggage Location</h3>
                   <div className="space-y-4">
                     <FloatingInput label="Address Line 1" name="luggage_address_line1" value={luggageAddress1} onChange={(e: any) => setLuggageAddress1(e.target.value)} required />
                     <FloatingInput label="Address Line 2 (Optional)" name="luggage_address_line2" value={luggageAddress2} onChange={(e: any) => setLuggageAddress2(e.target.value)} />
@@ -377,11 +398,16 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
                       <FloatingInput label="City" name="luggage_city" value={luggageCity} onChange={(e: any) => setLuggageCity(e.target.value)} required />
                       <FloatingInput label="State" name="luggage_state" value={luggageState} onChange={(e: any) => setLuggageState(e.target.value)} required />
                     </div>
-                      <div className="pt-4 border-t border-purple-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="pt-4 border-t border-orange-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FloatingInput label="Max Bags Capacity" type="number" name="capacity_bags" min="1" value={capacityBags} onChange={(e: any) => setCapacityBags(e.target.value)} required />
                         <div>
-                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Location Photos (Optional)</label>
-                          <input type="file" multiple accept="image/*" name="luggage_photos" className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 cursor-pointer outline-none transition-colors" />
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                            Location Photos (Optional) 
+                            {luggagePhotos.length > 0 && <span className="text-green-600 ml-2">✓ {luggagePhotos.length} selected</span>}
+                          </label>
+                          <input type="file" multiple accept="image/*" name="luggage_photos" onChange={(e) => {
+                            if (e.target.files) setLuggagePhotos(Array.from(e.target.files));
+                          }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer outline-none transition-colors ${luggagePhotos.length > 0 ? 'opacity-50' : ''}`} />
                         </div>
                       </div>
                   </div>
@@ -425,8 +451,15 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
                       <FloatingInput label="Max Cars" type="number" name="capacity_cars" min="0" value={capacityCars} onChange={(e: any) => setCapacityCars(e.target.value)} required />
                       <FloatingInput label="Max Bikes" type="number" name="capacity_bikes" min="0" value={capacityBikes} onChange={(e: any) => setCapacityBikes(e.target.value)} required />
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Location Photos (Optional)</label>
-                        <input type="file" multiple accept="image/*" name="garage_photos" className="w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer outline-none transition-colors" />
+                        <div>
+                          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
+                            Location Photos (Optional)
+                            {garagePhotos.length > 0 && <span className="text-green-600 ml-2">✓ {garagePhotos.length} selected</span>}
+                          </label>
+                          <input type="file" multiple accept="image/*" name="garage_photos" onChange={(e) => {
+                            if (e.target.files) setGaragePhotos(Array.from(e.target.files));
+                          }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer outline-none transition-colors ${garagePhotos.length > 0 ? 'opacity-50' : ''}`} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -440,14 +473,14 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             <h2 className="text-2xl font-black text-gray-900 mb-6">Point of Contact</h2>
             <div className="space-y-6">
               {partnerType === 'individual' && (
-                <label className="flex items-center space-x-3 cursor-pointer bg-fuchsia-50/50 border border-fuchsia-100 p-4 rounded-2xl hover:bg-fuchsia-50 transition-colors">
+                <label className="flex items-center space-x-3 cursor-pointer bg-amber-50/50 border border-amber-100 p-4 rounded-2xl hover:bg-amber-50 transition-colors">
                   <input type="checkbox" checked={isPocSameAsOwner} onChange={(e) => {
                     const checked = e.target.checked;
                     setIsPocSameAsOwner(checked);
                     if(checked) { setPocName(ownerName); setPocPhone(ownerPhone); setPocEmail(ownerEmail); }
                     else { setPocName(''); setPocPhone(''); setPocEmail(''); }
-                  }} className="w-5 h-5 text-fuchsia-600 rounded border-gray-300 focus:ring-fuchsia-500" />
-                  <span className="text-sm font-bold text-fuchsia-900 uppercase tracking-wide">POC is same as Profile</span>
+                  }} className="w-5 h-5 text-amber-600 rounded border-gray-300 focus:ring-amber-500" />
+                  <span className="text-sm font-bold text-amber-900 uppercase tracking-wide">POC is same as Profile</span>
                 </label>
               )}
 
@@ -458,13 +491,23 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
               </div>
               
               <div className="grid sm:grid-cols-2 gap-6 pt-4 border-t border-gray-100">
-                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-purple-300 transition-colors group">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">ID Document (Aadhar/PAN) <span className="text-red-500">*</span></label>
-                  <input type="file" ref={pocIdRef} name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 transition-colors" />
+                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-orange-300 transition-colors group">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                    ID Document (Aadhar/PAN) <span className="text-red-500">*</span>
+                    {pocIdFile && <div className="text-green-600 mt-1">✓ {pocIdFile.name}</div>}
+                  </label>
+                  <input type="file" ref={pocIdRef} name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) setPocIdFile(e.target.files[0]);
+                  }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocIdFile ? 'opacity-50' : ''}`} />
                 </div>
-                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-purple-300 transition-colors group">
-                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Contact Photo (Headshot) <span className="text-red-500">*</span></label>
-                  <input type="file" ref={pocPhotoRef} name="poc_photo" accept="image/jpeg,image/png,image/webp" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 transition-colors" />
+                <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-orange-300 transition-colors group">
+                  <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                    Contact Photo (Headshot) <span className="text-red-500">*</span>
+                    {pocPhotoFile && <div className="text-green-600 mt-1">✓ {pocPhotoFile.name}</div>}
+                  </label>
+                  <input type="file" ref={pocPhotoRef} name="poc_photo" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) setPocPhotoFile(e.target.files[0]);
+                  }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocPhotoFile ? 'opacity-50' : ''}`} />
                 </div>
               </div>
             </div>
@@ -477,7 +520,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             <div className="space-y-4 mb-8">
               {/* Receipt Style Summary */}
               <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-bl-full -mr-16 -mt-16 z-0"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 rounded-bl-full -mr-16 -mt-16 z-0"></div>
                 
                 <div className="relative z-10 grid gap-6">
                   <div className="flex justify-between items-end border-b border-gray-100 pb-4">
@@ -495,7 +538,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
                   <div>
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Spaces Provided</p>
                     <div className="flex flex-wrap gap-2">
-                      {providesLuggage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-purple-50 border border-purple-100 text-purple-700 text-xs font-bold"><span className="mr-2">🧳</span> {capacityBags} Bags</span>}
+                      {providesLuggage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-100 text-orange-700 text-xs font-bold"><span className="mr-2">🧳</span> {capacityBags} Bags</span>}
                       {providesGarage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold"><span className="mr-2">🚗</span> {capacityCars} Cars, {capacityBikes} Bikes</span>}
                     </div>
                   </div>
@@ -510,27 +553,45 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
                        <p className="font-bold text-gray-900">{pocPhone}</p>
                      </div>
                   </div>
+
+                  {(pocIdFile || pocPhotoFile || kycFile || luggagePhotos.length > 0 || garagePhotos.length > 0) && (
+                    <div className="bg-orange-50/50 rounded-2xl p-4 border border-orange-100/50">
+                       <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Attached Documents</p>
+                       <div className="space-y-1.5">
+                         {pocIdFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> ID Document: {pocIdFile.name}</p>}
+                         {pocPhotoFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Contact Photo: {pocPhotoFile.name}</p>}
+                         {kycFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> KYC/ID Proof: {kycFile.name}</p>}
+                         {luggagePhotos.length > 0 && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Luggage Photos ({luggagePhotos.length})</p>}
+                         {garagePhotos.length > 0 && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Garage Photos ({garagePhotos.length})</p>}
+                       </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
               <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 shadow-sm">
                 <h4 className="text-sm font-black text-gray-900 mb-4">Required Documents</h4>
                 <div className="space-y-4">
-                  <FloatingInput label="System Alert Phone" type="tel" name="contact_phone" value={contactPhone} onChange={(e: any) => setContactPhone(e.target.value)} required />
-                  <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-purple-300 transition-colors">
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">{partnerType === 'individual' ? 'ID Proof Document (PDF/JPG)' : 'Business KYC Document (PDF/JPG)'} <span className="text-red-500">*</span></label>
-                    <input type="file" ref={kycRef} name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-purple-100 file:text-purple-700 hover:file:bg-purple-200 transition-colors" />
+                  <FloatingInput label="System Alert Phone" type="tel" name="contact_phone" value={contactPhone} readOnly className="opacity-70 cursor-not-allowed" required />
+                  <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-orange-300 transition-colors">
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
+                      {partnerType === 'individual' ? 'ID Proof Document (PDF/JPG)' : 'Business KYC Document (PDF/JPG)'} <span className="text-red-500">*</span>
+                      {kycFile && <div className="text-green-600 mt-1">✓ {kycFile.name}</div>}
+                    </label>
+                    <input type="file" ref={kycRef} name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) setKycFile(e.target.files[0]);
+                    }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${kycFile ? 'opacity-50' : ''}`} />
                   </div>
                 </div>
               </div>
 
               <label className="flex items-start space-x-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 cursor-pointer hover:bg-gray-100 transition-colors">
-                <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 text-purple-600 rounded-md border-gray-300 focus:ring-purple-500" />
+                <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 text-orange-600 rounded-md border-gray-300 focus:ring-orange-500" />
                 <span className="text-sm font-medium text-gray-700">
                   I have read and agree to the{' '}
-                  <button type="button" onClick={() => setShowTerms(true)} className="text-purple-600 font-bold hover:underline">Terms of Service</button>{' '}
+                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 font-bold hover:underline">Terms of Service</button>{' '}
                   and{' '}
-                  <button type="button" onClick={() => setShowPrivacy(true)} className="text-purple-600 font-bold hover:underline">Privacy Policy</button>.
+                  <button type="button" onClick={() => setShowPrivacy(true)} className="text-orange-600 font-bold hover:underline">Privacy Policy</button>.
                 </span>
               </label>
             </div>
@@ -560,7 +621,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             <button 
               type="submit" 
               disabled={isSubmitting}
-              className="px-8 py-3 bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white rounded-2xl font-bold text-sm tracking-wide uppercase shadow-lg shadow-purple-200 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:hover:translate-y-0 active:scale-95 flex items-center"
+              className="px-8 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-2xl font-bold text-sm tracking-wide uppercase shadow-lg shadow-orange-200 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:hover:translate-y-0 active:scale-95 flex items-center"
             >
               {isSubmitting ? (
                 <span className="flex items-center">
@@ -602,6 +663,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
               <p><span className="font-bold text-gray-900">Data Protection:</span> We use industry-standard encryption to protect your sensitive documents.</p>
             </div>
           </div>
+          <button type="button" onClick={() => setShowPrivacy(false)} className="mt-8 w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors">I Understand</button>
         </div>
       </div>
       
@@ -611,8 +673,8 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
           <div className="absolute inset-0 bg-white/90 backdrop-blur-md transition-all duration-300"></div>
           <div className="relative z-10 flex flex-col items-center text-center transition-all duration-500 transform scale-100">
             <div className="relative w-32 h-32 mb-8">
-              <div className="absolute inset-0 bg-purple-100 rounded-full animate-ping opacity-75"></div>
-              <div className="relative flex items-center justify-center w-full h-full bg-white border-4 border-purple-500 rounded-full shadow-2xl overflow-hidden">
+              <div className="absolute inset-0 bg-orange-100 rounded-full animate-ping opacity-75"></div>
+              <div className="relative flex items-center justify-center w-full h-full bg-white border-4 border-orange-500 rounded-full shadow-2xl overflow-hidden">
                 <span className="text-5xl animate-bounce drop-shadow-md">🧳</span>
               </div>
             </div>
@@ -623,7 +685,7 @@ export default function OnboardingForm({ defaultEmail, userId }: { defaultEmail:
             
             {/* Custom Progress Bar */}
             <div className="w-64 h-2 bg-gray-100 rounded-full mt-8 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-purple-500 to-fuchsia-500 w-full animate-[progress_2s_ease-in-out_infinite]" style={{
+              <div className="h-full bg-gradient-to-r from-orange-500 to-amber-500 w-full animate-[progress_2s_ease-in-out_infinite]" style={{
                 animation: 'progress 2s ease-in-out infinite'
               }}></div>
             </div>

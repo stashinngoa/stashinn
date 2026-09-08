@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { updateLocationStatus, updatePocStatus, updatePartnerStatus, updateLocationCommission, updateLocationPricing } from '../actions';
+import LocationScoringEngine from '../LocationScoringEngine';
 
 function SubmitButton({ defaultText, loadingText, className }: { defaultText: string, loadingText: string, className: string }) {
   const { pending } = useFormStatus();
@@ -13,7 +14,7 @@ function SubmitButton({ defaultText, loadingText, className }: { defaultText: st
   );
 }
 
-export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs }: { partner: any; locations: any[]; pocs: any[]; kycDocs: any[] }) {
+export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs, scoringRules }: { partner: any; locations: any[]; pocs: any[]; kycDocs: any[], scoringRules?: any }) {
   const [activeTab, setActiveTab] = useState('locations');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<{type: 'location' | 'poc', data: any} | null>(null);
@@ -412,65 +413,17 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                     </form>
                   </div>
 
-                  {/* Pricing Config */}
-                  <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-2">Hourly Rates</h3>
-                    <p className="text-xs text-gray-500 mb-3">Override the hourly pricing configuration for this location.</p>
-                    <form 
-                      action={async (formData) => {
-                        const res = await updateLocationPricing(selectedEntity.data.id, partner.id, selectedEntity.data.location_type, formData);
-                        if (res?.error) alert(res.error);
-                        else alert('Location pricing updated successfully!');
-                      }} 
-                      className="flex flex-col sm:flex-row gap-4"
-                    >
-                      {selectedEntity.data.location_type === 'luggage' && (
-                        <div className="relative flex-1">
-                          <label className="block text-xs text-gray-500 mb-1">Bag Rate / Hr</label>
-                          <span className="absolute left-3 top-[28px] text-gray-500 text-sm">₹</span>
-                          <input 
-                            type="number" 
-                            name="price_per_hour" 
-                            defaultValue={selectedEntity.data.price_per_hour}
-                            step="0.01"
-                            min="0"
-                            className="w-full pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                          />
-                        </div>
-                      )}
-                      {selectedEntity.data.location_type === 'garage' && (
-                        <>
-                          <div className="relative flex-1">
-                            <label className="block text-xs text-gray-500 mb-1">Bike Rate / Hr</label>
-                            <span className="absolute left-3 top-[28px] text-gray-500 text-sm">₹</span>
-                            <input 
-                              type="number" 
-                              name="bike_rate_hr" 
-                              defaultValue={Array.isArray(selectedEntity.data.vehicle_pricing) ? selectedEntity.data.vehicle_pricing[0]?.bike_rate_hr : selectedEntity.data.vehicle_pricing?.bike_rate_hr}
-                              step="0.01"
-                              min="0"
-                              className="w-full pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                            />
-                          </div>
-                          <div className="relative flex-1">
-                            <label className="block text-xs text-gray-500 mb-1">Car Rate / Hr</label>
-                            <span className="absolute left-3 top-[28px] text-gray-500 text-sm">₹</span>
-                            <input 
-                              type="number" 
-                              name="sedan_rate_hr" 
-                              defaultValue={Array.isArray(selectedEntity.data.vehicle_pricing) ? selectedEntity.data.vehicle_pricing[0]?.sedan_rate_hr : selectedEntity.data.vehicle_pricing?.sedan_rate_hr}
-                              step="0.01"
-                              min="0"
-                              className="w-full pl-7 pr-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                            />
-                          </div>
-                        </>
-                      )}
-                      <div className="flex items-end">
-                        <SubmitButton defaultText="Save Pricing" loadingText="Saving..." className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
-                      </div>
-                    </form>
-                  </div>
+                  {scoringRules ? (
+                    <LocationScoringEngine 
+                      location={selectedEntity.data} 
+                      partner={partner} 
+                      rules={scoringRules} 
+                    />
+                  ) : (
+                    <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800 text-sm text-red-500">
+                      Scoring rules are not configured. Cannot calculate rates.
+                    </div>
+                  )}
 
                   {/* Associated POCs */}
                   <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-800">

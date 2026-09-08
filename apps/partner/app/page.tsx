@@ -2,6 +2,8 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import ThemeToggle from '../components/ThemeToggle';
+import InlineLoginForm from './InlineLoginForm';
+import { logger } from '@stashinn/lib/services/logger';
 
 export default async function PartnerHome() {
   const supabase = await createClient();
@@ -21,7 +23,22 @@ export default async function PartnerHome() {
     }
   }
 
-  return <MarketingLandingView />;
+  const loginAction = async (formData: FormData) => {
+    'use server';
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    
+    const supabaseClient = await createClient();
+    const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      logger.warn('Auth Failure: Partner login failed', { email, error: error.message });
+      return redirect(`/?error=${encodeURIComponent(error.message)}`);
+    }
+    return redirect('/dashboard');
+  };
+
+  return <MarketingLandingView loginAction={loginAction} />;
 }
 
 function IncompleteOnboardingView() {
@@ -56,7 +73,7 @@ function IncompleteOnboardingView() {
   );
 }
 
-function MarketingLandingView() {
+function MarketingLandingView({ loginAction }: { loginAction: (formData: FormData) => Promise<void> }) {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors selection:bg-orange-200 dark:selection:bg-orange-900 font-inter">
       {/* Navbar */}
@@ -72,13 +89,13 @@ function MarketingLandingView() {
           </div>
           <div className="flex items-center gap-3 md:gap-6">
             <ThemeToggle />
-            <Link href="/login" className="flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-gray-800 md:bg-transparent md:dark:bg-transparent text-white md:text-gray-600 md:dark:text-gray-400 px-4 py-2 md:px-0 md:py-0 rounded-full md:rounded-none hover:text-gray-300 md:hover:text-orange-600 md:dark:hover:text-orange-500 transition-colors shadow-sm md:shadow-none">
+            <a href="#login-section" className="flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-gray-800 md:bg-transparent md:dark:bg-transparent text-white md:text-gray-600 md:dark:text-gray-400 px-4 py-2 md:px-0 md:py-0 rounded-full md:rounded-none hover:text-gray-300 md:hover:text-orange-600 md:dark:hover:text-orange-500 transition-colors shadow-sm md:shadow-none">
               <svg className="w-4 h-4 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
               Log In
-            </Link>
-            <Link href="/login" className="hidden md:flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-orange-600 text-white px-5 py-2.5 rounded-full hover:bg-gray-800 dark:hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-sm">
+            </a>
+            <Link href="/register" className="hidden md:flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-orange-600 text-white px-5 py-2.5 rounded-full hover:bg-gray-800 dark:hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-sm">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" />
               </svg>
@@ -90,9 +107,11 @@ function MarketingLandingView() {
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-12 md:pt-20 pb-20 md:pb-32">
-        {/* Background Gradients (Text side only) */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        {/* Background Gradients */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex justify-center">
           <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-orange-300/40 dark:bg-orange-900/30 blur-[140px] rounded-full"></div>
+          <div className="absolute top-1/3 w-[800px] h-[400px] bg-orange-400/10 dark:bg-orange-700/10 blur-[140px] rounded-full"></div>
+          <div className="absolute top-1/4 -right-32 w-[600px] h-[600px] bg-orange-400/20 dark:bg-orange-800/20 blur-[140px] rounded-full"></div>
         </div>
 
         <div className="w-full px-4 md:px-8 flex flex-col lg:flex-row items-center gap-10 md:gap-16">
@@ -113,7 +132,7 @@ function MarketingLandingView() {
               Join thousands of hotels, cafes, and local shops earning passive income by securely storing luggage for travelers.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center lg:justify-start">
-              <Link href="/login" className="inline-flex justify-center items-center px-6 py-3.5 md:px-8 md:py-4 bg-orange-600 text-white text-base md:text-lg font-semibold rounded-2xl hover:bg-orange-700 transition-all shadow-xl shadow-orange-200 dark:shadow-none hover:-translate-y-1">
+              <Link href="/register" className="inline-flex justify-center items-center px-6 py-3.5 md:px-8 md:py-4 bg-orange-600 text-white text-base md:text-lg font-semibold rounded-2xl hover:bg-orange-700 transition-all shadow-xl shadow-orange-200 dark:shadow-none hover:-translate-y-1">
                 Start Earning Today
               </Link>
               <a href="#how-it-works" className="inline-flex justify-center items-center px-6 py-3.5 md:px-8 md:py-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-base md:text-lg font-semibold rounded-2xl border-2 border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
@@ -130,81 +149,8 @@ function MarketingLandingView() {
             </div>
           </div>
 
-          {/* Abstract CSS Art Hero Graphic */}
-          <div className="hidden lg:flex lg:w-1/2 relative w-full h-[500px] items-center justify-center">
-            {/* The Vault / Abstract Lockers */}
-            <div className="relative w-full max-w-md aspect-square perspective-1000">
-              {/* Decorative rings */}
-              <div className="absolute inset-0 border-[40px] border-gray-50 dark:border-gray-900 rounded-full animate-[spin_60s_linear_infinite]"></div>
-              <div className="absolute inset-8 border-[2px] border-dashed border-orange-200 dark:border-orange-900/50 rounded-full animate-[spin_40s_linear_infinite_reverse]"></div>
-              
-              {/* Center composition */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                {/* Main vault box */}
-                <div className="relative w-64 h-64 bg-white dark:bg-gray-900 rounded-3xl shadow-2xl shadow-orange-900/10 dark:shadow-orange-900/20 border border-gray-100 dark:border-gray-800 flex flex-col p-6 overflow-hidden transform hover:scale-105 transition-transform duration-500">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-orange-100 dark:from-orange-900/30 to-amber-50 dark:to-amber-900/10 rounded-bl-full -mr-8 -mt-8 opacity-50"></div>
-                  
-                  {/* Grid of mini lockers inside the vault */}
-                  <div className="flex-1 grid grid-cols-2 gap-4">
-                    <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl shadow-inner relative overflow-hidden group">
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,1)]"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white/90 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-center">
-                      <span className="text-gray-400 dark:text-gray-500 font-bold text-sm">EMPTY</span>
-                    </div>
-
-                    <div className="bg-gray-50 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl flex items-center justify-center">
-                      <span className="text-gray-400 dark:text-gray-500 font-bold text-sm">EMPTY</span>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl shadow-inner relative overflow-hidden group">
-                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,1)]"></div>
-                      <div className="absolute inset-0 flex items-center justify-center">
-                         <svg className="w-8 h-8 text-white/90 transform group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center">
-                    <div className="h-2 w-16 bg-gray-200 dark:bg-gray-700 rounded-full"></div>
-                    <div className="text-xs font-bold text-orange-600 dark:text-orange-500 tracking-widest">SECURE</div>
-                  </div>
-                </div>
-
-                {/* Floating elements */}
-                <div className="absolute -right-8 top-12 bg-white dark:bg-gray-900 px-4 py-3 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-black/50 border border-gray-100 dark:border-gray-800 animate-bounce" style={{ animationDuration: '3s' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">New Booking</div>
-                      <div className="text-sm font-bold text-gray-900 dark:text-white">+ ₹200.00</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="absolute -left-12 bottom-20 bg-gray-900 dark:bg-gray-800 px-4 py-3 rounded-2xl shadow-xl shadow-gray-900/20 border border-gray-800 dark:border-gray-700 animate-bounce" style={{ animationDuration: '4s', animationDelay: '1s' }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-800 dark:bg-gray-700 flex items-center justify-center text-xl">
-                      🛡️
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-white">Insured Storage</div>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
+          <div className="w-full lg:w-1/2 flex justify-center mt-12 lg:mt-0 px-4">
+            <InlineLoginForm loginAction={loginAction} />
           </div>
         </div>
       </section>
@@ -255,7 +201,7 @@ function MarketingLandingView() {
       {/* Footer CTA */}
       <section className="bg-gradient-to-br from-gray-900 to-black dark:from-gray-950 dark:to-black py-20 text-center border-t border-gray-800">
         <h2 className="text-3xl font-bold text-white mb-6">Ready to maximize your space?</h2>
-        <Link href="/login" className="inline-flex px-8 py-4 bg-orange-600 text-white font-semibold rounded-full hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-orange-900/50">
+        <Link href="/register" className="inline-flex px-8 py-4 bg-orange-600 text-white font-semibold rounded-full hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-orange-900/50">
           Join StashInn Partner Network
         </Link>
       </section>

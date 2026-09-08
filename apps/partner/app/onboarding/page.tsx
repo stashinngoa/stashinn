@@ -41,7 +41,11 @@ export default async function OnboardingPage() {
         </div>
         
         <div className="bg-white dark:bg-gray-900 py-8 px-4 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100 dark:border-gray-800 transition-colors">
-          <OnboardingForm defaultEmail={user.email || ''} userId={user.id} />
+          <OnboardingForm 
+            defaultEmail={user.email || ''} 
+            defaultName={user.user_metadata?.full_name || ''}
+            userId={user.id} 
+          />
         </div>
       </div>
     </div>

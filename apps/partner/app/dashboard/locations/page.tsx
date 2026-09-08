@@ -18,16 +18,19 @@ export default async function LocationsList() {
     .eq('partner_id', partner?.id)
     .order('created_at', { ascending: false });
 
-  const { data: primaryPoc } = await supabase
+  const { data: primaryPocs } = await supabase
     .from('partner_pocs')
     .select('location_id')
     .eq('partner_id', partner?.id)
-    .eq('is_primary', true)
-    .single();
+    .eq('is_primary', true);
     
+  // Support multiple primary locations if user onboarded with both
+  const primaryLocationIds = new Set(primaryPocs?.map(p => p.location_id) || []);
+  
   // Fallback to oldest location if no explicit primary POC
-  const fallbackPrimaryId = locations && locations.length > 0 ? locations[locations.length - 1].id : null;
-  const primaryLocationId = primaryPoc?.location_id || fallbackPrimaryId;
+  if (primaryLocationIds.size === 0 && locations && locations.length > 0) {
+    primaryLocationIds.add(locations[locations.length - 1].id);
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -54,7 +57,7 @@ export default async function LocationsList() {
             key={loc.id} 
             location={loc} 
             partnerStatus={partner?.status} 
-            isPrimary={loc.id === primaryLocationId} 
+            isPrimary={primaryLocationIds.has(loc.id)} 
           />
         ))}
         {(!locations || locations.length === 0) && (

@@ -283,3 +283,36 @@ export async function updateLocationPricing(locationId: string, partnerId: strin
   revalidatePath('/dashboard/partners/' + partnerId);
   return { error: null };
 }
+
+export async function updateLocationScoreAndRates(locationId: string, formData: FormData) {
+  const supabase = await createClient();
+  const payloadStr = formData.get("payload") as string;
+  if (!payloadStr) return { error: "Missing payload" };
+  
+  const payload = JSON.parse(payloadStr);
+  
+  const { error: locError } = await supabase.from("partner_locations").update({
+    auto_score: payload.auto_score,
+    score_padding: payload.score_padding,
+    final_score: payload.final_score,
+    transit_proximity: payload.transit_proximity
+  }).eq("id", locationId);
+  if (locError) return { error: locError.message };
+  
+  if (payload.location_type === "luggage" && payload.calculated_rates?.luggage) {
+    const { error: pError } = await supabase.from("partner_locations").update({
+      price_per_hour: payload.calculated_rates.luggage
+    }).eq("id", locationId);
+    if (pError) return { error: pError.message };
+  } else if (payload.location_type === "garage" && payload.calculated_rates?.bike) {
+    const { error: pError } = await supabase.from("vehicle_pricing").update({
+      bike_rate_hr: payload.calculated_rates.bike,
+      sedan_rate_hr: payload.calculated_rates.car
+    }).eq("location_id", locationId);
+    if (pError) return { error: pError.message };
+  }
+  
+  revalidatePath(`/dashboard/partners/`);
+  return { error: null };
+}
+

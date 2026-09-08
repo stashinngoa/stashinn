@@ -5,7 +5,7 @@ import { logger } from '@stashinn/lib/services/logger';
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { supabase, supabaseResponse } = await updateSession(request);
   const path = request.nextUrl.pathname;
-  const isPublicRoute = path === '/login' || path === '/register' || path === '/';
+  const isPublicRoute = path === '/register' || path === '/';
 
   const {
     data: { user },
@@ -13,7 +13,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = '/';
+    url.hash = 'login-section';
     url.searchParams.set('next', path);
     return NextResponse.redirect(url);
   }
@@ -46,7 +47,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return NextResponse.rewrite(url);
     }
     
-    if ((path === '/login' || path === '/register') && role === 'partner') {
+    if (path === '/register' && role === 'partner') {
       const url = request.nextUrl.clone();
       url.pathname = '/dashboard';
       return NextResponse.redirect(url);

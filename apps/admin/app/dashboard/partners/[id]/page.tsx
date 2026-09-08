@@ -56,6 +56,8 @@ export default async function PartnerDetailsPage(props: { params: Promise<{ id: 
 
   const kycDocs = await getKycDocs(partnerId);
 
+  const { data: scoringRules } = await supabase.from('system_scoring_rules').select('*').eq('id', 1).single();
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -75,6 +77,7 @@ export default async function PartnerDetailsPage(props: { params: Promise<{ id: 
         locations={locations || []} 
         pocs={pocs || []} 
         kycDocs={kycDocs} 
+        scoringRules={scoringRules}
       />
     </div>
   );
