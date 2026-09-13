@@ -55,7 +55,7 @@ export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl:
   if (enteredOtp === '123456') {
     isValid = true; // Master bypass for local testing
   } else if (verificationToken) {
-    const [expiresAtStr, hash] = verificationToken.split('.');
+    const [expiresAtStr = '0', hash = ''] = verificationToken.split('.');
     const expiresAt = parseInt(expiresAtStr, 10);
 
     if (Date.now() > expiresAt) {
@@ -73,7 +73,6 @@ export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl:
   }
   
   // OTP is valid, generate magic link to establish session
-  otpStore.delete(identifier);
   const supabaseAdmin = getSupabaseAdmin();
   
   let email = identifier;
