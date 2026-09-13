@@ -19,7 +19,7 @@ export default async function NewLocationPage() {
 
   const { data: existingPocs } = await supabase
     .from('partner_pocs')
-    .select('*')
+    .select('*, partner_locations(name)')
     .eq('partner_id', partner.id)
     .order('created_at', { ascending: false });
 

@@ -4,7 +4,7 @@ const nextConfig = {
   serverExternalPackages: ['jspdf', 'fflate'],
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: '50mb',
     },
   }
 };

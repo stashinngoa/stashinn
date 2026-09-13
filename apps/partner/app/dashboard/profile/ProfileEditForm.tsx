@@ -7,6 +7,9 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  const [businessType, setBusinessType] = useState(initialData.business_type || 'Hostel');
+  const isIndividual = businessType.toLowerCase() === 'individual';
+
   const handleSubmit = async (formData: FormData) => {
     setIsSubmitting(true);
     setMessage(null);
@@ -31,6 +34,20 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
 
   return (
     <form action={handleSubmit} className="space-y-6">
+      {initialData.status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start space-x-3 mb-6">
+          <svg className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <h3 className="text-sm font-bold text-yellow-800">Application Pending Review</h3>
+            <p className="text-sm text-yellow-700 mt-1">
+              Your business application is currently being reviewed. You can update your onboarding details below if you made a mistake, but you cannot accept bookings or add new locations until you are approved.
+            </p>
+          </div>
+        </div>
+      )}
+
       {message && (
         <div className={`p-4 rounded-lg text-sm font-medium ${message.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {message.text}
@@ -39,13 +56,21 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Business Name *</label>
-          <input type="text" name="business_name" defaultValue={initialData.business_name} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            {isIndividual ? 'Full Name *' : 'Business Name *'}
+          </label>
+          <input type="text" name="business_name" defaultValue={initialData.business_name} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-900 dark:text-white" />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Business Type</label>
-          <select name="business_type" defaultValue={initialData.business_type || 'Hostel'} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Business Type</label>
+          <select 
+            name="business_type" 
+            value={businessType} 
+            onChange={(e) => setBusinessType(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none dark:bg-gray-900 dark:text-white"
+          >
+            <option value="Individual">Individual (No registered business)</option>
             <option value="Hostel">Hostel</option>
             <option value="Hotel">Hotel</option>
             <option value="Cafe">Cafe / Restaurant</option>
@@ -55,18 +80,20 @@ export default function ProfileEditForm({ initialData }: { initialData: any }) {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <input type="text" readOnly value={initialData.status.toUpperCase()} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-500 font-semibold cursor-not-allowed" />
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+          <input type="text" readOnly value={initialData.status.toUpperCase()} className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-500 dark:text-gray-400 font-bold cursor-not-allowed" />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">GST Number</label>
-          <input type="text" name="gstin" defaultValue={initialData.gstin || ''} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase" />
-        </div>
+        {!isIndividual && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">GST Number</label>
+            <input type="text" name="gstin" defaultValue={initialData.gstin || ''} className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase dark:bg-gray-900 dark:text-white" />
+          </div>
+        )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">PAN Number *</label>
-          <input type="text" name="pan" defaultValue={initialData.pan || ''} required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase" />
+        <div className={isIndividual ? 'col-span-2' : ''}>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">PAN Number *</label>
+          <input type="text" name="pan" defaultValue={initialData.pan || ''} required className="w-full px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none uppercase dark:bg-gray-900 dark:text-white" />
         </div>
       </div>
 

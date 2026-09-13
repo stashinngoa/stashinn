@@ -7,7 +7,7 @@ export default async function LocationDetailsPage({
   searchParams 
 }: { 
   params: { id: string } | Promise<{ id: string }>,
-  searchParams: { in?: string, out?: string, bags?: string } | Promise<{ in?: string, out?: string, bags?: string }>
+  searchParams: { in?: string, out?: string, bags?: string, vehicleType?: string } | Promise<{ in?: string, out?: string, bags?: string, vehicleType?: string }>
 }) {
   const resolvedParams = await params;
   const resolvedSearch = await searchParams;
@@ -15,18 +15,26 @@ export default async function LocationDetailsPage({
 
   const { data: location } = await supabase
     .from('partner_locations')
-    .select('*, partners(business_name)')
+    .select('*, partners(business_name), vehicle_pricing(*)')
     .eq('id', resolvedParams.id)
     .single();
 
   if (!location) notFound();
+  
+  const isGarage = location.location_type === 'garage';
+  const vehicleType = resolvedSearch.vehicleType || 'bike';
+  const label = isGarage ? (vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1) + ' Space') : 'Luggage Storage';
 
   return (
     <div className="min-h-screen bg-gray-100 font-inter">
       {/* Navbar Minimal */}
-      <header className="h-16 border-b border-gray-100 flex items-center px-6">
-        <a href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-          StashInn
+      <header className="h-16 border-b border-gray-100 dark:border-gray-800 flex items-center px-6 bg-white dark:bg-gray-950">
+        <a href="/" className="flex-1 min-w-0 flex items-center gap-2">
+          <img src="/StashInn_Light_no_text.png" alt="StashInn Logo" className="h-8 w-auto dark:hidden" />
+          <img src="/StashInn_Dark_no_text.png" alt="StashInn Logo" className="h-8 w-auto hidden dark:block" />
+          <span className="text-xl font-black tracking-tighter">
+            <span className="text-gray-900 dark:text-white">Stash</span><span className="text-brand-orange">Inn</span>
+          </span>
         </a>
       </header>
 
@@ -34,7 +42,7 @@ export default async function LocationDetailsPage({
         <h1 className="text-3xl font-bold text-gray-900 mb-2">{location.name}</h1>
         <div className="flex items-center text-sm text-gray-600 mb-6">
           <span className="font-semibold text-gray-900 mr-2">📍 {location.address_line1}, {location.city}</span>
-          <span>• Operated by {location.partners?.business_name}</span>
+          <span>💼 Operated by {location.partners?.business_name}</span>
         </div>
 
         {/* Photo Gallery */}
@@ -66,8 +74,29 @@ export default async function LocationDetailsPage({
             <section>
               <h2 className="text-xl font-bold text-gray-900 mb-4">About this location</h2>
               <p className="text-gray-600 leading-relaxed">
-                Secure your luggage at {location.name}. Centrally located in {location.city}, this facility offers premium luggage storage with verified security. Drop your bags and enjoy your day hands-free.
+                {isGarage ? (
+                  `Secure your vehicle at ${location.name}. Centrally located in ${location.city}, this garage offers premium vehicle parking with verified security. Park your vehicle and enjoy your day.`
+                ) : (
+                  `Secure your luggage at ${location.name}. Centrally located in ${location.city}, this facility offers premium luggage storage with verified security. Drop your bags and enjoy your day hands-free.`
+                )}
               </p>
+            </section>
+            
+            <hr className="border-gray-100" />
+            
+            {/* Direct Map Pin */}
+            <section>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">Location Map</h2>
+              <div className="rounded-xl overflow-hidden border border-gray-200 h-64 bg-gray-100">
+                <iframe 
+                  width="100%" 
+                  height="100%" 
+                  frameBorder="0" 
+                  style={{ border: 0 }} 
+                  src={`https://maps.google.com/maps?q=${location.latitude},${location.longitude}&z=15&output=embed`} 
+                  allowFullScreen
+                ></iframe>
+              </div>
             </section>
 
             <hr className="border-gray-100" />
@@ -77,7 +106,7 @@ export default async function LocationDetailsPage({
               <div className="grid grid-cols-2 gap-4">
                 {(location.amenities || []).map((amenity: string) => (
                   <div key={amenity} className="flex items-center text-gray-700">
-                    <svg className="w-5 h-5 mr-3 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-5 h-5 mr-3 text-brand-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {amenity}
@@ -102,6 +131,9 @@ export default async function LocationDetailsPage({
             <BookingSidebar 
               location={location} 
               initialSearch={resolvedSearch} 
+              isGarage={isGarage}
+              vehicleType={vehicleType}
+              label={label}
             />
           </div>
         </div>

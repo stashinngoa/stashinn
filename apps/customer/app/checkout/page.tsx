@@ -7,11 +7,11 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
   const resolvedParams = await searchParams;
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-
-  // If not logged in, force them to login, passing the current URL so they can come back
-  if (!user) {
-    const currentQuery = new URLSearchParams(resolvedParams as Record<string, string>).toString();
-    redirect(`/login?next=/checkout?${currentQuery}`);
+  
+  let userProfile = null;
+  if (user) {
+    const { data: profile } = await supabase.from('users').select('*').eq('id', user.id).single();
+    userProfile = profile;
   }
 
   if (!resolvedParams.location_id) {
@@ -32,8 +32,12 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
   return (
     <div className="min-h-screen bg-gray-100 font-inter">
       <header className="h-16 bg-white border-b border-gray-100 flex items-center px-6">
-        <a href="/" className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
-          StashInn
+        <a href="/" className="flex-1 min-w-0 flex items-center gap-2">
+          <img src="/StashInn_Light_no_text.png" alt="StashInn Logo" className="h-8 w-auto dark:hidden" />
+          <img src="/StashInn_Dark_no_text.png" alt="StashInn Logo" className="h-8 w-auto hidden dark:block" />
+          <span className="text-xl font-black tracking-tighter">
+            <span className="text-gray-900 dark:text-white">Stash</span><span className="text-brand-orange">Inn</span>
+          </span>
         </a>
       </header>
 
@@ -51,7 +55,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
             <div>
               <h2 className="text-xl font-bold text-gray-900">{location.name}</h2>
               <p className="text-sm text-gray-500 mt-1">{location.address_line1}, {location.city}</p>
-              <p className="text-sm font-medium text-purple-600 mt-2">Operated by {location.partners?.business_name}</p>
+              <p className="text-sm font-medium text-brand-orange mt-2">Operated by {location.partners?.business_name}</p>
             </div>
           </div>
 
@@ -84,7 +88,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
           </div>
 
           {/* Price Breakdown */}
-          <div className="p-6">
+          <div className="p-6 border-b border-gray-100">
             <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Price Breakdown</h3>
             <div className="flex justify-between text-gray-600 mb-2">
               <span>{resolvedParams.mode === 'garage' ? 'Parking fee' : `Storage fee (${resolvedParams.bags} bags)`}</span>
@@ -105,6 +109,7 @@ export default async function CheckoutPage({ searchParams }: { searchParams: { l
             location={location} 
             resolvedParams={resolvedParams} 
             razorpayKey={process.env.RAZORPAY_KEY_ID || ''} 
+            userProfile={userProfile}
           />
         </div>
       </main>
