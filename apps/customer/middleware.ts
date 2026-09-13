@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     path === '/login' || 
     path === '/register' || 
     path.startsWith('/search') || 
+    path.startsWith('/checkout') ||
     path.startsWith('/locations');
   // Check auth state
   const {

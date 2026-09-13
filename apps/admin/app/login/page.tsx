@@ -24,7 +24,10 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-700">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-white">StashInn Admin</h2>
+          <div className="flex justify-center mb-4">
+            <img src="/StashInn_Dark.png" alt="StashInn" className="h-16 w-auto" />
+          </div>
+          <h2 className="text-center text-3xl font-extrabold text-white">StashInn Admin</h2>
           <p className="mt-2 text-center text-sm text-gray-400">System Operations Login</p>
         </div>
         

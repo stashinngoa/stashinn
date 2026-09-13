@@ -103,11 +103,11 @@ INSERT INTO public.partner_locations (id, partner_id, name, address_line1, addre
 -- SEED PARTNER POCs
 -- ============================================================================
 
-INSERT INTO public.partner_pocs (partner_id, location_id, name, phone, email, is_primary) VALUES
-  ('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Rajesh Kumar', '+919876500001', 'rajesh@hotelmandovi.com', TRUE),
-  ('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'Amit Verma', '+919876500011', 'amit@hotelmandovi.com', FALSE),
-  ('a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000003', 'Priya Naik', '+919876500002', 'priya@calangutecafe.com', TRUE),
-  ('a0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000004', 'Suresh Dessai', '+919876500003', NULL, TRUE);
+INSERT INTO public.partner_pocs (partner_id, location_id, name, phone, email, is_primary, is_verified) VALUES
+  ('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000001', 'Rajesh Kumar', '+919876500001', 'rajesh@hotelmandovi.com', TRUE, TRUE),
+  ('a0000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-000000000002', 'Amit Verma', '+919876500011', 'amit@hotelmandovi.com', FALSE, TRUE),
+  ('a0000000-0000-0000-0000-000000000002', 'b0000000-0000-0000-0000-000000000003', 'Priya Naik', '+919876500002', 'priya@calangutecafe.com', TRUE, TRUE),
+  ('a0000000-0000-0000-0000-000000000003', 'b0000000-0000-0000-0000-000000000004', 'Suresh Dessai', '+919876500003', NULL, TRUE, FALSE);
 
 -- ============================================================================
 -- SEED BOOKINGS (sample lifecycle)

@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "StashInn — Store Your Luggage Safely",
   description:
     "Find secure, verified luggage storage spots near you. Book in seconds, travel hands-free.",
+  other: {
+    "fast2sms": "ArHgBIs0ZCwLB82Iw7D42zuQbFs2OiOO"
+  }
 };
 
 export default function RootLayout({
@@ -13,7 +16,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className="scroll-smooth">
       <body>{children}</body>
     </html>
   );
