@@ -71,11 +71,15 @@ export default function LocationCard({ location, partnerStatus, isPrimary }: { l
           <div className="mt-4 text-sm text-gray-600 space-y-2">
             <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
               <span className="text-xs font-semibold text-gray-500">Bike</span>
-              <span className="font-bold">{location.vehicle_pricing?.[0]?.bike_capacity || 0} Slots</span>
+              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.bike_capacity : location.vehicle_pricing?.bike_capacity) || 0} Slots</span>
             </div>
             <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
               <span className="text-xs font-semibold text-gray-500">Sedan</span>
-              <span className="font-bold">{location.vehicle_pricing?.[0]?.sedan_capacity || 0} Slots</span>
+              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.sedan_capacity : location.vehicle_pricing?.sedan_capacity) || 0} Slots</span>
+            </div>
+            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
+              <span className="text-xs font-semibold text-gray-500">SUV</span>
+              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.suv_capacity : location.vehicle_pricing?.suv_capacity) || 0} Slots</span>
             </div>
           </div>
         )}

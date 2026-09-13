@@ -81,7 +81,8 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
   const [garageCity, setGarageCity] = useState('');
   const [garageState, setGarageState] = useState('');
   const [garagePostalCode, setGaragePostalCode] = useState('');
-  const [capacityCars, setCapacityCars] = useState('');
+  const [capacitySedans, setCapacitySedans] = useState('');
+  const [capacitySuvs, setCapacitySuvs] = useState('');
   const [capacityBikes, setCapacityBikes] = useState('');
 
   // Step 3: POC
@@ -174,7 +175,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
           if (!garageState) return setValidationError('Garage State is required.'), false;
           if (!garagePostalCode || !isValidPin(garagePostalCode)) return setValidationError('Valid 6-digit Garage Postal Code is required.'), false;
         }
-        if (!capacityCars || !capacityBikes) return setValidationError('Car and Bike capacities are required.'), false;
+        if (!capacitySedans || !capacitySuvs || !capacityBikes) return setValidationError('Sedan, SUV, and Bike capacities are required.'), false;
       }
     }
 
@@ -405,6 +406,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                             Location Photos (Optional) 
                             {luggagePhotos.length > 0 && <span className="text-green-600 ml-2">✓ {luggagePhotos.length} selected</span>}
                           </label>
+                          <p className="text-[10px] text-gray-400 mb-2">Max 5 images. Up to 5MB each. (50MB total limit)</p>
                           <input type="file" multiple accept="image/*" name="luggage_photos" onChange={(e) => {
                             if (e.target.files) setLuggagePhotos(Array.from(e.target.files));
                           }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer outline-none transition-colors ${luggagePhotos.length > 0 ? 'opacity-50' : ''}`} />
@@ -447,15 +449,16 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                       </>
                     )}
 
-                    <div className={`grid grid-cols-1 sm:grid-cols-3 gap-4 mt-2 ${!isGarageSameAddress ? 'pt-4 border-t border-blue-100' : ''}`}>
-                      <FloatingInput label="Max Cars" type="number" name="capacity_cars" min="0" value={capacityCars} onChange={(e: any) => setCapacityCars(e.target.value)} required />
-                      <FloatingInput label="Max Bikes" type="number" name="capacity_bikes" min="0" value={capacityBikes} onChange={(e: any) => setCapacityBikes(e.target.value)} required />
-                      <div>
+                      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2 ${!isGarageSameAddress ? 'pt-4 border-t border-blue-100' : ''}`}>
+                        <FloatingInput label="Max Sedans" type="number" name="capacity_sedans" min="0" value={capacitySedans} onChange={(e: any) => setCapacitySedans(e.target.value)} required />
+                        <FloatingInput label="Max SUVs" type="number" name="capacity_suvs" min="0" value={capacitySuvs} onChange={(e: any) => setCapacitySuvs(e.target.value)} required />
+                        <FloatingInput label="Max Bikes" type="number" name="capacity_bikes" min="0" value={capacityBikes} onChange={(e: any) => setCapacityBikes(e.target.value)} required />
                         <div>
                           <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">
                             Location Photos (Optional)
                             {garagePhotos.length > 0 && <span className="text-green-600 ml-2">✓ {garagePhotos.length} selected</span>}
                           </label>
+                          <p className="text-[10px] text-gray-400 mb-2">Max 5 images. Up to 5MB each. (50MB total limit)</p>
                           <input type="file" multiple accept="image/*" name="garage_photos" onChange={(e) => {
                             if (e.target.files) setGaragePhotos(Array.from(e.target.files));
                           }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer outline-none transition-colors ${garagePhotos.length > 0 ? 'opacity-50' : ''}`} />
@@ -463,7 +466,6 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                       </div>
                     </div>
                   </div>
-                </div>
               )}
             </div>
           </div>
@@ -496,6 +498,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                     ID Document (Aadhar/PAN) <span className="text-red-500">*</span>
                     {pocIdFile && <div className="text-green-600 mt-1">✓ {pocIdFile.name}</div>}
                   </label>
+                  <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
                   <input type="file" ref={pocIdRef} name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
                     if (e.target.files && e.target.files[0]) setPocIdFile(e.target.files[0]);
                   }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocIdFile ? 'opacity-50' : ''}`} />
@@ -505,6 +508,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                     Contact Photo (Headshot) <span className="text-red-500">*</span>
                     {pocPhotoFile && <div className="text-green-600 mt-1">✓ {pocPhotoFile.name}</div>}
                   </label>
+                  <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
                   <input type="file" ref={pocPhotoRef} name="poc_photo" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
                     if (e.target.files && e.target.files[0]) setPocPhotoFile(e.target.files[0]);
                   }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocPhotoFile ? 'opacity-50' : ''}`} />
@@ -539,7 +543,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Spaces Provided</p>
                     <div className="flex flex-wrap gap-2">
                       {providesLuggage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-100 text-orange-700 text-xs font-bold"><span className="mr-2">🧳</span> {capacityBags} Bags</span>}
-                      {providesGarage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold"><span className="mr-2">🚗</span> {capacityCars} Cars, {capacityBikes} Bikes</span>}
+                      {providesGarage && <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-100 text-blue-700 text-xs font-bold"><span className="mr-2">🚗</span> {capacitySedans} Sedans, {capacitySuvs} SUVs, {capacityBikes} Bikes</span>}
                     </div>
                   </div>
 
@@ -578,6 +582,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                       {partnerType === 'individual' ? 'ID Proof Document (PDF/JPG)' : 'Business KYC Document (PDF/JPG)'} <span className="text-red-500">*</span>
                       {kycFile && <div className="text-green-600 mt-1">✓ {kycFile.name}</div>}
                     </label>
+                    <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
                     <input type="file" ref={kycRef} name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
                       if (e.target.files && e.target.files[0]) setKycFile(e.target.files[0]);
                     }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${kycFile ? 'opacity-50' : ''}`} />
@@ -702,6 +707,8 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
     </div>
   );
 }
+
+
 
 
 

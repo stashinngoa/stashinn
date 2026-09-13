@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import { updateLocationStatus, updatePocStatus, updatePartnerStatus, updateLocationCommission, updateLocationPricing } from '../actions';
+import { updateLocationStatus, updatePocStatus, updatePartnerStatus, updateLocationCommission, updateLocationPricing, updateLocationCoordinates } from '../actions';
 import LocationScoringEngine from '../LocationScoringEngine';
 
 function SubmitButton({ defaultText, loadingText, className }: { defaultText: string, loadingText: string, className: string }) {
@@ -18,6 +18,22 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
   const [activeTab, setActiveTab] = useState('locations');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<{type: 'location' | 'poc', data: any} | null>(null);
+
+  const uniquePocs = pocs.filter((poc: any, index: number, self: any[]) => index === self.findIndex(p => p.phone === poc.phone));
+
+  useEffect(() => {
+    if (selectedEntity?.type === 'location') {
+      const updated = locations.find((l: any) => l.id === selectedEntity.data.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedEntity.data)) {
+        setSelectedEntity({ type: 'location', data: updated });
+      }
+    } else if (selectedEntity?.type === 'poc') {
+      const updated = pocs.find((p: any) => p.id === selectedEntity.data.id);
+      if (updated && JSON.stringify(updated) !== JSON.stringify(selectedEntity.data)) {
+        setSelectedEntity({ type: 'poc', data: updated });
+      }
+    }
+  }, [locations, pocs]);
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
@@ -137,7 +153,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
           onClick={() => setActiveTab('pocs')}
           className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pocs' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
         >
-          Points of Contact ({pocs.length})
+          Points of Contact ({uniquePocs.length})
         </button>
       </div>
 
@@ -150,6 +166,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
             <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr className="border-b border-gray-200 dark:border-gray-800">
+                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Photo</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Address</th>
                   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">City</th>
@@ -160,10 +177,28 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
                 {locations.length === 0 && (
-                  <tr><td colSpan={6} className="p-6 text-center text-gray-500">No locations added yet.</td></tr>
+                  <tr><td colSpan={7} className="p-6 text-center text-gray-500">No locations added yet.</td></tr>
                 )}
                 {locations.map((loc) => (
                   <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <td className="px-6 py-4">
+                      {loc.photos && loc.photos.length > 0 ? (
+                        <div className="h-10 w-16 rounded overflow-hidden border border-gray-200 dark:border-gray-700 relative">
+                          <img src={loc.photos[0]} alt={loc.name} className="object-cover w-full h-full" />
+                          {loc.photos.length > 1 && (
+                            <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1 font-bold">
+                              +{loc.photos.length - 1}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="h-10 w-16 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400">
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-bold text-gray-900 dark:text-gray-200">{loc.name}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{loc.address_line1}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{loc.city}, {loc.state}</td>
@@ -212,10 +247,10 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
-                {pocs.length === 0 && (
+                {uniquePocs.length === 0 && (
                   <tr><td colSpan={4} className="p-6 text-center text-gray-500">No POCs added yet.</td></tr>
                 )}
-                {pocs.map((poc) => (
+                {uniquePocs.map((poc: any) => (
                   <tr key={poc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -300,6 +335,19 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                       <p className="text-sm text-gray-500 dark:text-gray-400">Type</p>
                       <p className="font-bold text-gray-900 dark:text-white capitalize">{selectedEntity.data.location_type}</p>
                     </div>
+
+                    {selectedEntity.data.photos && selectedEntity.data.photos.length > 0 && (
+                      <div className="col-span-2 mt-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Location Photos</p>
+                        <div className="flex gap-2 overflow-x-auto pb-2">
+                          {selectedEntity.data.photos.map((photo: string, idx: number) => (
+                            <div key={idx} className="relative h-24 min-w-[6rem] sm:h-32 sm:min-w-[8rem] rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 shrink-0">
+                              <img src={photo} alt={`Location ${idx}`} className="object-cover w-full h-full" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="col-span-2">
                       <p className="text-sm text-gray-500 dark:text-gray-400">Address</p>
                       <p className="font-bold text-gray-900 dark:text-white">
@@ -308,10 +356,26 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                         {selectedEntity.data.country}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">Coordinates</p>
-                      <p className="font-bold text-gray-900 dark:text-white">{selectedEntity.data.latitude}, {selectedEntity.data.longitude}</p>
-                    </div>
+                      <div className="col-span-1 md:col-span-2 mt-2">
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Map Coordinates (PIN)</p>
+                        <form 
+                          action={async (formData) => {
+                            try {
+                              await updateLocationCoordinates(formData);
+                              alert('Location PIN updated successfully!');
+                            } catch (e: any) {
+                              alert('Error updating PIN: ' + e.message);
+                            }
+                          }}
+                          className="flex items-center gap-2"
+                        >
+                          <input type="hidden" name="location_id" value={selectedEntity.data.id} />
+                          <input type="hidden" name="partner_id" value={partner.id} />
+                          <input type="number" step="any" name="latitude" defaultValue={selectedEntity.data.latitude} className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-transparent dark:text-white" placeholder="Lat" required />
+                          <input type="number" step="any" name="longitude" defaultValue={selectedEntity.data.longitude} className="w-full px-2 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded bg-transparent dark:text-white" placeholder="Lng" required />
+                          <SubmitButton defaultText="Update" loadingText="..." className="px-3 py-1 text-xs font-bold rounded bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors" />
+                        </form>
+                      </div>
                     {selectedEntity.data.location_type === 'luggage' && (
                       <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Max Bags Capacity</p>
@@ -456,19 +520,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                     </div>
                   </div>
                   
-                  {selectedEntity.data.photos && selectedEntity.data.photos.length > 0 && (
-                    <div className="mt-6">
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Location Photos</p>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {selectedEntity.data.photos.map((photo: string, idx: number) => (
-                          <div key={idx} className="relative h-24 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                            {/* In real-world, might need signed URLs for photos too, but they are public according to onboarding */}
-                            <img src={photo} alt={`Location ${idx}`} className="object-cover w-full h-full" />
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -521,3 +573,4 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
     </div>
   );
 }
+

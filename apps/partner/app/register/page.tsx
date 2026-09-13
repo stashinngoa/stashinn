@@ -64,7 +64,8 @@ export default async function Register(props: { searchParams: Promise<{ error?: 
               <input name="email" type="email" required autoComplete="off" className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none text-gray-900 dark:text-white transition-all placeholder-gray-400" placeholder="Email Address" />
             </div>
             <div>
-              <input name="password" type="password" required autoComplete="new-password" className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none text-gray-900 dark:text-white transition-all placeholder-gray-400" placeholder="Create Password" />
+              <input name="password" type="password" minLength={6} required autoComplete="new-password" className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none text-gray-900 dark:text-white transition-all placeholder-gray-400" placeholder="Create Password" />
+              <p className="mt-1.5 ml-1 text-xs text-gray-500 dark:text-gray-400">Minimum 6 characters</p>
             </div>
             <div className="pt-2">
               <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-600/20 active:scale-[0.98]">

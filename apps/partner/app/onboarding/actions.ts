@@ -186,8 +186,8 @@ export async function submitOnboarding(formData: FormData) {
       const { error: vpErr } = await adminClient.from('vehicle_pricing').insert({
         location_id: insertedLoc.id,
         bike_capacity: parseInt(formData.get('capacity_bikes') as string || '0'),
-        sedan_capacity: parseInt(formData.get('capacity_cars') as string || '0'), // assuming cars map to sedan
-        suv_capacity: parseInt(formData.get('capacity_cars') as string || '0')
+        sedan_capacity: parseInt(formData.get('capacity_sedans') as string || '0'),
+        suv_capacity: parseInt(formData.get('capacity_suvs') as string || '0')
       });
       if (vpErr) console.error('Vehicle Pricing Insert Error:', vpErr);
     } else {

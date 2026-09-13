@@ -2,12 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { createRazorpayOrder } from './razorpayActions';
-import { createBooking } from './actions';
+import { createBooking, ensureCustomer } from './actions';
 
-export default function CheckoutClientForm({ location, resolvedParams, razorpayKey }: { location: any, resolvedParams: any, razorpayKey: string }) {
+export default function CheckoutClientForm({ location, resolvedParams, razorpayKey, userProfile }: { location: any, resolvedParams: any, razorpayKey: string, userProfile?: any }) {
   const [paymentMethod, setPaymentMethod] = useState('pay_at_location');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState('');
+
+  const [fullName, setFullName] = useState(userProfile?.full_name || '');
+  const [email, setEmail] = useState(userProfile?.email || '');
+  const [mobile, setMobile] = useState(userProfile?.phone || '');
 
   const totalAmount = parseFloat(resolvedParams.price || '0');
 
@@ -22,16 +26,41 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Capture form data synchronously before any awaits
+    const formData = new FormData(e.currentTarget);
+    
     setIsProcessing(true);
     setError('');
 
-    const formData = new FormData(e.currentTarget);
-    formData.append('location_id', location.id);
-    formData.append('partner_id', location.partners?.id);
-    formData.append('check_in', resolvedParams.in);
-    formData.append('check_out', resolvedParams.out);
+    let finalCustomerId = userProfile?.id;
+    // Ensure customer account is created BEFORE razorpay or booking
+    if (!userProfile) {
+      const accRes = await ensureCustomer(fullName, email, mobile);
+      if (accRes.error) {
+        setError(accRes.error);
+        setIsProcessing(false);
+        return;
+      }
+      finalCustomerId = accRes.customerId;
+    }
+
+    formData.append('customer_id', finalCustomerId || '');
+    formData.append('full_name', fullName);
+    formData.append('email', email);
+    formData.append('mobile', mobile);
+
+    formData.append('location_id', location?.id || '');
+    formData.append('partner_id', location?.partner_id || location?.partners?.id || '');
+    formData.append('check_in', resolvedParams?.in || '');
+    formData.append('check_out', resolvedParams?.out || '');
     formData.append('mode', resolvedParams.mode || 'luggage');
     
+    // Add contact details
+    formData.append('full_name', fullName);
+    formData.append('email', email);
+    formData.append('mobile', mobile);
+
     if (resolvedParams.mode === 'garage') {
       formData.append('vehicleType', resolvedParams.vehicleType || 'sedan');
     } else {
@@ -73,11 +102,12 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
           await createBooking(formData);
         },
         prefill: {
-          name: "Customer",
-          email: "customer@stashinn.com"
+          name: fullName || "Customer",
+          email: email || "customer@stashinn.com",
+          contact: mobile || ""
         },
         theme: {
-          color: "#9333EA" // Purple-600
+          color: "#E8722A" // brand-orange
         },
         modal: {
           ondismiss: function() {
@@ -105,9 +135,54 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
       )}
       <form onSubmit={handleSubmit}>
         <div className="pt-4 border-t border-gray-100">
-          <div className="flex justify-between items-center mb-6">
+
+          <div className="mb-8">
+            <h3 className="text-sm font-bold text-gray-900 mb-4">Contact Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Full Name *</label>
+                <input 
+                  type="text" 
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  readOnly={!!userProfile}
+                  required 
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-brand-orange outline-none ${userProfile ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white border-gray-300'}`} 
+                  placeholder="e.g. Rahul Sharma" 
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Email *</label>
+                  <input 
+                    type="email" 
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    readOnly={!!userProfile}
+                    required 
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-brand-orange outline-none ${userProfile ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white border-gray-300'}`} 
+                    placeholder="e.g. rahul@example.com" 
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Mobile *</label>
+                  <input 
+                    type="tel" 
+                    value={mobile}
+                    onChange={e => setMobile(e.target.value)}
+                    readOnly={!!userProfile}
+                    required 
+                    className={`w-full px-4 py-2 border rounded-lg focus:ring-brand-orange outline-none ${userProfile ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white border-gray-300'}`} 
+                    placeholder="e.g. 9876543210" 
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center mb-6 pt-6 border-t border-gray-100">
             <span className="font-bold text-gray-900">Total (inclusive of taxes)</span>
-            <span className="text-2xl font-black text-purple-600">₹{totalAmount.toFixed(2)}</span>
+            <span className="text-2xl font-black text-brand-orange">₹{totalAmount.toFixed(2)}</span>
           </div>
 
           {resolvedParams.mode === 'garage' && (
@@ -116,20 +191,20 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Make *</label>
-                  <input type="text" name="vehicle_make" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. Honda" />
+                  <input type="text" name="vehicle_make" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-orange outline-none" placeholder="e.g. Honda" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Model *</label>
-                  <input type="text" name="model" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. City" />
+                  <input type="text" name="model" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-orange outline-none" placeholder="e.g. City" />
                 </div>
               </div>
               <div className="mb-4">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">License Plate *</label>
-                <input type="text" name="plate" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none" placeholder="e.g. MH12 AB 1234" />
+                <input type="text" name="plate" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-brand-orange outline-none" placeholder="e.g. MH12 AB 1234" />
               </div>
               <div className="mb-4">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Condition Photos (Up to 4) *</label>
-                <input type="file" name="check_in_photos" accept="image/*" multiple required className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 outline-none" />
+                <input type="file" name="check_in_photos" accept="image/*" multiple required className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-brand-orange hover:file:bg-orange-100 outline-none" />
                 <p className="text-xs text-gray-400 mt-1">Please take photos of all 4 sides of your vehicle before dropping it off.</p>
               </div>
             </div>
@@ -138,29 +213,29 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
           <div className="mb-8">
             <h3 className="text-sm font-bold text-gray-900 mb-3">Payment Method</h3>
             <div className="space-y-3">
-              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'pay_at_location' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'pay_at_location' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                 <input 
                   type="radio" 
                   name="payment_method_ui" 
                   value="pay_at_location" 
                   checked={paymentMethod === 'pay_at_location'} 
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-5 h-5 text-purple-600 focus:ring-purple-500" 
+                  className="w-5 h-5 text-brand-orange focus:ring-brand-orange" 
                 />
                 <div className="ml-3">
                   <span className="block font-bold text-gray-900">Pay at Location</span>
-                  <span className="block text-sm text-gray-500">Pay with Cash or UPI when you drop off your bags.</span>
+                  <span className="block text-sm text-gray-500">Pay with Cash or UPI when you drop off.</span>
                 </div>
               </label>
               
-              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'razorpay' ? 'border-purple-600 bg-purple-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'razorpay' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
                 <input 
                   type="radio" 
                   name="payment_method_ui" 
                   value="razorpay" 
                   checked={paymentMethod === 'razorpay'} 
                   onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-5 h-5 text-purple-600 focus:ring-purple-500" 
+                  className="w-5 h-5 text-brand-orange focus:ring-brand-orange" 
                 />
                 <div className="ml-3">
                   <span className="block font-bold text-gray-900">Pay Online Now</span>

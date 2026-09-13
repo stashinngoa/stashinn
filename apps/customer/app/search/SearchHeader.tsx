@@ -327,7 +327,7 @@ export default function SearchHeader({ initialSearch }: { initialSearch: any }) 
 
           {/* Price */}
           <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Max Price per Day (₹)</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Max Price per Hour (₹)</label>
             <input type="number" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} placeholder="Any" className="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-1 focus:ring-orange-500 transition-shadow" />
           </div>
 

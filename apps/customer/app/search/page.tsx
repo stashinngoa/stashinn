@@ -61,7 +61,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       }, { count: 'exact' });
 
       // Apply Filters
-      if (sMaxPrice) query = query.lte('price_per_day', sMaxPrice);
+      if (sMaxPrice) query = query.lte('price_per_hour', sMaxPrice);
       if (sMinRating) query = query.gte('avg_rating', sMinRating);
       if (sAmenities && sAmenities.length > 0) {
         if (sMode === 'luggage') {
@@ -77,8 +77,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       }
 
       // Apply Sorting
-      if (sSort === 'price_asc') query = query.order('price_per_day', { ascending: true });
-      else if (sSort === 'price_desc') query = query.order('price_per_day', { ascending: false });
+      if (sSort === 'price_asc') query = query.order('price_per_hour', { ascending: true });
+      else if (sSort === 'price_desc') query = query.order('price_per_hour', { ascending: false });
       else if (sSort === 'rating') query = query.order('avg_rating', { ascending: false });
       else query = query.order('distance_km', { ascending: true }); // Default
 
@@ -109,8 +109,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     }, { count: 'exact' });
 
     // Apply Sorting
-    if (sort === 'price_asc') query = query.order('price_per_day', { ascending: true });
-    else if (sort === 'price_desc') query = query.order('price_per_day', { ascending: false });
+    if (sort === 'price_asc') query = query.order('price_per_hour', { ascending: true });
+    else if (sort === 'price_desc') query = query.order('price_per_hour', { ascending: false });
     else if (sort === 'rating') query = query.order('avg_rating', { ascending: false });
 
     // Apply Pagination
@@ -190,7 +190,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
         {/* Right Side: Map */}
         <div className="w-full lg:w-1/2 h-[400px] lg:h-[calc(100vh-80px)] lg:sticky lg:top-20 bg-gray-50 dark:bg-gray-950 p-4 lg:p-6 lg:pl-0 shrink-0 transition-colors z-0">
           <div className="w-full h-full rounded-2xl overflow-hidden shadow-md border border-gray-300 dark:border-gray-800 transition-colors">
-            <MapWrapper locations={locations || []} center={mapCenter} />
+            <MapWrapper locations={locations || []} center={mapCenter} mode={mode} vehicleType={vehicleType} />
           </div>
         </div>
       </div>

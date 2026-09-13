@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import Link from 'next/link';
 import { addLocation, updateLocation } from './actions';
 import MapWrapper from './MapWrapper';
 
@@ -222,23 +223,22 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
 
         {/* Toggle options */}
         {isEdit ? (
-          <div className="flex flex-wrap gap-4">
-            {currentLocationPoc && (
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="poc_option_radio" value="keep" checked={pocOption === 'keep'} onChange={() => { setPocOption('keep'); setDuplicatePocWarning(null); }} className="text-purple-600 focus:ring-purple-500" />
-                <span className="text-sm font-medium text-gray-700">Keep Current POC</span>
-              </label>
-            )}
-            {existingPocs.length > 0 && (
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input type="radio" name="poc_option_radio" value="existing" checked={pocOption === 'existing'} onChange={() => { setPocOption('existing'); setDuplicatePocWarning(null); }} className="text-purple-600 focus:ring-purple-500" />
-                <span className="text-sm font-medium text-gray-700">Change to Another POC</span>
-              </label>
-            )}
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input type="radio" name="poc_option_radio" value="new" checked={pocOption === 'new'} onChange={() => setPocOption('new')} className="text-purple-600 focus:ring-purple-500" />
-              <span className="text-sm font-medium text-gray-700">Add New POC</span>
-            </label>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-4">
+              {currentLocationPoc && (
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="poc_option_radio" value="keep" checked={pocOption === 'keep'} onChange={() => { setPocOption('keep'); setDuplicatePocWarning(null); }} className="text-purple-600 focus:ring-purple-500" />
+                  <span className="text-sm font-medium text-gray-700">Keep Current POC</span>
+                </label>
+              )}
+              {existingPocs.length > 0 && (
+                <label className="flex items-center space-x-2 cursor-pointer">
+                  <input type="radio" name="poc_option_radio" value="existing" checked={pocOption === 'existing'} onChange={() => { setPocOption('existing'); setDuplicatePocWarning(null); }} className="text-purple-600 focus:ring-purple-500" />
+                  <span className="text-sm font-medium text-gray-700">Change to Another POC</span>
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-gray-500">Need to assign a new staff member? Add them on the <Link href="/dashboard/pocs" className="text-purple-600 hover:underline font-medium">POC Management</Link> page first, then assign them here.</p>
           </div>
         ) : (
           existingPocs.length > 0 && (
@@ -260,7 +260,7 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
             <label className="block text-sm font-medium text-gray-700 mb-1">Select Staff Member *</label>
             <select name="existing_poc_id" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none">
               <option value="">-- Choose POC --</option>
-              {existingPocs.map(poc => (
+              {existingPocs.filter((poc, index, self) => index === self.findIndex(p => p.phone === poc.phone)).map(poc => (
                 <option key={poc.id} value={poc.id}>
                   {poc.name} ({poc.phone}){poc.is_verified ? '' : ' — ⏳ Pending Verification'}
                 </option>
@@ -309,10 +309,12 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">ID Document (PDF/JPG) *</label>
+                  <p className="text-[10px] text-gray-500 mb-1">Max size: 5MB</p>
                   <input type="file" name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white text-sm" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Headshot Photo *</label>
+                  <p className="text-[10px] text-gray-500 mb-1">Max size: 5MB</p>
                   <input type="file" name="poc_photo" accept="image/jpeg,image/png,image/webp" required className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white text-sm" />
                 </div>
               </div>
@@ -339,15 +341,15 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Bike Slots</label>
-                <input type="number" name="bike_capacity" defaultValue={initialData?.vehicle_pricing?.[0]?.bike_capacity || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                <input type="number" name="bike_capacity" defaultValue={(Array.isArray(initialData?.vehicle_pricing) ? initialData?.vehicle_pricing[0]?.bike_capacity : initialData?.vehicle_pricing?.bike_capacity) || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sedan Slots</label>
-                <input type="number" name="sedan_capacity" defaultValue={initialData?.vehicle_pricing?.[0]?.sedan_capacity || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                <input type="number" name="sedan_capacity" defaultValue={(Array.isArray(initialData?.vehicle_pricing) ? initialData?.vehicle_pricing[0]?.sedan_capacity : initialData?.vehicle_pricing?.sedan_capacity) || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">SUV Slots</label>
-                <input type="number" name="suv_capacity" defaultValue={initialData?.vehicle_pricing?.[0]?.suv_capacity || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                <input type="number" name="suv_capacity" defaultValue={(Array.isArray(initialData?.vehicle_pricing) ? initialData?.vehicle_pricing[0]?.suv_capacity : initialData?.vehicle_pricing?.suv_capacity) || 0} min="0" className="w-full px-4 py-2 border border-gray-300 rounded-lg" />
               </div>
             </div>
           </div>
@@ -423,7 +425,7 @@ export default function LocationForm({ initialData, existingPocs = [] }: { initi
             )}
             
             <input type="file" name="photos" multiple accept="image/jpeg,image/png,image/webp" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 outline-none bg-white" />
-            <p className="text-xs text-gray-500 mt-1">Upload new photos to add to or replace your existing ones.</p>
+            <p className="text-xs text-gray-500 mt-1">Max 5 images. Up to 5MB each. (50MB total limit). Upload new photos to add to or replace your existing ones.</p>
           </div>
       </div>
 

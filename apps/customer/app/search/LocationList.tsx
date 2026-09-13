@@ -27,15 +27,17 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
       
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-4 lg:gap-6">
       {locations.map((loc) => {
-        let pricePerDay = loc.price_per_day;
+        let basePriceHr = loc.price_per_hour;
         let capacity = null;
         
         if (mode === 'garage' && loc.vehicle_pricing && loc.vehicle_pricing.length > 0) {
           const vp = loc.vehicle_pricing[0];
-          if (vehicleType === 'bike') { pricePerDay = vp.bike_rate_day || loc.price_per_day; capacity = vp.bike_capacity; }
-          if (vehicleType === 'sedan') { pricePerDay = vp.sedan_rate_day || loc.price_per_day; capacity = vp.sedan_capacity; }
-          if (vehicleType === 'suv') { pricePerDay = vp.suv_rate_day || loc.price_per_day; capacity = vp.suv_capacity; }
+          if (vehicleType === 'bike') { basePriceHr = vp.bike_rate_hr || loc.price_per_hour; capacity = vp.bike_capacity; }
+          if (vehicleType === 'sedan') { basePriceHr = vp.sedan_rate_hr || loc.price_per_hour; capacity = vp.sedan_capacity; }
+          if (vehicleType === 'suv') { basePriceHr = vp.suv_rate_hr || loc.price_per_hour; capacity = vp.suv_capacity; }
         }
+        
+        const pricePerHourIncGst = Math.ceil((basePriceHr || 0) * 1.18);
 
         return (
         <Link 
@@ -105,8 +107,8 @@ export default function LocationList({ locations, searchParams, totalCount = 0 }
             
             <div className="mt-5 flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-4">
               <div>
-                <span className="text-2xl font-black text-gray-900 dark:text-white">₹{pricePerDay || 0}</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400">/day</span>
+                <span className="text-2xl font-black text-gray-900 dark:text-white">₹{pricePerHourIncGst}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400">/hr</span>
               </div>
             </div>
           </div>
