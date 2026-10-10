@@ -31,11 +31,16 @@ export default async function AdminDashboardLayout({
     .limit(10);
 
   const sidebarContent = (
-    <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col h-full shrink-0 transition-colors duration-200">
+    <div className="w-64 bg-white dark:bg-black border-r border-gray-200 dark:border-gray-800 flex flex-col h-full shrink-0 transition-colors duration-200">
       <div className="h-16 flex items-center px-6 border-b border-gray-200 dark:border-gray-800 shrink-0">
-        <img src="/StashInn_Light.png" alt="StashInn" className="h-10 w-auto dark:hidden" />
-        <img src="/StashInn_Dark.png" alt="StashInn" className="h-10 w-auto hidden dark:block" />
-        <span className="ml-2 text-xs font-semibold px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 rounded border border-orange-200 dark:border-orange-800/50">Admin</span>
+        <div className="flex items-center gap-2">
+          <img src="/StashInn_Light_no_text.png" alt="StashInn" className="h-8 w-auto dark:hidden" />
+          <img src="/StashInn_Dark_no_text.png" alt="StashInn" className="h-8 w-auto hidden dark:block" />
+          <span className="text-xl font-black tracking-tighter shrink-0">
+            <span className="text-gray-900 dark:text-white">Stash</span><span className="text-orange-500">Inn</span>
+          </span>
+          <span className="text-xs font-semibold px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 rounded border border-orange-200 dark:border-orange-800/50">Admin</span>
+        </div>
       </div>
       
       <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">

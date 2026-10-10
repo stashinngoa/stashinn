@@ -25,23 +25,23 @@ export default async function AdminSettlementsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-white">Settlement Verification</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Settlement Verification</h1>
         <p className="text-gray-500 mt-1">Verify partner transfer proofs for pay-at-location commissions.</p>
       </div>
 
       <div className="space-y-4">
         {validationItems.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">
             No pending verifications.
           </div>
         ) : (
           validationItems.map((item: any) => (
-            <div key={item.payment.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col md:flex-row">
-              <div className="p-6 md:w-1/2 border-b md:border-b-0 md:border-r border-gray-800">
-                <h3 className="text-lg font-bold text-gray-200 mb-2">Booking ID: {item.payment.bookings.id.split('-')[0]}</h3>
+            <div key={item.payment.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden flex flex-col md:flex-row">
+              <div className="p-6 md:w-1/2 border-b md:border-b-0 md:border-r border-gray-200 dark:border-gray-800">
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">Booking ID: {item.payment.bookings.id.split('-')[0]}</h3>
                 <div className="space-y-1 mb-6 text-sm">
-                  <p className="text-gray-400">Total Paid at Hotel: <span className="text-white font-mono">₹{item.payment.amount}</span></p>
-                  <p className="text-gray-400">Commission Owed: <span className="text-red-400 font-mono font-bold">₹{item.transaction.commission}</span></p>
+                  <p className="text-gray-600 dark:text-gray-400">Total Paid at Hotel: <span className="text-gray-900 dark:text-white font-mono">₹{item.payment.amount}</span></p>
+                  <p className="text-gray-600 dark:text-gray-400">Commission Owed: <span className="text-red-400 font-mono font-bold">₹{item.transaction.commission}</span></p>
                   <p className="text-gray-500 text-xs">Submitted on: {new Date(item.transaction.created_at).toLocaleString()}</p>
                 </div>
 
@@ -52,7 +52,7 @@ export default async function AdminSettlementsPage() {
                     type="submit"
                     name="action"
                     value="approve"
-                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-gray-900 dark:text-white text-sm font-bold rounded-lg transition-colors"
                   >
                     Approve Payment
                   </button>
@@ -60,7 +60,7 @@ export default async function AdminSettlementsPage() {
                     type="submit"
                     name="action"
                     value="reject"
-                    className="flex-1 py-2 px-4 bg-gray-800 hover:bg-red-600/80 text-gray-300 hover:text-white border border-gray-700 hover:border-red-500 text-sm font-bold rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-gray-50 dark:bg-gray-800 hover:bg-red-600/80 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 hover:border-red-500 text-sm font-bold rounded-lg transition-colors"
                   >
                     Reject (Fake Proof)
                   </button>
@@ -82,7 +82,7 @@ export default async function AdminSettlementsPage() {
                         <img 
                           src={item.transaction.transfer_proof} 
                           alt="Transfer Proof" 
-                          className="max-h-[300px] rounded border border-gray-700 cursor-zoom-in"
+                          className="max-h-[300px] rounded border border-gray-300 dark:border-gray-700 cursor-zoom-in"
                         />
                       </a>
                     )
@@ -90,7 +90,7 @@ export default async function AdminSettlementsPage() {
                     <span className="text-gray-600 text-sm italic">No proof URL attached.</span>
                   )}
                   {item.transaction && (
-                    <div className="absolute top-4 right-4 bg-gray-900/80 p-2 rounded-lg backdrop-blur">
+                    <div className="absolute top-4 right-4 bg-white dark:bg-gray-900/80 p-2 rounded-lg backdrop-blur">
                       <DownloadPDFWrapper transaction={{...item.transaction, bookings: item.payment.bookings}} />
                     </div>
                   )}

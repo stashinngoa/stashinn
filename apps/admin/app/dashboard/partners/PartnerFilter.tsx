@@ -23,7 +23,7 @@ export default function PartnerFilter({ tabs, currentFilter }: { tabs: { value: 
           className={`px-4 py-2 text-sm font-bold rounded-lg border transition-colors ${
             currentFilter === tab.value
               ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-700/50'
-              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-200'
+              : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-800 dark:text-gray-200'
           } ${isPending ? 'opacity-70 cursor-not-allowed' : ''}`}
         >
           {tab.label}

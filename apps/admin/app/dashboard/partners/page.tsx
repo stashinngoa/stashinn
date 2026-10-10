@@ -63,7 +63,7 @@ export default async function PartnersPage(props: { searchParams: Promise<{ stat
                 </tr>
               ) : (
                 partners.map((partner: any) => (
-                  <tr key={partner.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <tr key={partner.id} className="hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="h-9 w-9 rounded-lg bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-400 flex items-center justify-center font-bold text-sm border border-indigo-200 dark:border-indigo-700/30">
@@ -88,7 +88,7 @@ export default async function PartnersPage(props: { searchParams: Promise<{ stat
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Link href={`/dashboard/partners/${partner.id}`} className="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <Link href={`/dashboard/partners/${partner.id}`} className="inline-flex items-center px-3 py-1.5 text-xs font-bold rounded-lg border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800 transition-colors">
                         Manage Partner
                       </Link>
                     </td>

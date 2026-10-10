@@ -10,14 +10,14 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold text-white">Customer Management</h1>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Customer Management</h1>
           <p className="text-gray-500 mt-1">View, search, and manage all registered customers.</p>
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-500">{customers.length} customer{customers.length !== 1 ? 's' : ''}</span>
           <a
             href={`/api/export-customers?q=${encodeURIComponent(search)}`}
-            className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+            className="px-4 py-1.5 bg-gray-50 dark:bg-gray-800 hover:bg-gray-700 text-gray-800 dark:text-gray-200 border border-gray-300 dark:border-gray-700 text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
             Export CSV
@@ -33,11 +33,11 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
       )}
 
       {/* Table */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-gray-200 dark:border-gray-800">
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
@@ -46,7 +46,7 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
                 <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800/50">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-800/50">
               {customers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-600 text-sm">
@@ -55,7 +55,7 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
                 </tr>
               ) : (
                 customers.map((customer: any) => (
-                  <tr key={customer.id} className="hover:bg-gray-800/50 transition-colors">
+                  <tr key={customer.id} className="hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <a href={`/dashboard/customers/${customer.id}`} className="flex items-center gap-3 hover:opacity-80">
                         <div className="h-8 w-8 rounded-full bg-purple-900/50 text-purple-400 flex items-center justify-center font-bold text-xs border border-purple-700/30">
@@ -64,8 +64,8 @@ export default async function CustomersPage(props: { searchParams: Promise<{ q?:
                         <span className="text-sm font-medium text-purple-400 underline-offset-4 hover:underline">{customer.full_name || '—'}</span>
                       </a>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-400">{customer.email}</td>
-                    <td className="px-6 py-4 text-sm text-gray-400 font-mono">{customer.phone || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{customer.email}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{customer.phone || '—'}</td>
                     <td className="px-6 py-4">
                       {customer.is_blocked ? (
                         <span className="inline-flex px-2.5 py-0.5 text-xs font-bold rounded-full border bg-red-900/40 text-red-400 border-red-700/50">Blocked</span>

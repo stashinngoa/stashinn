@@ -57,8 +57,26 @@ export default function LocationCard({ location, partnerStatus, isPrimary }: { l
           {isPrimary && (
             <span className="text-[10px] uppercase tracking-wider font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded shrink-0">Primary</span>
           )}
+          {location.admin_status && location.admin_status !== 'approved' && (
+            <span className={`text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded shrink-0 ${
+              location.admin_status === 'rejected' ? 'bg-red-100 text-red-800' :
+              location.admin_status === 'update_required' ? 'bg-yellow-100 text-yellow-800' :
+              location.admin_status === 'suspended' ? 'bg-orange-100 text-orange-800' :
+              'bg-gray-100 text-gray-800'
+            }`}>
+              {location.admin_status.replace('_', ' ')}
+            </span>
+          )}
         </h3>
         <p className="text-sm text-gray-500 mt-1 line-clamp-2">{location.address_line1}, {location.city}</p>
+        
+        {location.status_reason && location.admin_status !== 'approved' && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-800">
+            <span className="font-bold block mb-1">Admin Note:</span>
+            {location.status_reason}
+          </div>
+        )}
+
         
         {location.location_type === 'luggage' ? (
           <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600">

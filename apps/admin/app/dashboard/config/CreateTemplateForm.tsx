@@ -27,7 +27,7 @@ export default function CreateTemplateForm() {
     return (
       <button 
         onClick={() => setIsOpen(true)}
-        className="mb-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors flex items-center gap-2"
+        className="mb-6 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-gray-900 dark:text-white font-bold rounded-lg text-sm transition-colors flex items-center gap-2"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -38,10 +38,10 @@ export default function CreateTemplateForm() {
   }
 
   return (
-    <div className="mb-6 bg-gray-900 border border-blue-900/50 rounded-xl overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-800 bg-gray-950 flex justify-between items-center">
-        <h3 className="font-bold text-white">Create New Template</h3>
-        <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+    <div className="mb-6 bg-white dark:bg-gray-900 border border-blue-900/50 rounded-xl overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gray-950 flex justify-between items-center">
+        <h3 className="font-bold text-gray-900 dark:text-white">Create New Template</h3>
+        <button onClick={() => setIsOpen(false)} className="text-gray-500 hover:text-gray-900 dark:text-white transition-colors">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -63,7 +63,7 @@ export default function CreateTemplateForm() {
               name="slug"
               required
               placeholder="e.g. kyc_approved"
-              className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-md text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
             />
           </div>
           <div>
@@ -72,7 +72,7 @@ export default function CreateTemplateForm() {
               type="text"
               name="variables"
               placeholder="e.g. partner_name, login_url"
-              className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-md text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+              className="w-full px-3 py-2 bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
             />
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function CreateTemplateForm() {
             type="text"
             name="subject"
             required
-            className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-md text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -94,7 +94,7 @@ export default function CreateTemplateForm() {
             required
             rows={5}
             placeholder="<p>Hello {{partner_name}},</p>"
-            className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-md text-sm text-gray-200 font-mono focus:outline-none focus:border-blue-500"
+            className="w-full px-3 py-2 bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-md text-sm text-gray-800 dark:text-gray-200 font-mono focus:outline-none focus:border-blue-500"
           />
         </div>
 
@@ -102,14 +102,14 @@ export default function CreateTemplateForm() {
           <button
             type="button"
             onClick={() => setIsOpen(false)}
-            className="px-4 py-2 text-sm font-bold text-gray-400 hover:text-white transition-colors"
+            className="px-4 py-2 text-sm font-bold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-white transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50"
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-gray-900 dark:text-white font-bold rounded-lg text-sm transition-colors disabled:opacity-50"
           >
             {isPending ? 'Creating...' : 'Create Template'}
           </button>

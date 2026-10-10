@@ -31,11 +31,11 @@ export default function DisputeResolutionForm({ dispute }: { dispute: any }) {
       )}
 
       <div>
-        <label className="block text-xs font-medium text-gray-400 mb-1">Set Status</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Set Status</label>
         <select
           name="status"
           defaultValue={dispute.status}
-          className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
         >
           <option value="submitted">Submitted</option>
           <option value="under_review">Under Review</option>
@@ -46,7 +46,7 @@ export default function DisputeResolutionForm({ dispute }: { dispute: any }) {
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-400 mb-1">Approved Refund / Penalty (₹)</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Approved Refund / Penalty (₹)</label>
         <input
           type="number"
           name="refund_amount"
@@ -54,25 +54,25 @@ export default function DisputeResolutionForm({ dispute }: { dispute: any }) {
           min="0"
           step="0.01"
           placeholder="0.00"
-          className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-medium text-gray-400 mb-1">Admin Notes (Visible to Partner)</label>
+        <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Admin Notes (Visible to Partner)</label>
         <textarea
           name="admin_notes"
           rows={5}
           defaultValue={dispute.admin_notes || ''}
           placeholder="Reasoning for the decision..."
-          className="w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-md text-sm text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
         />
       </div>
 
       <button
         type="submit"
         disabled={isPending}
-        className="w-full py-2.5 px-4 text-xs font-bold rounded-md text-white bg-red-600 hover:bg-red-700 border border-transparent disabled:opacity-50 transition-colors"
+        className="w-full py-2.5 px-4 text-xs font-bold rounded-md text-gray-900 dark:text-white bg-red-600 hover:bg-red-700 border border-transparent disabled:opacity-50 transition-colors"
       >
         {isPending ? 'Saving...' : 'Update Record'}
       </button>

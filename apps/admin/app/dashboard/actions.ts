@@ -131,6 +131,35 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
     }
   });
 
+  // Analytics query for auth_audits
+  const authQuery = supabase.from('auth_audits').select('method, success');
+  if (startDate) authQuery.gte('created_at', startDate);
+  if (endDate) authQuery.lte('created_at', endDate);
+  
+  const { data: audits } = await authQuery;
+  
+  const authMetrics = {
+    total: 0,
+    email: 0,
+    whatsapp: 0,
+    sms: 0,
+    auto: 0,
+    success_rate: 0
+  };
+  
+  if (audits) {
+    authMetrics.total = audits.length;
+    let successful = 0;
+    audits.forEach((a: any) => {
+      if (a.success) successful++;
+      if (a.method === 'email') authMetrics.email++;
+      if (a.method === 'whatsapp') authMetrics.whatsapp++;
+      if (a.method === 'sms') authMetrics.sms++;
+      if (a.method === 'auto') authMetrics.auto++;
+    });
+    authMetrics.success_rate = authMetrics.total > 0 ? (successful / authMetrics.total) * 100 : 0;
+  }
+
   return {
     totalCustomers: totalCustomers || 0,
     totalPartners: totalPartners || 0,
@@ -149,7 +178,7 @@ export async function getAdminAnalytics(startDate?: string, endDate?: string) {
     pendingPartnersList: pendingPartnersList || [],
     dailyTrends,
     totalRefunded,
-    anomalies
+    anomalies,
+    authMetrics
   };
 }
-

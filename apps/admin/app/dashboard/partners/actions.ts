@@ -212,10 +212,12 @@ export async function updateLocationCoordinates(formData: FormData) {
 
   revalidatePath(`/dashboard/partners/${partnerId}/locations`);
 }
-export async function updateLocationStatus(locationId: string, partnerId: string, isActive: boolean) {
+export async function updateLocationAdminStatus(locationId: string, partnerId: string, newStatus: string, reason: string) {
   const supabase = await createClient();
   
-  if (isActive) {
+  let isActive = false;
+  if (newStatus === 'approved') {
+    isActive = true;
     // Check if there is at least one verified POC for this location
     const { data: pocs } = await supabase
       .from('partner_pocs')
@@ -228,11 +230,38 @@ export async function updateLocationStatus(locationId: string, partnerId: string
     }
   }
 
-  const { error } = await supabase.from('partner_locations').update({ is_active: isActive }).eq('id', locationId);
+  const { error } = await supabase.from('partner_locations').update({ 
+    is_active: isActive,
+    admin_status: newStatus,
+    status_reason: reason
+  }).eq('id', locationId);
+  
   if (!error) {
+    const { notifyPartnerExternal } = await import('@stashinn/lib/services/notifications');
+    let title = 'Location Status Updated';
+    let message = `Your location status has been updated to ${newStatus}.`;
+    if (newStatus === 'rejected') {
+      title = 'Location Rejected';
+      message = `Your location was rejected. Reason: ${reason}`;
+    } else if (newStatus === 'update_required') {
+      title = 'Action Required for Location';
+      message = `Please update your location information. Reason: ${reason}`;
+    } else if (newStatus === 'suspended') {
+      title = 'Location Suspended';
+      message = `Your location has been suspended. Reason: ${reason}`;
+    } else if (newStatus === 'approved') {
+      title = 'Location Approved';
+      message = `Your location has been approved and is now active.`;
+    }
+    await notifyPartnerExternal(partnerId, { title, message });
+
     revalidatePath('/dashboard/partners/' + partnerId);
   }
   return { error: error ? error.message : null };
+}
+
+export async function updateLocationStatus(locationId: string, partnerId: string, isActive: boolean) {
+  return updateLocationAdminStatus(locationId, partnerId, isActive ? 'approved' : 'suspended', 'Status toggled via quick action.');
 }
 
 export async function updateLocationCommission(locationId: string, partnerId: string, formData: FormData) {
@@ -316,3 +345,28 @@ export async function updateLocationScoreAndRates(locationId: string, formData: 
   return { error: null };
 }
 
+export async function uploadSignedRegistrationDoc(partnerId: string, formData: FormData) {
+  const supabase = await createClient();
+  const file = formData.get('signed_doc') as File;
+  
+  if (!file || file.size === 0) return { error: 'Missing file' };
+  
+  const ext = file.name.split('.').pop() || 'pdf';
+  const filePath = "partners/" + partnerId + "/signed_registration_" + Date.now() + "." + ext;
+
+  const { error: uploadError } = await supabase.storage
+    .from('kyc-documents')
+    .upload(filePath, file, { upsert: true });
+
+  if (uploadError) return { error: 'Upload failed: ' + uploadError.message };
+
+  const { error: updateError } = await supabase
+    .from('partners')
+    .update({ signed_registration_doc_url: filePath })
+    .eq('id', partnerId);
+
+  if (updateError) return { error: 'Database update failed: ' + updateError.message };
+
+  revalidatePath("/dashboard/partners/" + partnerId);
+  return { error: null };
+}

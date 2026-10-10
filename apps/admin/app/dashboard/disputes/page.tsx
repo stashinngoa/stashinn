@@ -25,11 +25,11 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold text-white">Dispute Arbitration</h1>
+        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Dispute Arbitration</h1>
         <p className="text-gray-500 mt-1">Review partner-submitted incident reports and adjudicate refunds.</p>
       </div>
 
-      <div className="flex gap-2 pb-4 border-b border-gray-800">
+      <div className="flex gap-2 pb-4 border-b border-gray-200 dark:border-gray-800">
         {['all', 'submitted', 'under_review', 'resolved_refund', 'resolved_no_action', 'escalated'].map(status => (
           <a
             key={status}
@@ -37,7 +37,7 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
             className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${
               statusFilter === status
                 ? 'bg-red-900/30 text-red-400 border-red-700/50'
-                : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-gray-200'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-800 hover:text-gray-800 dark:text-gray-200'
             }`}
           >
             {status.replace(/_/g, ' ').toUpperCase()}
@@ -47,23 +47,23 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
 
       <div className="space-y-6">
         {!disputes || disputes.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">
             No disputes found matching this filter.
           </div>
         ) : (
           disputes.map((dispute: any) => (
-            <div key={dispute.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-xl">
-              <div className="px-6 py-4 bg-gray-950 border-b border-gray-800 flex justify-between items-start">
+            <div key={dispute.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-xl">
+              <div className="px-6 py-4 bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-sm font-bold text-gray-200">
+                    <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">
                       Booking: <span className="font-mono text-red-400">{dispute.booking_id.split('-')[0]}</span>
                     </h3>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
                       dispute.status === 'submitted' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
                       dispute.status === 'under_review' ? 'bg-amber-900/30 text-amber-400 border-amber-700/50' :
                       dispute.status.startsWith('resolved') ? 'bg-green-900/30 text-green-400 border-green-700/50' :
-                      'bg-gray-800 text-gray-300 border-gray-600'
+                      'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-600'
                     }`}>
                       {dispute.status.replace(/_/g, ' ')}
                     </span>
@@ -73,7 +73,7 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-gray-400">Booking Value: <strong className="text-white">₹{dispute.bookings?.total_amount}</strong></p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">Booking Value: <strong className="text-gray-900 dark:text-white">₹{dispute.bookings?.total_amount}</strong></p>
                 </div>
               </div>
 
@@ -82,14 +82,14 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                 {/* Left Col - Details */}
                 <div className="xl:col-span-2 space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
+                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Claimant (Partner)</p>
-                      <p className="text-sm font-medium text-gray-200">{dispute.partners?.business_name}</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{dispute.partners?.business_name}</p>
                       <p className="text-xs text-gray-500">{dispute.partners?.users?.email}</p>
                     </div>
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
+                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Defendant (Customer)</p>
-                      <p className="text-sm font-medium text-gray-200">{dispute.users?.full_name || 'Unknown'}</p>
+                      <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{dispute.users?.full_name || 'Unknown'}</p>
                       <p className="text-xs text-gray-500">{dispute.users?.email}</p>
                     </div>
                   </div>
@@ -97,17 +97,17 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                   {dispute.bookings?.booking_type === 'garage' && (
                     <div className="bg-purple-950/20 p-4 rounded-lg border border-purple-900/50 space-y-3">
                       <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Vehicle Details</h4>
-                      <p className="text-sm text-gray-200">
-                        🚗 <strong className="text-white">{dispute.bookings.vehicle_make} {dispute.bookings.model}</strong> — Plate: <strong className="font-mono text-white">{dispute.bookings.plate}</strong>
+                      <p className="text-sm text-gray-800 dark:text-gray-200">
+                        🚗 <strong className="text-gray-900 dark:text-white">{dispute.bookings.vehicle_make} {dispute.bookings.model}</strong> — Plate: <strong className="font-mono text-gray-900 dark:text-white">{dispute.bookings.plate}</strong>
                       </p>
                       
                       {dispute.bookings.check_in_photos && dispute.bookings.check_in_photos.length > 0 && (
                         <div>
-                          <p className="text-xs font-bold text-gray-400 mb-2">Check-in Condition Photos (To compare against claim):</p>
+                          <p className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">Check-in Condition Photos (To compare against claim):</p>
                           <div className="flex gap-4 overflow-x-auto pb-2">
                             {dispute.bookings.check_in_photos.map((url: string, idx: number) => (
                               <a key={idx} href={url} target="_blank" rel="noreferrer" className="block shrink-0">
-                                <img src={url} alt="Check-in condition" className="w-28 h-28 object-cover rounded-lg border border-gray-800 hover:border-purple-500 transition-colors" />
+                                <img src={url} alt="Check-in condition" className="w-28 h-28 object-cover rounded-lg border border-gray-200 dark:border-gray-800 hover:border-purple-500 transition-colors" />
                               </a>
                             ))}
                           </div>
@@ -117,19 +117,19 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                   )}
 
                   <div>
-                    <h4 className="text-xs font-bold text-gray-400 mb-2">Partner's Incident Report:</h4>
-                    <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-sm text-gray-300 leading-relaxed">
+                    <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">Partner's Incident Report:</h4>
+                    <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg border border-gray-300 dark:border-gray-700 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                       {dispute.description}
                     </div>
                   </div>
 
                   {dispute.photos && dispute.photos.length > 0 && (
                     <div>
-                      <h4 className="text-xs font-bold text-gray-400 mb-2">Evidence ({dispute.photos.length})</h4>
+                      <h4 className="text-xs font-bold text-gray-600 dark:text-gray-400 mb-2">Evidence ({dispute.photos.length})</h4>
                       <div className="flex gap-4 overflow-x-auto pb-2">
                         {dispute.photos.map((url: string, idx: number) => (
                           <a key={idx} href={url} target="_blank" rel="noreferrer" className="block shrink-0">
-                            <img src={url} alt="Evidence" className="w-32 h-32 object-cover rounded-lg border border-gray-700 hover:border-red-500 transition-colors" />
+                            <img src={url} alt="Evidence" className="w-32 h-32 object-cover rounded-lg border border-gray-300 dark:border-gray-700 hover:border-red-500 transition-colors" />
                           </a>
                         ))}
                       </div>
@@ -139,8 +139,8 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
 
                 {/* Right Col - Arbitration Form */}
                 <div className="xl:col-span-1">
-                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
-                    <h4 className="text-sm font-bold text-white mb-4">Adjudication Panel</h4>
+                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-200 dark:border-gray-800">
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Adjudication Panel</h4>
                     <DisputeResolutionForm dispute={dispute} />
                   </div>
                 </div>

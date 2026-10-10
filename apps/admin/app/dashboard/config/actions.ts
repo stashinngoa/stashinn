@@ -1,10 +1,12 @@
 'use server';
 
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
 
 export async function updateSystemConfig(formData: FormData) {
   const supabase = await createClient();
+  const serviceRole = createServiceClient();
   const keys = Array.from(formData.keys()).filter(k => k !== '$ACTION_ID_1' && !k.startsWith('$ACTION_'));
 
   const { data: { user } } = await supabase.auth.getUser();
@@ -40,7 +42,7 @@ export async function updateSystemConfig(formData: FormData) {
         }
       }
 
-      const { data: oldRow } = await supabase.from('system_config').select('value').eq('key', key).single();
+      const { data: oldRow } = await serviceRole.from('system_config').select('value').eq('key', key).single();
       
       let parsedValue: any = value;
       if (!isNaN(Number(value)) && value.trim() !== '') {
@@ -51,14 +53,17 @@ export async function updateSystemConfig(formData: FormData) {
         parsedValue = false;
       }
 
-      await supabase
+      const { error } = await serviceRole
         .from('system_config')
-        .update({ value: parsedValue })
-        .eq('key', key);
+        .upsert({ key, value: parsedValue }, { onConflict: 'key' });
+        
+      if (error) {
+        throw new Error(error.message);
+      }
 
       // 2. Add Audit Log Entry
       if (user && oldRow && JSON.stringify(oldRow.value) !== JSON.stringify(parsedValue)) {
-        await supabase.from('audit_logs').insert({
+        await serviceRole.from('audit_logs').insert({
           user_id: user.id,
           action: 'config.system_updated',
           entity_type: 'system_config',
@@ -70,7 +75,7 @@ export async function updateSystemConfig(formData: FormData) {
     }
   }
 
-  revalidatePath('/dashboard/config');
+  revalidatePath('/dashboard/config', 'layout');
 }
 
 export async function updateEmailTemplate(formData: FormData) {

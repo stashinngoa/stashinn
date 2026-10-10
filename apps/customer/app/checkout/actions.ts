@@ -210,6 +210,15 @@ export async function createBooking(formData: FormData) {
         email: email,
         options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard?autoLogin=true` }
       });
+      
+      // Audit this auto-login attempt
+      await supabaseService.from('auth_audits').insert({
+        user_id: customerId,
+        identifier: email,
+        method: 'auto',
+        success: true
+      });
+
       if (linkData?.properties?.action_link) {
         redirect(linkData.properties.action_link);
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { requestOTP, verifyOTP } from './actions';
+import { requestOTP, verifyOTP, auditLoginAttempt } from './actions';
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -60,6 +60,7 @@ function LoginForm() {
 
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [verificationToken, setVerificationToken] = useState<string>('');
+  const [authMethod, setAuthMethod] = useState<'email' | 'whatsapp' | 'sms'>('email');
 
   const handleRequestOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,18 +85,20 @@ function LoginForm() {
         if (err) {
           setError(err.message.includes('Signups not allowed') ? 'No account found with this email. Please book a space first to create an account.' : err.message);
         } else {
+          setAuthMethod('email');
           setStep('verify');
           setMessage('Email OTP sent! Please check your inbox.');
         }
       } else {
-        // Fast2SMS Phone Auth (via server action)
+        // Phone Auth (via server action)
         const res = await requestOTP(identifier);
         if (res.error) {
           setError(res.error);
         } else {
           setVerificationToken(res.verificationToken || '');
+          setAuthMethod(res.method || 'sms');
           setStep('verify');
-          setMessage('SMS OTP sent to your phone!');
+          setMessage(res.method === 'whatsapp' ? 'WhatsApp OTP sent!' : 'SMS OTP sent to your phone!');
         }
       }
     } catch (err: any) {
@@ -125,24 +128,29 @@ function LoginForm() {
         });
         
         if (err) {
+          await auditLoginAttempt(identifier, 'email', false);
           setError(err.message);
           setIsProcessing(false);
         } else {
+          await auditLoginAttempt(identifier, 'email', true);
           window.location.href = nextUrl; // Directly redirect, session is set
         }
       } else {
-        // Fast2SMS Phone Auth Verification (via server action)
+        // Phone Auth Verification (via server action)
         const res = await verifyOTP(identifier, otp, nextUrl, verificationToken);
         
         if (res.error) {
+          await auditLoginAttempt(identifier, authMethod, false);
           setError(res.error);
           setIsProcessing(false);
         } else if (res.redirectUrl) {
+          await auditLoginAttempt(identifier, authMethod, true);
           window.location.href = res.redirectUrl;
         }
       }
     } catch (err: any) {
       console.error(err);
+      if (!isEmail) await auditLoginAttempt(identifier, authMethod, false);
       setError(err.message || 'Invalid OTP.');
       setIsProcessing(false);
     }

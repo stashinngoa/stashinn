@@ -157,7 +157,7 @@ export async function addLocation(formData: FormData) {
           name: existingPoc.name,
           phone: existingPoc.phone,
           email: existingPoc.email,
-          is_primary: true,
+          is_primary: false,
           id_document_url: existingPoc.id_document_url,
           photo_url: existingPoc.photo_url
         });
@@ -190,7 +190,7 @@ export async function addLocation(formData: FormData) {
       name: formData.get('poc_name') as string,
       phone: formData.get('poc_phone') as string,
       email: formData.get('poc_email') as string || null,
-      is_primary: true,
+      is_primary: false,
       id_document_url: idDocUrl,
       photo_url: photoUrl
     });
@@ -303,45 +303,45 @@ export async function updateLocation(formData: FormData) {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const { data: partnerForPoc } = await supabase.from('partners').select('id').eq('user_id', authUser?.id).single();
 
-  if (pocOption === 'existing') {
-    const existingPocId = formData.get('existing_poc_id') as string;
-    if (existingPocId && partnerForPoc) {
-      const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
-      if (existingPoc) {
-        // Delete current POCs for this location
-        await supabase.from('partner_pocs').delete().eq('location_id', locationId);
-        
-        // Insert the selected POC
-        await supabase.from('partner_pocs').insert({
-          partner_id: partnerForPoc.id,
-          location_id: locationId,
-          name: existingPoc.name,
-          phone: existingPoc.phone,
-          email: existingPoc.email,
-          is_primary: true,
-          id_document_url: existingPoc.id_document_url,
-          photo_url: existingPoc.photo_url,
-          is_verified: existingPoc.is_verified
-        });
-      }
+  if (pocOption === 'existing' || pocOption === 'new') {
+    let currentIsPrimary = false;
+    if (partnerForPoc) {
+      const { data: currentPoc } = await supabase.from('partner_pocs').select('is_primary').eq('location_id', locationId).maybeSingle();
+      if (currentPoc) currentIsPrimary = currentPoc.is_primary;
     }
-  } else if (pocOption === 'new' && partnerForPoc) {
-    // Delete current POCs for this location
-    await supabase.from('partner_pocs').delete().eq('location_id', locationId);
 
-    // Insert new POC
-    await supabase.from('partner_pocs').insert({
-      partner_id: partnerForPoc.id,
-      location_id: locationId,
-      name: formData.get('poc_name') as string,
-      phone: formData.get('poc_phone') as string,
-      email: formData.get('poc_email') as string || null,
-      is_primary: true,
-      is_verified: false
-    });
-
-    // Set location inactive since new POC needs verification
-    await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
+    if (pocOption === 'existing') {
+      const existingPocId = formData.get('existing_poc_id') as string;
+      if (existingPocId && partnerForPoc) {
+        const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
+        if (existingPoc) {
+          await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+          await supabase.from('partner_pocs').insert({
+            partner_id: partnerForPoc.id,
+            location_id: locationId,
+            name: existingPoc.name,
+            phone: existingPoc.phone,
+            email: existingPoc.email,
+            is_primary: currentIsPrimary,
+            id_document_url: existingPoc.id_document_url,
+            photo_url: existingPoc.photo_url,
+            is_verified: existingPoc.is_verified
+          });
+        }
+      }
+    } else if (pocOption === 'new' && partnerForPoc) {
+      await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+      await supabase.from('partner_pocs').insert({
+        partner_id: partnerForPoc.id,
+        location_id: locationId,
+        name: formData.get('poc_name') as string,
+        phone: formData.get('poc_phone') as string,
+        email: formData.get('poc_email') as string || null,
+        is_primary: currentIsPrimary,
+        is_verified: false
+      });
+      await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
+    }
   }
 
   // If garage, upsert vehicle_pricing

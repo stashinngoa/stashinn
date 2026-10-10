@@ -27,52 +27,52 @@ export default function DateRangeFilter() {
     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
       <form method="GET" className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-400 font-medium">From</label>
+          <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">From</label>
           <input 
             type="date" 
             name="startDate" 
             defaultValue={startDate}
-            className="bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:border-purple-500 focus:outline-none"
+            className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:border-purple-500 focus:outline-none"
           />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-400 font-medium">To</label>
+          <label className="text-sm text-gray-500 dark:text-gray-400 font-medium">To</label>
           <input 
             type="date" 
             name="endDate" 
             defaultValue={endDate}
-            className="bg-gray-900 border border-gray-700 text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:border-purple-500 focus:outline-none"
+            className="bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-200 text-sm rounded-lg px-3 py-1.5 focus:border-purple-500 focus:outline-none"
           />
         </div>
         <button 
           type="submit" 
-          className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-sm font-bold rounded-lg transition-colors"
+          className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-gray-900 dark:text-white text-sm font-bold rounded-lg transition-colors"
         >
           Filter
         </button>
         {(startDate || endDate) && (
           <a 
             href="/dashboard" 
-            className="px-3 py-1.5 text-gray-400 hover:text-white text-sm transition-colors font-medium"
+            className="px-3 py-1.5 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white text-sm transition-colors font-medium"
           >
             Clear
           </a>
         )}
       </form>
       
-      <div className="flex gap-2 text-xs font-bold sm:border-l sm:border-gray-800 sm:pl-3">
+      <div className="flex gap-2 text-xs font-bold sm:border-l sm:border-gray-300 dark:sm:border-gray-200 dark:border-gray-800 sm:pl-3">
         <button
           type="button"
           onClick={() => setPreset(7)}
-          className="text-purple-400 hover:text-purple-300 transition-colors"
+          className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
         >
           Last 7 Days
         </button>
-        <span className="text-gray-700">|</span>
+        <span className="text-gray-600 dark:text-gray-400 dark:text-gray-700">|</span>
         <button
           type="button"
           onClick={() => setPreset(30)}
-          className="text-purple-400 hover:text-purple-300 transition-colors"
+          className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition-colors"
         >
           Last 30 Days
         </button>

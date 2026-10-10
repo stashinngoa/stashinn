@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react';
 import { useFormStatus } from 'react-dom';
-import { updateLocationStatus, updatePocStatus, updatePartnerStatus, updateLocationCommission, updateLocationPricing, updateLocationCoordinates } from '../actions';
+import { updateLocationStatus, updatePocStatus, updatePartnerStatus, updateLocationCommission, updateLocationPricing, updateLocationCoordinates, updateLocationAdminStatus } from '../actions';
 import LocationScoringEngine from '../LocationScoringEngine';
 
 function SubmitButton({ defaultText, loadingText, className }: { defaultText: string, loadingText: string, className: string }) {
@@ -18,6 +18,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
   const [activeTab, setActiveTab] = useState('locations');
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<{type: 'location' | 'poc', data: any} | null>(null);
+  const [statusModal, setStatusModal] = useState<{id: string, name: string, action: 'approved' | 'rejected' | 'suspended' | 'update_required'} | null>(null);
 
   const uniquePocs = pocs.filter((poc: any, index: number, self: any[]) => index === self.findIndex(p => p.phone === poc.phone));
 
@@ -90,26 +91,84 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
         </div>
         
         <div className="flex gap-2">
-          {partner.status === 'pending' && (
-            <>
-              <form action={async (formData) => {
-                const res = await updatePartnerStatus(formData);
-                if (res?.error) alert(res.error);
-              }}>
-                <input type="hidden" name="partner_id" value={partner.id} />
-                <input type="hidden" name="new_status" value="approved" />
-                <SubmitButton defaultText="Approve Partner" loadingText="Approving..." className="px-4 py-2 text-sm font-bold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
-              </form>
-              <form action={async (formData) => {
-                const res = await updatePartnerStatus(formData);
-                if (res?.error) alert(res.error);
-              }}>
-                <input type="hidden" name="partner_id" value={partner.id} />
-                <input type="hidden" name="new_status" value="rejected" />
-                <SubmitButton defaultText="Reject" loadingText="Working..." className="px-4 py-2 text-sm font-bold rounded-lg border border-red-200 dark:border-red-700/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
-              </form>
-            </>
-          )}
+          {partner.status === 'pending' && (() => {
+            const allLocationsVerified = locations.length > 0 && locations.every((loc: any) => loc.admin_status === 'approved');
+            
+            return (
+              <div className="flex flex-col gap-2 items-end">
+                {allLocationsVerified ? (
+                  <>
+                    <div className="flex gap-2">
+                      <a 
+                        href={`/print/partners/${partner.id}`} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="px-4 py-2 text-sm font-bold rounded-lg border border-indigo-200 dark:border-indigo-700/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                      >
+                        View Approval Document
+                      </a>
+                      <form action={async (formData) => {
+                        const res = await updatePartnerStatus(formData);
+                        if (res?.error) alert(res.error);
+                      }}>
+                        <input type="hidden" name="partner_id" value={partner.id} />
+                        <input type="hidden" name="new_status" value="rejected" />
+                        <SubmitButton defaultText="Reject" loadingText="Working..." className="px-4 py-2 text-sm font-bold rounded-lg border border-red-200 dark:border-red-700/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
+                      </form>
+                    </div>
+
+                    {!partner.signed_registration_doc_url ? (
+                      <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg border border-yellow-200 dark:border-yellow-700/50 flex flex-col gap-2 max-w-sm mt-2">
+                        <p className="text-xs text-yellow-800 dark:text-yellow-400 font-medium">Physical signature required before final approval. Upload signed document here:</p>
+                        <form 
+                          action={async (formData) => {
+                            const file = formData.get('signed_doc') as File;
+                            if (!file || file.size === 0) return alert('Please select a file to upload.');
+                            const { uploadSignedRegistrationDoc } = await import('../actions');
+                            const res = await uploadSignedRegistrationDoc(partner.id, formData);
+                            if (res?.error) alert(res.error);
+                          }}
+                          className="flex gap-2"
+                        >
+                          <input type="file" name="signed_doc" accept=".pdf,image/*" required className="text-xs file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-yellow-100 file:text-yellow-700 hover:file:bg-yellow-200" />
+                          <SubmitButton defaultText="Upload" loadingText="..." className="px-3 py-1 text-xs font-bold rounded bg-yellow-600 text-gray-900 dark:text-white hover:bg-yellow-700 transition-colors" />
+                        </form>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 items-center mt-2">
+                        <a href={partner.signed_registration_doc_url} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                          View Signed Doc
+                        </a>
+                        <form action={async (formData) => {
+                          const res = await updatePartnerStatus(formData);
+                          if (res?.error) alert(res.error);
+                        }}>
+                          <input type="hidden" name="partner_id" value={partner.id} />
+                          <input type="hidden" name="new_status" value="approved" />
+                          <SubmitButton defaultText="Final Approve & Go Live" loadingText="Approving..." className="px-4 py-2 text-sm font-bold rounded-lg bg-green-600 text-gray-900 dark:text-white hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed shadow-sm" />
+                        </form>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex flex-col items-end gap-2">
+                    <span className="text-sm font-medium text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-700/50">
+                      Verify all locations to proceed with document approval.
+                    </span>
+                    <form action={async (formData) => {
+                      const res = await updatePartnerStatus(formData);
+                      if (res?.error) alert(res.error);
+                    }}>
+                      <input type="hidden" name="partner_id" value={partner.id} />
+                      <input type="hidden" name="new_status" value="rejected" />
+                      <SubmitButton defaultText="Reject Partner" loadingText="Working..." className="px-4 py-2 text-sm font-bold rounded-lg border border-red-200 dark:border-red-700/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
+                    </form>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {partner.status === 'approved' && (
             <form action={async (formData) => {
               const res = await updatePartnerStatus(formData);
@@ -130,8 +189,8 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">KYC Documents</h2>
           <div className="flex flex-wrap gap-4">
             {kycDocs.map((doc, idx) => (
-              <a key={idx} href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800">
-                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <a key={idx} href={doc.url} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800">
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                 </svg>
                 <span className="text-sm text-blue-600 dark:text-blue-400">{doc.name}</span>
@@ -145,13 +204,13 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
       <div className="border-b border-gray-200 dark:border-gray-800 flex gap-6">
         <button 
           onClick={() => setActiveTab('locations')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'locations' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'locations' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-700 dark:text-gray-300'}`}
         >
           Locations ({locations.length})
         </button>
         <button 
           onClick={() => setActiveTab('pocs')}
-          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pocs' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'pocs' ? 'border-red-500 text-red-600 dark:text-red-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-700 dark:text-gray-300'}`}
         >
           Points of Contact ({uniquePocs.length})
         </button>
@@ -180,19 +239,19 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                   <tr><td colSpan={7} className="p-6 text-center text-gray-500">No locations added yet.</td></tr>
                 )}
                 {locations.map((loc) => (
-                  <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <tr key={loc.id} className="hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       {loc.photos && loc.photos.length > 0 ? (
                         <div className="h-10 w-16 rounded overflow-hidden border border-gray-200 dark:border-gray-700 relative">
                           <img src={loc.photos[0]} alt={loc.name} className="object-cover w-full h-full" />
                           {loc.photos.length > 1 && (
-                            <div className="absolute bottom-0 right-0 bg-black/60 text-white text-[10px] px-1 font-bold">
+                            <div className="absolute bottom-0 right-0 bg-black/60 text-gray-900 dark:text-white text-[10px] px-1 font-bold">
                               +{loc.photos.length - 1}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div className="h-10 w-16 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-400">
+                        <div className="h-10 w-16 rounded bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-400">
                           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
@@ -214,17 +273,39 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setSelectedEntity({ type: 'location', data: loc })}
-                          className="px-3 py-1.5 text-xs font-bold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                          className="px-3 py-1.5 text-xs font-bold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-50 dark:bg-gray-800 transition-colors"
                         >
                           View Details
                         </button>
-                        <button 
-                          onClick={() => handleLocationToggle(loc.id, loc.is_active)}
-                          disabled={loadingId === loc.id}
-                          className={`px-3 py-1.5 text-xs font-bold rounded border ${loc.is_active ? 'border-red-200 text-red-600 hover:bg-red-50 dark:border-red-700/50 dark:text-red-400 dark:hover:bg-red-900/30' : 'border-green-200 text-green-600 hover:bg-green-50 dark:border-green-700/50 dark:text-green-400 dark:hover:bg-green-900/30'} transition-colors`}
-                        >
-                          {loadingId === loc.id ? 'Wait...' : (loc.is_active ? 'Reject' : 'Approve')}
-                        </button>
+                        {loc.admin_status === 'approved' ? (
+                          <button 
+                            onClick={() => setStatusModal({ id: loc.id, name: loc.name, action: 'suspended' })}
+                            className="px-3 py-1.5 text-xs font-bold rounded border border-orange-200 text-orange-600 hover:bg-orange-50 dark:border-orange-700/50 dark:text-orange-400 dark:hover:bg-orange-900/30 transition-colors"
+                          >
+                            Suspend
+                          </button>
+                        ) : (
+                          <>
+                            <button 
+                              onClick={() => setStatusModal({ id: loc.id, name: loc.name, action: 'approved' })}
+                              className="px-3 py-1.5 text-xs font-bold rounded border border-green-200 text-green-600 hover:bg-green-50 dark:border-green-700/50 dark:text-green-400 dark:hover:bg-green-900/30 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button 
+                              onClick={() => setStatusModal({ id: loc.id, name: loc.name, action: 'rejected' })}
+                              className="px-3 py-1.5 text-xs font-bold rounded border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-700/50 dark:text-red-400 dark:hover:bg-red-900/30 transition-colors"
+                            >
+                              Reject
+                            </button>
+                            <button 
+                              onClick={() => setStatusModal({ id: loc.id, name: loc.name, action: 'update_required' })}
+                              className="px-3 py-1.5 text-xs font-bold rounded border border-yellow-200 text-yellow-600 hover:bg-yellow-50 dark:border-yellow-700/50 dark:text-yellow-400 dark:hover:bg-yellow-900/30 transition-colors"
+                            >
+                              Need Info
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -251,7 +332,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                   <tr><td colSpan={4} className="p-6 text-center text-gray-500">No POCs added yet.</td></tr>
                 )}
                 {uniquePocs.map((poc: any) => (
-                  <tr key={poc.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  <tr key={poc.id} className="hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         {poc.signed_photo_url ? (
@@ -286,7 +367,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setSelectedEntity({ type: 'poc', data: poc })}
-                          className="px-3 py-1.5 text-xs font-bold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors"
+                          className="px-3 py-1.5 text-xs font-bold rounded border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-50 dark:bg-gray-800 transition-colors"
                         >
                           View Details
                         </button>
@@ -316,7 +397,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {selectedEntity.type === 'location' ? 'Location Details' : 'Point of Contact Details'}
               </h2>
-              <button onClick={() => setSelectedEntity(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+              <button onClick={() => setSelectedEntity(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-800 dark:text-gray-200">
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -411,7 +492,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                           </span>
                         ))
                       ) : (
-                        <span className="text-sm italic text-gray-400">None provided</span>
+                        <span className="text-sm italic text-gray-600 dark:text-gray-400">None provided</span>
                       )}
                       {/* Boolean amenities for garage */}
                       {selectedEntity.data.has_cctv && (
@@ -473,7 +554,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                         />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
                       </div>
-                      <SubmitButton defaultText="Save Rate" loadingText="Saving..." className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
+                      <SubmitButton defaultText="Save Rate" loadingText="Saving..." className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-gray-900 dark:text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed" />
                     </form>
                   </div>
 
@@ -556,7 +637,7 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                   {selectedEntity.data.signed_id_doc_url && (
                     <div className="mt-6">
                       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">ID Document</p>
-                      <a href={selectedEntity.data.signed_id_doc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 font-medium">
+                      <a href={selectedEntity.data.signed_id_doc_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-50 dark:bg-gray-800 text-blue-600 dark:text-blue-400 font-medium">
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
@@ -566,6 +647,61 @@ export default function ClientPartnerDetails({ partner, locations, pocs, kycDocs
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Change Modal */}
+      {statusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2 capitalize">
+                {statusModal.action.replace('_', ' ')} Location
+              </h2>
+              <p className="text-sm text-gray-500 mb-6">
+                You are about to <strong className="text-gray-900 dark:text-gray-300">{statusModal.action.replace('_', ' ')}</strong> {statusModal.name}. Please provide a reason to notify the partner.
+              </p>
+              <form 
+                action={async (formData) => {
+                  try {
+                    const res = await updateLocationAdminStatus(statusModal.id, partner.id, statusModal.action, formData.get('reason') as string);
+                    if (res?.error) {
+                      alert(res.error);
+                    } else {
+                      setStatusModal(null);
+                    }
+                  } catch (e: any) {
+                    alert('Error updating status: ' + e.message);
+                  }
+                }}
+              >
+                <div className="mb-4">
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Message to Partner</label>
+                  <textarea 
+                    name="reason" 
+                    rows={4} 
+                    required 
+                    placeholder="E.g., Missing proper pictures, ID verification failed..."
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none text-sm resize-none"
+                  ></textarea>
+                </div>
+                <div className="flex justify-end gap-3 mt-6">
+                  <button 
+                    type="button" 
+                    onClick={() => setStatusModal(null)}
+                    className="px-4 py-2 text-sm font-bold text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-900 dark:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <SubmitButton 
+                    defaultText="Confirm Action" 
+                    loadingText="Processing..." 
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-gray-900 dark:text-white text-sm font-bold rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed" 
+                  />
+                </div>
+              </form>
             </div>
           </div>
         </div>

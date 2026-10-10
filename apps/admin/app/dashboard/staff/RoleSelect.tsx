@@ -14,7 +14,7 @@ export default function RoleSelect({
         name="admin_role" 
         defaultValue={initialRole}
         onChange={(e) => e.target.form?.requestSubmit()}
-        className="bg-gray-950 border border-gray-700 rounded-md text-xs text-white px-2 py-1 focus:outline-none"
+        className="bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-md text-xs text-gray-900 dark:text-white px-2 py-1 focus:outline-none"
       >
         <option value="superadmin">Superadmin</option>
         <option value="finance">Finance</option>

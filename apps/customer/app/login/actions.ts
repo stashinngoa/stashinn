@@ -11,6 +11,42 @@ function getSupabaseAdmin() {
   );
 }
 
+export async function auditLoginAttempt(identifier: string, method: 'email' | 'whatsapp' | 'sms' | 'auto', success: boolean) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    let userId = null;
+    
+    // Try to find the user ID for the audit log safely
+    const isEmail = identifier.includes('@');
+    const { data: user, error: lookupErr } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq(isEmail ? 'email' : 'phone', identifier)
+      .maybeSingle();
+
+    if (lookupErr) {
+      console.error("[Audit] User lookup error:", lookupErr);
+    }
+    
+    if (user) {
+      userId = user.id;
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from('auth_audits').insert({
+      user_id: userId,
+      identifier,
+      method,
+      success
+    });
+
+    if (insertErr) {
+      console.error("[Audit] Insert error:", insertErr);
+    }
+  } catch (e) {
+    console.error("[Audit] Fatal exception:", e);
+  }
+}
+
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || 'stashinn-otp-secret-key';
 
 function signOTP(identifier: string, otp: string, expiresAt: number) {
@@ -44,9 +80,13 @@ export async function requestOTP(identifier: string) {
   const verificationToken = `${expiresAt}.${hash}`;
 
   // Call Messaging API wrapper (WhatsApp/Fast2SMS)
-  await sendZavuOTP({ to: identifier, otp });
+  const result = await sendZavuOTP({ to: identifier, otp });
 
-  return { success: true, verificationToken };
+  if (!result.success) {
+    return { error: 'Failed to send OTP via WhatsApp or SMS. Please use Email login.' };
+  }
+
+  return { success: true, verificationToken, method: result.method };
 }
 
 export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl: string, verificationToken?: string) {

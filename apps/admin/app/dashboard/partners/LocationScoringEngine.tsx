@@ -10,7 +10,7 @@ function SubmitBtn() {
     <button 
       type="submit" 
       disabled={pending}
-      className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition-colors disabled:opacity-70"
+      className="w-full mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-gray-900 dark:text-white font-bold rounded-lg transition-colors disabled:opacity-70"
     >
       {pending ? 'Saving & Applying Rates...' : 'Apply Scoring & Automate Rates'}
     </button>

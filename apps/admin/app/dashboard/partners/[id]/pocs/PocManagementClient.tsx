@@ -20,7 +20,7 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       <div className="lg:col-span-2 space-y-4">
         {initialPocs.map((poc) => (
-          <div key={poc.id} className="bg-gray-900 p-6 rounded-2xl border border-gray-800 flex justify-between items-start">
+          <div key={poc.id} className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 flex justify-between items-start">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <h3 className="text-lg font-bold text-gray-100">{poc.name}</h3>
@@ -31,8 +31,8 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
                   <span className="bg-amber-900/40 text-amber-400 text-xs px-2 py-0.5 rounded font-medium border border-amber-700/50">Pending Verification</span>
                 )}
               </div>
-              <div className="text-sm text-gray-400">{poc.phone} • {poc.email || 'No email provided'}</div>
-              <div className="text-sm font-medium text-gray-300 mt-2">
+              <div className="text-sm text-gray-600 dark:text-gray-400">{poc.phone} • {poc.email || 'No email provided'}</div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-2">
                 📍 {poc.partner_locations?.name || 'All Locations (HQ)'}
               </div>
             </div>
@@ -54,7 +54,7 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
         ))}
 
         {initialPocs.length === 0 && (
-          <div className="bg-gray-900 p-12 text-center rounded-2xl border border-dashed border-gray-700">
+          <div className="bg-white dark:bg-gray-900 p-12 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
             <p className="text-gray-500">No POCs added by this partner yet.</p>
           </div>
         )}
@@ -65,10 +65,10 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
           <form action={async (formData) => {
             await editPoc(formData);
             setEditingPoc(null);
-          }} className="bg-gray-900 p-6 rounded-2xl border border-gray-800 sticky top-6">
+          }} className="bg-white dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800 sticky top-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-gray-100">Edit Contact</h3>
-              <button type="button" onClick={() => setEditingPoc(null)} className="text-gray-500 hover:text-gray-300 text-sm">Cancel</button>
+              <button type="button" onClick={() => setEditingPoc(null)} className="text-gray-500 hover:text-gray-700 dark:text-gray-300 text-sm">Cancel</button>
             </div>
             
             <input type="hidden" name="poc_id" value={editingPoc.id} />
@@ -76,23 +76,23 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Full Name</label>
-                <input type="text" name="name" defaultValue={editingPoc.name} required className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Full Name</label>
+                <input type="text" name="name" defaultValue={editingPoc.name} required className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Phone Number</label>
-                <input type="tel" name="phone" defaultValue={editingPoc.phone} required className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Phone Number</label>
+                <input type="tel" name="phone" defaultValue={editingPoc.phone} required className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Email Address</label>
-                <input type="email" name="email" defaultValue={editingPoc.email || ''} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Email Address</label>
+                <input type="email" name="email" defaultValue={editingPoc.email || ''} className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none" />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Assigned Location</label>
-                <select name="location_id" defaultValue={editingPoc.location_id || ''} className="w-full px-3 py-2 bg-gray-800 border border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none">
+                <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Assigned Location</label>
+                <select name="location_id" defaultValue={editingPoc.location_id || ''} className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 text-gray-100 rounded-lg focus:ring-purple-500 outline-none">
                   <option value="">All Locations (HQ Staff)</option>
                   {locations.map(loc => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
@@ -103,18 +103,18 @@ export default function PocManagementClient({ initialPocs, locations, partnerId 
                 )}
               </div>
               
-              <label className="flex items-center space-x-2 text-sm text-gray-400">
-                <input type="checkbox" name="is_primary" defaultChecked={editingPoc.is_primary} value="true" className="text-purple-600 rounded bg-gray-800 border-gray-700" />
+              <label className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+                <input type="checkbox" name="is_primary" defaultChecked={editingPoc.is_primary} value="true" className="text-purple-600 rounded bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700" />
                 <span>Set as Primary Contact</span>
               </label>
 
-              <button type="submit" className="w-full py-2.5 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors shadow-sm mt-2">
+              <button type="submit" className="w-full py-2.5 bg-purple-600 text-gray-900 dark:text-white rounded-lg font-medium hover:bg-purple-700 transition-colors shadow-sm mt-2">
                 Save Changes
               </button>
             </div>
           </form>
         ) : (
-          <div className="bg-gray-900/50 border border-gray-800 border-dashed rounded-2xl p-6 text-center h-full flex flex-col justify-center min-h-[300px]">
+          <div className="bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-800 border-dashed rounded-2xl p-6 text-center h-full flex flex-col justify-center min-h-[300px]">
             <p className="text-gray-500 text-sm">Select a POC to edit their details or assign them to a specific location.</p>
           </div>
         )}

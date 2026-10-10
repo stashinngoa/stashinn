@@ -27,12 +27,12 @@ export default function CustomerSearch({ defaultValue }: { defaultValue: string 
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name, email, or phone..."
-          className="w-full pl-10 pr-4 py-2.5 bg-gray-900 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
+          className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-sm text-gray-800 dark:text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-colors"
         />
       </div>
       <button
         type="submit"
-        className="px-5 py-2.5 bg-gray-800 text-gray-300 font-bold text-sm rounded-lg border border-gray-700 hover:bg-gray-700 hover:text-white transition-colors"
+        className="px-5 py-2.5 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-bold text-sm rounded-lg border border-gray-300 dark:border-gray-700 hover:bg-gray-700 hover:text-gray-900 dark:text-white transition-colors"
       >
         Search
       </button>
@@ -40,7 +40,7 @@ export default function CustomerSearch({ defaultValue }: { defaultValue: string 
         <button
           type="button"
           onClick={() => { setQuery(''); router.push('/dashboard/customers'); }}
-          className="px-4 py-2.5 text-gray-500 text-sm hover:text-gray-300 transition-colors"
+          className="px-4 py-2.5 text-gray-500 text-sm hover:text-gray-700 dark:text-gray-300 transition-colors"
         >
           Clear
         </button>

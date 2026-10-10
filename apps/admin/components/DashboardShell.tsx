@@ -39,7 +39,7 @@ export default function DashboardShell({ sidebar, header, children }: DashboardS
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex font-inter transition-colors duration-200">
+    <div className="min-h-screen bg-gray-50 dark:bg-black flex font-inter transition-colors duration-200">
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -67,7 +67,7 @@ export default function DashboardShell({ sidebar, header, children }: DashboardS
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 md:px-8 shrink-0 transition-colors duration-200">
+        <header className="h-16 bg-white dark:bg-black border-b border-gray-200 dark:border-gray-800 flex items-center px-4 md:px-8 shrink-0 transition-colors duration-200">
           <button 
             className="md:hidden mr-4 p-2 -ml-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md focus:outline-none focus:ring-2 focus:ring-inset focus:ring-orange-500 shrink-0 transition-colors"
             onClick={() => setIsSidebarOpen(true)}
@@ -98,7 +98,7 @@ export default function DashboardShell({ sidebar, header, children }: DashboardS
           </div>
         </header>
         
-        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 dark:bg-gray-950 min-w-0 transition-colors duration-200">
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 bg-gray-50 dark:bg-black min-w-0 transition-colors duration-200">
           {children}
         </main>
       </div>

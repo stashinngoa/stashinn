@@ -100,14 +100,14 @@ export default function NotificationList() {
   return (
     <div>
       {/* Filter Bar */}
-      <div className="px-6 py-4 bg-gray-900 border-b border-gray-800 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="flex-1 w-full relative">
           <input 
             type="text" 
             placeholder="Search notifications..." 
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-gray-950 border border-gray-800 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-blue-500"
+            className="w-full pl-10 pr-4 py-2 bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:border-blue-500"
           />
           <svg className="w-5 h-5 absolute left-3 top-2.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -115,20 +115,20 @@ export default function NotificationList() {
         </div>
         
         <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-          <select value={category} onChange={e => setCategory(e.target.value)} className="bg-gray-950 border border-gray-800 text-sm text-gray-300 rounded-lg px-3 py-2 outline-none">
+          <select value={category} onChange={e => setCategory(e.target.value)} className="bg-gray-950 border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-300 rounded-lg px-3 py-2 outline-none">
             <option value="all">All Categories</option>
             <option value="system">System</option>
             <option value="payment">Payment</option>
             <option value="booking">Booking</option>
             <option value="damage">Damage / Dispute</option>
           </select>
-          <select value={status} onChange={e => setStatus(e.target.value)} className="bg-gray-950 border border-gray-800 text-sm text-gray-300 rounded-lg px-3 py-2 outline-none">
+          <select value={status} onChange={e => setStatus(e.target.value)} className="bg-gray-950 border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-300 rounded-lg px-3 py-2 outline-none">
             <option value="unread">Unread</option>
             <option value="read">Read</option>
             <option value="all">All Non-Archived</option>
             <option value="archived">Archived</option>
           </select>
-          <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="bg-gray-950 border border-gray-800 text-sm text-gray-300 rounded-lg px-3 py-2 outline-none">
+          <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="bg-gray-950 border border-gray-200 dark:border-gray-800 text-sm text-gray-700 dark:text-gray-300 rounded-lg px-3 py-2 outline-none">
             <option value="all">All Time</option>
             <option value="today">Today</option>
             <option value="week">Past 7 Days</option>
@@ -138,24 +138,24 @@ export default function NotificationList() {
       </div>
 
       {/* Action Bar */}
-      <div className="px-6 py-3 bg-gray-950 border-b border-gray-800 flex justify-between items-center">
+      <div className="px-6 py-3 bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center">
         <div className="flex items-center gap-4">
           <label className="flex items-center gap-2 cursor-pointer">
             <input 
               type="checkbox" 
               checked={notifications.length > 0 && selectedIds.size === notifications.length}
               onChange={toggleAll}
-              className="rounded bg-gray-800 border-gray-700 text-blue-500 focus:ring-blue-500/30"
+              className="rounded bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-blue-500 focus:ring-blue-500/30"
             />
-            <span className="text-xs font-bold text-gray-400">Select All</span>
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">Select All</span>
           </label>
           
           {selectedIds.size > 0 && (
-            <div className="flex items-center gap-2 border-l border-gray-800 pl-4">
+            <div className="flex items-center gap-2 border-l border-gray-200 dark:border-gray-800 pl-4">
               <button 
                 onClick={handleBulkMarkRead} 
                 disabled={isPending}
-                className="text-xs font-bold px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-md transition-colors"
+                className="text-xs font-bold px-3 py-1 bg-gray-50 dark:bg-gray-800 hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors"
               >
                 Mark Read
               </button>
@@ -171,7 +171,7 @@ export default function NotificationList() {
         </div>
 
         <div className="flex gap-4 items-center">
-          <button onClick={exportCSV} className="text-xs font-bold text-gray-400 hover:text-white transition-colors flex items-center gap-1">
+          <button onClick={exportCSV} className="text-xs font-bold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:text-white transition-colors flex items-center gap-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
@@ -190,7 +190,7 @@ export default function NotificationList() {
       </div>
 
       {/* List */}
-      <div className="divide-y divide-gray-800 min-h-[400px]">
+      <div className="divide-y divide-gray-200 dark:divide-gray-800 min-h-[400px]">
         {loading ? (
           <div className="p-12 text-center text-gray-500 text-sm animate-pulse">Loading notifications...</div>
         ) : notifications.length === 0 ? (
@@ -203,32 +203,32 @@ export default function NotificationList() {
               key={notif.id} 
               className={`p-4 flex items-start gap-4 transition-colors ${
                 selectedIds.has(notif.id) ? 'bg-blue-900/10' :
-                notif.is_read ? 'bg-gray-900 opacity-75' : 'bg-gray-800/40 hover:bg-gray-800/60'
+                notif.is_read ? 'bg-white dark:bg-gray-900 opacity-75' : 'bg-gray-50 dark:bg-gray-800/40 hover:bg-gray-50 dark:bg-gray-800/60'
               }`}
             >
               <input 
                 type="checkbox" 
                 checked={selectedIds.has(notif.id)}
                 onChange={() => toggleSelection(notif.id)}
-                className="mt-1 rounded bg-gray-800 border-gray-700 text-blue-500 focus:ring-blue-500/30 cursor-pointer"
+                className="mt-1 rounded bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-700 text-blue-500 focus:ring-blue-500/30 cursor-pointer"
               />
               
               <div className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${notif.is_read ? 'bg-transparent' : 'bg-red-500'}`} />
               
               <div className="flex-1">
                 <div className="flex justify-between items-start">
-                  <h3 className={`text-sm ${notif.is_read ? 'text-gray-400 font-medium' : 'text-white font-bold'}`}>
+                  <h3 className={`text-sm ${notif.is_read ? 'text-gray-600 dark:text-gray-400 font-medium' : 'text-gray-900 dark:text-white font-bold'}`}>
                     {notif.title}
                   </h3>
                   <span className="text-xs text-gray-600 whitespace-nowrap ml-4">
                     {new Date(notif.created_at).toLocaleString()}
                   </span>
                 </div>
-                <p className={`text-sm mt-1 ${notif.is_read ? 'text-gray-500' : 'text-gray-300'}`}>
+                <p className={`text-sm mt-1 ${notif.is_read ? 'text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
                   {notif.message}
                 </p>
                 <div className="flex items-center gap-3 mt-3">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded">
                     {notif.category}
                   </span>
                   {notif.action_url && (
@@ -243,7 +243,7 @@ export default function NotificationList() {
                 <button 
                   onClick={() => handleMarkAsRead(notif.id)}
                   disabled={isPending}
-                  className="shrink-0 p-2 text-gray-500 hover:text-white transition-colors"
+                  className="shrink-0 p-2 text-gray-500 hover:text-gray-900 dark:text-white transition-colors"
                   title="Mark as read"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

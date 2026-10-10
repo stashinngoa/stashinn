@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/server';
+import { createClient, createAdminClient } from '../supabase/server';
 import { AdminRole } from '../types/index';
 
 interface BroadcastParams {
@@ -14,7 +14,7 @@ interface BroadcastParams {
  * Superadmins always receive notifications by default.
  */
 export async function notifyAdmins(params: BroadcastParams) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Find all admins matching the roles (or superadmins)
   const { data: admins, error } = await supabase
@@ -213,7 +213,7 @@ export const ExternalNotificationService = {
  * Notifies a partner based on their configured preferences.
  */
 export async function notifyPartnerExternal(partnerId: string, payload: { title: string, message: string }) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // 1. Get Partner User ID & contact info
   const { data: partner } = await supabase

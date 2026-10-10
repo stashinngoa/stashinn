@@ -112,7 +112,7 @@ export default function ScoringForm({ initialRules }: { initialRules: any }) {
         <button 
           type="submit" 
           disabled={isSubmitting}
-          className="px-8 py-2.5 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 disabled:opacity-70 transition-colors"
+          className="px-8 py-2.5 bg-orange-600 text-gray-900 dark:text-white font-medium rounded-lg hover:bg-orange-700 disabled:opacity-70 transition-colors"
         >
           {isSubmitting ? 'Saving...' : 'Save Configuration'}
         </button>

@@ -6,7 +6,7 @@ export default function DiffViewer({ oldValues, newValues }: { oldValues: any, n
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-800">
+    <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200 dark:divide-gray-800">
       <div className="p-4">
         <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Old State</h4>
         <pre className="text-[11px] font-mono text-red-400/80 bg-red-950/20 p-3 rounded overflow-x-auto">
