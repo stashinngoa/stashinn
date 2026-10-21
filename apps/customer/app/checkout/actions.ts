@@ -4,6 +4,7 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import { sendSMS, sendWhatsApp } from '@stashinn/lib/services/messaging';
 import crypto from 'crypto';
+import { getCustomerBaseUrl } from '../../lib/getBaseUrl';
 
 export async function createBooking(formData: FormData) {
   try {
@@ -205,10 +206,11 @@ export async function createBooking(formData: FormData) {
 
     if (!user) {
       const email = formData.get('email') as string;
+      const baseUrl = await getCustomerBaseUrl();
       const { data: linkData } = await supabaseService.auth.admin.generateLink({
         type: 'magiclink',
         email: email,
-        options: { redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard?autoLogin=true` }
+        options: { redirectTo: `${baseUrl}/dashboard?autoLogin=true` }
       });
       
       // Audit this auto-login attempt

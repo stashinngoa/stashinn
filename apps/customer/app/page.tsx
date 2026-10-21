@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useRef } from 'react';
 import { getSearchSuggestions } from './actions';
 import { createClient } from '@stashinn/lib/supabase/client';
 
 export default function HomePage() {
   const router = useRouter();
+  const searchDropdownRef = useRef<HTMLDivElement>(null);
   
   // Calculate minimum local date and hour
   const today = new Date();
@@ -39,11 +40,26 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
+      } catch (e) {
+        // Handle error gracefully
+      }
     };
     fetchUser();
+  }, []);
+
+  // Close search suggestions on click outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   // Check saved theme preference
@@ -156,14 +172,24 @@ export default function HomePage() {
   // Generate 24 hour options
   const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
+  const formatTimeAMPM = (timeStr: string) => {
+    if (!timeStr) return '';
+    const parts = timeStr.split(':');
+    const h = Number(parts[0] ?? 0);
+    const m = Number(parts[1] ?? 0);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
   const scrollToSearch = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
-    <main className="min-h-screen bg-gray-100 flex flex-col font-inter">
+    <main className="min-h-screen bg-slate-50 dark:bg-black text-gray-900 dark:text-gray-100 flex flex-col font-inter transition-colors duration-300">
       {/* Header */}
-      <header className="h-20 bg-white/80 dark:bg-black backdrop-blur-md dark:backdrop-blur-none border-b border-gray-100 dark:border-gray-900 flex items-center justify-between px-4 md:px-8 sticky top-0 z-50 transition-colors relative">
+      <header className="h-20 bg-white/95 dark:bg-black backdrop-blur-md dark:backdrop-blur-none border-b border-gray-200/80 dark:border-neutral-900 flex items-center justify-between px-4 md:px-8 sticky top-0 z-50 transition-colors duration-200">
         <div className="flex items-center gap-2">
           <img src="/StashInn_Light_no_text.png" alt="StashInn Logo" className="h-8 md:h-10 w-auto dark:hidden" />
           <img src="/StashInn_Dark_no_text.png" alt="StashInn Logo" className="h-8 md:h-10 w-auto hidden dark:block" />
@@ -172,56 +198,71 @@ export default function HomePage() {
           </span>
         </div>
 
+        <nav className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
+          <a 
+            href="#how-it-works" 
+            className="hidden md:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-neutral-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-900 transition-all"
+          >
+            <svg className="w-4 h-4 text-gray-400 dark:text-neutral-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>How it works</span>
+          </a>
+          
+          <a 
+            href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} 
+            className="inline-flex items-center gap-1.5 px-3 py-2 sm:px-3.5 rounded-full text-sm font-medium text-gray-700 dark:text-neutral-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-neutral-900 transition-all"
+          >
+            <svg className="w-4 h-4 text-orange-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <span className="hidden sm:inline">Become a Partner</span>
+            <span className="sm:hidden text-xs">Partner</span>
+          </a>
+          
+          <div className="h-5 w-px bg-gray-200 dark:bg-neutral-800 mx-0.5 sm:mx-1 hidden sm:block"></div>
 
-        <nav className="flex items-center gap-2 md:gap-4 lg:gap-6">
           <button 
             onClick={toggleTheme}
-            className="p-2 md:p-2.5 rounded-full text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-500 bg-gray-100 dark:bg-gray-900 hover:bg-orange-50 dark:hover:bg-gray-800 transition-all duration-300"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-gray-500 hover:text-gray-900 dark:text-neutral-400 dark:hover:text-white bg-gray-100/80 dark:bg-neutral-900 hover:bg-gray-200/70 dark:hover:bg-neutral-800 border border-gray-200/60 dark:border-neutral-800 transition-all"
             aria-label="Toggle dark mode"
           >
             {isDark ? (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
               </svg>
             ) : (
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
               </svg>
             )}
           </button>
-          
-          <a href="#how-it-works" className="flex items-center text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-500 transition-colors p-2 md:p-0 rounded-full hover:bg-gray-100 md:hover:bg-transparent dark:hover:bg-gray-900 md:dark:hover:bg-transparent">
-            <svg className="w-5 h-5 md:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="hidden md:inline-block text-sm font-medium">How it works</span>
-          </a>
-          
-          <a href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} className="flex items-center text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-500 transition-colors p-2 md:p-0 rounded-full hover:bg-gray-100 md:hover:bg-transparent dark:hover:bg-gray-900 md:dark:hover:bg-transparent">
-            <svg className="w-5 h-5 md:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" />
-            </svg>
-            <span className="hidden md:inline-block text-sm font-medium">Become a Partner</span>
-          </a>
-          
+
           {user ? (
-            <div className="flex items-center gap-2 md:gap-4 ml-1 md:ml-2">
-              <a href="/dashboard" className="hidden md:flex items-center px-5 py-2.5 bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 text-sm font-bold rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors border border-transparent dark:border-gray-800">
+            <div className="flex items-center gap-2 ml-1">
+              <a 
+                href="/dashboard" 
+                className="hidden md:inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-neutral-900 text-gray-900 dark:text-neutral-100 text-sm font-semibold rounded-full hover:bg-gray-200 dark:hover:bg-neutral-800 transition-colors border border-gray-200/70 dark:border-neutral-800"
+              >
                 My Bookings
               </a>
-              <a href="/dashboard/profile" className="flex items-center justify-center w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-r from-orange-600 to-amber-500 text-white font-bold shadow-md hover:shadow-lg transition-all shrink-0" title="Profile Settings">
+              <a 
+                href="/dashboard/profile" 
+                className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-orange-600 to-amber-500 text-white font-bold text-sm shadow-md hover:shadow-lg transition-transform hover:scale-105 shrink-0 ring-2 ring-orange-500/30" 
+                title="Profile Settings"
+              >
                 {user.user_metadata?.full_name ? user.user_metadata.full_name.charAt(0).toUpperCase() : 'U'}
               </a>
             </div>
           ) : (
-            <a href="/login" className="flex items-center px-4 py-2 md:px-5 md:py-2.5 bg-gray-900 dark:bg-orange-600 text-white text-sm font-medium rounded-full hover:bg-gray-800 dark:hover:bg-orange-700 transition-colors shadow-sm ml-1 md:ml-2">
-              <svg className="w-5 h-5 md:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <svg className="w-5 h-5 hidden md:block md:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <a 
+              href="/login" 
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 sm:px-5 sm:py-2.5 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs sm:text-sm font-semibold rounded-full shadow-md shadow-orange-600/25 hover:shadow-orange-600/40 active:scale-95 transition-all duration-200 shrink-0 ml-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
               </svg>
-              <span className="hidden md:inline-block">Sign In</span>
+              <span>Sign In</span>
             </a>
           )}
         </nav>
@@ -231,7 +272,7 @@ export default function HomePage() {
       <div className={`fixed bottom-6 md:bottom-auto md:top-5 left-1/2 -translate-x-1/2 transition-all duration-300 ease-out origin-center z-[60] ${isScrolled ? 'opacity-100 scale-100 pointer-events-auto translate-y-0' : 'opacity-0 scale-95 pointer-events-none translate-y-4 md:-translate-y-4'}`}>
         <button 
           onClick={scrollToSearch}
-          className="flex items-center gap-3 px-5 py-3 md:px-4 md:py-2 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border border-gray-100 dark:border-gray-700 rounded-full shadow-2xl md:shadow-md hover:shadow-lg transition-shadow group"
+          className="flex items-center gap-3 px-5 py-3 md:px-4 md:py-2 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border border-gray-200/80 dark:border-gray-800 rounded-full shadow-2xl md:shadow-md hover:shadow-lg transition-shadow group"
         >
           <span className="text-sm font-bold md:font-semibold text-gray-900 dark:text-gray-100 truncate max-w-[120px] sm:max-w-[150px]">{city || 'Anywhere'}</span>
           <span className="w-px h-5 md:h-4 bg-gray-200 dark:bg-gray-700"></span>
@@ -239,7 +280,7 @@ export default function HomePage() {
           <span className="w-px h-5 md:h-4 bg-gray-200 dark:bg-gray-700 hidden sm:block"></span>
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 hidden sm:block">{mode === 'luggage' ? `${bags} ${bags === 1 ? 'bag' : 'bags'}` : vehicleType}</span>
           <div className="bg-gradient-to-r from-orange-600 to-amber-500 text-white p-2 md:p-1.5 rounded-full ml-1 sm:ml-2 shadow-sm group-hover:scale-105 transition-transform">
-            <svg className="w-4 h-4 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
@@ -247,18 +288,17 @@ export default function HomePage() {
       </div>
 
       {/* Hero Section */}
-      <section className="flex-1 flex flex-col items-center justify-center px-4 relative py-24">
-        {/* Background Gradients */}
+      <section className="flex-1 flex flex-col items-center justify-center px-4 relative py-16 md:py-20 z-30">
+        {/* Background Gradients & Ambient Glow */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-orange-300/30 blur-[120px] rounded-full"></div>
-          <div className="absolute top-1/4 -left-32 w-[600px] h-[500px] bg-amber-400/20 blur-[140px] rounded-full"></div>
-          <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-amber-300/20 blur-[100px] rounded-full"></div>
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-orange-400/20 dark:bg-orange-600/10 blur-[140px] rounded-full"></div>
+          <div className="absolute top-1/4 -left-32 w-[600px] h-[500px] bg-amber-400/15 dark:bg-amber-600/10 blur-[150px] rounded-full"></div>
+          <div className="absolute bottom-0 right-0 w-[600px] h-[350px] bg-orange-300/15 dark:bg-orange-900/10 blur-[130px] rounded-full"></div>
         </div>
 
         {/* Left Side Bags Pile (Desktop only) */}
-        <div className="absolute left-[-20px] xl:left-10 bottom-10 w-[400px] xl:w-[500px] h-[500px] hidden lg:block pointer-events-none z-10">
+        <div className="absolute left-[-20px] xl:left-8 bottom-10 w-[400px] xl:w-[500px] h-[500px] hidden lg:block pointer-events-none z-10">
           {Array.from({ length: 10 }).map((_, i) => {
-            // 10 unique bag/storage items
             const icons = ['🧳', '🎒', '👜', '💼', '🛍️', '👝', '👛', '📦', '🧺', '🛄'];
             const styles = [
               { left: '0%', bottom: '5%', zIndex: 10, rotate: '-15deg', scale: 1.2, dur: '800ms', delay: 0 },
@@ -279,7 +319,7 @@ export default function HomePage() {
             return (
               <div
                 key={i}
-                className="absolute text-[160px] drop-shadow-2xl"
+                className="absolute text-[160px] drop-shadow-2xl select-none"
                 style={{ 
                   left: style.left, 
                   bottom: style.bottom, 
@@ -299,34 +339,23 @@ export default function HomePage() {
         </div>
 
         {/* Right Side Vehicles Pile (Desktop only) */}
-        <div className="absolute right-[-20px] xl:right-10 bottom-10 w-[400px] xl:w-[500px] h-[500px] hidden lg:block pointer-events-none z-10">
+        <div className="absolute right-[-20px] xl:right-8 bottom-10 w-[400px] xl:w-[500px] h-[500px] hidden lg:block pointer-events-none z-10">
           {Array.from({ length: 10 }).map((_, i) => {
             const getVehicle = () => {
               if (vehicleType === 'bike') return [
                 { char: '🛵', hue: '0deg' }, { char: '🏍️', hue: '0deg' }, { char: '🚲', hue: '0deg' }, { char: '🛴', hue: '0deg' },
-                { char: '🛵', hue: '210deg' }, // Blue scooter
-                { char: '🏍️', hue: '210deg' }, // Blue motorcycle
-                { char: '🛵', hue: '320deg' }, // Pink scooter
-                { char: '🏍️', hue: '35deg' },  // Orange motorcycle
-                { char: '🛵', hue: '60deg' },  // Yellow scooter
-                { char: '🏍️', hue: '260deg' }  // Purple motorcycle
+                { char: '🛵', hue: '210deg' }, { char: '🏍️', hue: '210deg' }, { char: '🛵', hue: '320deg' }, { char: '🏍️', hue: '35deg' },
+                { char: '🛵', hue: '60deg' }, { char: '🏍️', hue: '260deg' }
               ][i] || { char: '🛵', hue: '0deg' };
               if (vehicleType === 'sedan') return [
                 { char: '🚗', hue: '0deg' }, { char: '🚕', hue: '0deg' }, { char: '🚘', hue: '0deg' }, { char: '🏎️', hue: '0deg' },
-                { char: '🚗', hue: '210deg' }, // Blue car
-                { char: '🚘', hue: '210deg' }, // Blue front
-                { char: '🚗', hue: '260deg' }, // Purple car
-                { char: '🏎️', hue: '210deg' }, // Blue racecar
-                { char: '🚗', hue: '35deg' },  // Orange car
-                { char: '🚘', hue: '320deg' }  // Pink front
+                { char: '🚗', hue: '210deg' }, { char: '🚘', hue: '210deg' }, { char: '🚗', hue: '260deg' }, { char: '🏎️', hue: '210deg' },
+                { char: '🚗', hue: '35deg' }, { char: '🚘', hue: '320deg' }
               ][i] || { char: '🚗', hue: '0deg' };
               return [
                 { char: '🚙', hue: '0deg' }, { char: '🚐', hue: '0deg' }, { char: '🛻', hue: '0deg' }, { char: '🚚', hue: '0deg' }, { char: '🚛', hue: '0deg' },
-                { char: '🚙', hue: '130deg' }, // Red SUV
-                { char: '🛻', hue: '130deg' }, // Red Pickup
-                { char: '🚙', hue: '-50deg' }, // Purple SUV
-                { char: '🚙', hue: '-170deg' },// Orange SUV
-                { char: '🛻', hue: '-50deg' }  // Purple Pickup
+                { char: '🚙', hue: '130deg' }, { char: '🛻', hue: '130deg' }, { char: '🚙', hue: '-50deg' }, { char: '🚙', hue: '-170deg' },
+                { char: '🛻', hue: '-50deg' }
               ][i] || { char: '🚙', hue: '0deg' };
             };
             const { char: iconChar, hue: hueVal } = getVehicle();
@@ -350,7 +379,7 @@ export default function HomePage() {
             return (
               <div
                 key={i}
-                className="absolute text-[160px] drop-shadow-2xl"
+                className="absolute text-[160px] drop-shadow-2xl select-none"
                 style={{ 
                   right: style.right, 
                   bottom: style.bottom, 
@@ -370,45 +399,87 @@ export default function HomePage() {
           })}
         </div>
 
-        <div className="max-w-6xl w-full text-center relative z-20">
-          <h1 className="text-5xl md:text-7xl font-extrabold text-gray-900 tracking-tight leading-tight mb-6">
-            Store your luggage.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-500">Explore the city freely.</span>
-          </h1>
-          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto font-medium">
-            Find secure, convenient storage spots at local hotels and shops. Drop your bags and enjoy your day without the extra weight.
-          </p>
+        <div className="max-w-5xl w-full text-center relative z-20">
+          {/* Main Headline with Smooth Hardware-Accelerated Directional Roll */}
+          <div className="grid grid-cols-1 mb-6">
+            <h1 
+              className={`col-start-1 row-start-1 text-4xl sm:text-6xl md:text-7xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-[1.1] transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                mode === 'luggage' 
+                  ? 'opacity-100 translate-y-0 pointer-events-auto' 
+                  : 'opacity-0 -translate-y-4 pointer-events-none'
+              }`}
+            >
+              Store your luggage.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500">
+                Explore Goa freely.
+              </span>
+            </h1>
+
+            <h1 
+              className={`col-start-1 row-start-1 text-4xl sm:text-6xl md:text-7xl font-extrabold text-gray-900 dark:text-white tracking-tight leading-[1.1] transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                mode === 'garage' 
+                  ? 'opacity-100 translate-y-0 pointer-events-auto' 
+                  : 'opacity-0 translate-y-4 pointer-events-none'
+              }`}
+            >
+              Park your vehicle.<br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500">
+                Explore Goa worry-free.
+              </span>
+            </h1>
+          </div>
+
+          {/* Subtitle with Smooth Hardware-Accelerated Directional Roll */}
+          <div className="grid grid-cols-1 mb-8 max-w-2xl mx-auto">
+            <p 
+              className={`col-start-1 row-start-1 text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 font-normal leading-relaxed transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                mode === 'luggage' 
+                  ? 'opacity-100 translate-y-0 pointer-events-auto' 
+                  : 'opacity-0 -translate-y-2 pointer-events-none'
+              }`}
+            >
+              Find secure, verified storage spots across Goa. Drop your bags in seconds and enjoy hands-free travel.
+            </p>
+
+            <p 
+              className={`col-start-1 row-start-1 text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 font-normal leading-relaxed transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+                mode === 'garage' 
+                  ? 'opacity-100 translate-y-0 pointer-events-auto' 
+                  : 'opacity-0 translate-y-2 pointer-events-none'
+              }`}
+            >
+              Find secure, verified parking spots across Goa. Reserve a safe space for your bike or car and travel stress-free.
+            </p>
+          </div>
 
           {/* Mode Toggle */}
           <div className="flex justify-center mb-6">
-            <div className="bg-white/80 backdrop-blur-md p-1 rounded-full flex shadow-sm border border-gray-100 relative">
-              <div className={`absolute top-1 bottom-1 left-1 w-40 bg-gradient-to-r from-orange-600 to-amber-500 rounded-full shadow-md transition-transform duration-300 ease-in-out ${mode === 'garage' ? 'translate-x-full' : 'translate-x-0'}`} />
+            <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-md p-1 rounded-full flex shadow-sm border border-gray-200/80 dark:border-gray-800 relative">
+              <div className={`absolute top-1 bottom-1 left-1 w-32 sm:w-36 bg-gradient-to-r from-orange-600 to-amber-500 rounded-full shadow-md transition-transform duration-500 ease-in-out ${mode === 'garage' ? 'translate-x-full' : 'translate-x-0'}`} />
               <button 
                 onClick={() => setMode('luggage')}
-                className={`relative z-10 w-40 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${mode === 'luggage' ? 'text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`relative z-10 w-32 sm:w-36 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-colors duration-300 ${mode === 'luggage' ? 'text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
               >
                 🧳 Store Bags
               </button>
               <button 
                 onClick={() => setMode('garage')}
-                className={`relative z-10 w-40 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${mode === 'garage' ? 'text-white' : 'text-gray-500 hover:text-gray-700'}`}
+                className={`relative z-10 w-32 sm:w-36 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-colors duration-300 ${mode === 'garage' ? 'text-white' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
               >
                 🚗 Park Vehicle
               </button>
             </div>
           </div>
 
-
-
-          {/* Search Box */}
-          <div className="bg-white p-2 rounded-2xl shadow-xl border border-gray-100 mx-auto w-full relative group z-50">
-            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-md -z-10"></div>
+          {/* Search Box - Sleek, original max-w-5xl layout */}
+          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl p-2 sm:p-2.5 rounded-2xl sm:rounded-3xl shadow-xl dark:shadow-black/60 border border-gray-200/80 dark:border-gray-800 mx-auto w-full relative group z-50">
+            <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl sm:rounded-3xl opacity-0 group-hover:opacity-10 transition-opacity duration-500 blur-xl -z-10"></div>
             
             <form onSubmit={handleSearch} className="flex flex-col xl:flex-row items-stretch gap-2">
-              {/* Location with Autocomplete */}
-              <div className="flex-1 w-full relative">
-                <div className="px-4 py-2 bg-gray-50 rounded-xl border border-transparent hover:border-orange-200 focus-within:border-orange-500 focus-within:bg-white transition-all duration-300">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Where?</label>
+              {/* Location with Autocomplete - Expanded width */}
+              <div ref={searchDropdownRef} className="flex-[1.2] xl:flex-[1.3] min-w-0 xl:min-w-[240px] relative">
+                <div className="px-3.5 py-1.5 sm:py-2 bg-gray-50/90 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:border-orange-300 dark:hover:border-orange-500/50 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all duration-300">
+                  <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Where in Goa?</label>
                   <input 
                     type="text" 
                     value={city}
@@ -418,209 +489,312 @@ export default function HomePage() {
                       setLon(null);
                     }}
                     onFocus={() => setShowSuggestions(true)}
-                    placeholder="City, neighborhood, or station"
+                    placeholder="Panaji, Calangute, Madgaon..."
                     required
-                    className="w-full bg-transparent text-sm text-gray-900 font-medium placeholder-gray-400 outline-none"
+                    className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium placeholder-gray-400 outline-none"
                   />
                 </div>
                 {/* Autocomplete Dropdown */}
                 {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-100 rounded-xl shadow-xl z-50 overflow-hidden text-left">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-2xl z-[100] overflow-hidden text-left max-h-64 overflow-y-auto">
                     {suggestions.map((loc) => (
                       <div 
                         key={loc.id} 
                         onClick={() => handleSuggestionClick(loc)}
-                        className="px-4 py-2.5 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0"
+                        className="px-4 py-2.5 hover:bg-orange-50 dark:hover:bg-gray-800/80 cursor-pointer border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors"
                       >
-                        <div className="font-bold text-sm text-gray-900">{loc.name}</div>
-                        <div className="text-xs text-gray-500">{loc.address_line1}</div>
+                        <div className="font-bold text-sm text-gray-900 dark:text-white flex items-center gap-2">
+                          <span className="text-orange-500">📍</span>
+                          {loc.name}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 pl-5">{loc.address_line1}</div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
 
-              <div className="hidden xl:block w-px self-stretch bg-gray-200"></div>
+              <div className="hidden xl:block w-px self-stretch bg-gray-200 dark:bg-gray-800 my-1"></div>
 
-              {/* Dates & Times */}
-              <div className="flex-[2] w-full grid grid-cols-1 md:grid-cols-2 gap-2">
+              {/* Dates & Times - Generous date width for 4-digit year + AM/PM times */}
+              <div className="flex-[2.3] xl:flex-[2.3] w-full grid grid-cols-1 md:grid-cols-2 gap-2">
                 {/* Drop Off */}
-                <div className="px-4 py-2 bg-gray-50 rounded-xl border border-transparent hover:border-orange-200 focus-within:border-orange-500 focus-within:bg-white transition-all duration-300 flex items-center gap-2">
-                  <div className="flex-1 border-r border-gray-200 pr-2">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Drop off</label>
+                <div className="px-3 py-1.5 sm:py-2 bg-gray-50/90 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:border-orange-300 dark:hover:border-orange-500/50 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all duration-300 flex items-center gap-1.5">
+                  <div className="flex-1 min-w-[115px] border-r border-gray-200 dark:border-gray-700 pr-1.5">
+                    <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Drop off</label>
                     <input 
                       type="date" 
                       value={inDate}
                       onChange={(e) => handleInChange('date', e.target.value)}
                       min={minDate}
                       required
-                      className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer"
+                      className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer"
                     />
                   </div>
-                  <div className="w-20">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Time</label>
+                  <div className="w-[84px] shrink-0 pl-0.5">
+                    <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Time</label>
                     <select 
                       value={inTime} 
                       onChange={(e) => handleInChange('time', e.target.value)}
-                      className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-white outline-none cursor-pointer"
                     >
-                      {hours.map(h => <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`}>{h}</option>)}
+                      {hours.map(h => (
+                        <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                          {formatTimeAMPM(h)}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
 
                 {/* Pick Up */}
-                <div className="px-4 py-2 bg-gray-50 rounded-xl border border-transparent hover:border-orange-200 focus-within:border-orange-500 focus-within:bg-white transition-all duration-300 flex items-center gap-2">
-                  <div className="flex-1 border-r border-gray-200 pr-2">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Pick up</label>
+                <div className="px-3 py-1.5 sm:py-2 bg-gray-50/90 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:border-orange-300 dark:hover:border-orange-500/50 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all duration-300 flex items-center gap-1.5">
+                  <div className="flex-1 min-w-[115px] border-r border-gray-200 dark:border-gray-700 pr-1.5">
+                    <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Pick up</label>
                     <input 
                       type="date" 
                       value={outDate}
                       onChange={(e) => setOutDate(e.target.value)}
                       min={inDate || minDate}
                       required
-                      className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer"
+                      className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer"
                     />
                   </div>
-                  <div className="w-20">
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Time</label>
+                  <div className="w-[84px] shrink-0 pl-0.5">
+                    <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Time</label>
                     <select 
                       value={outTime} 
                       onChange={(e) => setOutTime(e.target.value)}
-                      className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer"
+                      className="w-full bg-transparent text-sm font-semibold text-gray-900 dark:text-white outline-none cursor-pointer"
                     >
-                      {hours.map(h => <option key={h} value={h} disabled={outDate === inDate && h <= inTime}>{h}</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="hidden xl:block w-px self-stretch bg-gray-200"></div>
-
-              {/* Bags or Vehicle Type — animated swap */}
-              <div className="w-full xl:w-52 px-4 py-2 bg-gray-50 rounded-xl border border-transparent hover:border-orange-200 focus-within:border-orange-500 focus-within:bg-white transition-all duration-300 shrink-0 overflow-hidden">
-                <div className="relative">
-                  <div className={`transition-all duration-300 ease-in-out ${mode === 'luggage' ? 'opacity-100 translate-y-0 h-auto' : 'opacity-0 -translate-y-2 h-0 overflow-hidden'}`}>
-                    <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bags</label>
-                    <select value={bags} onChange={(e) => setBags(parseInt(e.target.value))} className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer">
-                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                        <option key={n} value={n}>{n} {n === 1 ? 'Bag' : 'Bags'}</option>
+                      {hours.map(h => (
+                        <option key={h} value={h} disabled={outDate === inDate && h <= inTime} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">
+                          {formatTimeAMPM(h)}
+                        </option>
                       ))}
                     </select>
                   </div>
-                  <div className={`transition-all duration-300 ease-in-out flex gap-2 ${mode === 'garage' ? 'opacity-100 translate-y-0 h-auto' : 'opacity-0 translate-y-2 h-0 overflow-hidden'}`}>
-                    <div className="flex-1">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Vehicle</label>
-                      <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as any)} className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer">
-                        <option value="bike">Bike</option>
-                        <option value="sedan">Sedan</option>
-                        <option value="suv">SUV</option>
+                </div>
+              </div>
+
+              <div className="hidden xl:block w-px self-stretch bg-gray-200 dark:bg-gray-800 my-1"></div>
+
+              {/* Bags or Vehicle Type — smooth directional roll with ample Sedan width */}
+              <div className="w-full xl:w-[168px] px-3 py-1.5 sm:py-2 bg-gray-50/90 dark:bg-gray-800/60 rounded-xl sm:rounded-2xl border border-gray-200/50 dark:border-gray-700/50 hover:border-orange-300 dark:hover:border-orange-500/50 focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:bg-white dark:focus-within:bg-gray-800 transition-all duration-300 shrink-0">
+                <div className="grid grid-cols-1">
+                  <div className={`col-start-1 row-start-1 transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] ${mode === 'luggage' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'}`}>
+                    <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Bags</label>
+                    <select value={bags} onChange={(e) => setBags(parseInt(e.target.value))} className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer">
+                      {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                        <option key={n} value={n} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">{n} {n === 1 ? 'Bag' : 'Bags'}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={`col-start-1 row-start-1 transform-gpu transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex gap-2 ${mode === 'garage' ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-2 pointer-events-none'}`}>
+                    <div className="flex-1 min-w-[72px]">
+                      <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Vehicle</label>
+                      <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as any)} className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer">
+                        <option value="bike" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Bike</option>
+                        <option value="sedan" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Sedan</option>
+                        <option value="suv" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">SUV</option>
                       </select>
                     </div>
-                    <div className="w-14 border-l border-gray-200 pl-2">
-                      <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Qty</label>
-                      <select value={vehiclesCount} onChange={(e) => setVehiclesCount(parseInt(e.target.value))} className="w-full bg-transparent text-sm text-gray-900 font-medium outline-none cursor-pointer">
-                        {[1,2,3,4,5,6,7,8,9,10].map(n => <option key={n} value={n}>{n}</option>)}
+                    <div className="w-12 border-l border-gray-200 dark:border-gray-700 pl-2">
+                      <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Qty</label>
+                      <select value={vehiclesCount} onChange={(e) => setVehiclesCount(parseInt(e.target.value))} className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer">
+                        {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                          <option key={n} value={n} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">{n}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Submit */}
+              {/* Submit Button */}
               <button 
                 type="submit"
-                className="w-full xl:w-12 xl:h-12 xl:self-center px-6 py-3 xl:px-0 xl:py-0 bg-gradient-to-r from-orange-600 to-amber-500 text-white font-bold rounded-xl xl:rounded-full hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 flex items-center justify-center shrink-0"
+                className="w-full xl:w-11 xl:h-11 xl:self-center px-5 py-2.5 xl:px-0 xl:py-0 bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl xl:rounded-full shadow-md shadow-orange-600/30 hover:shadow-orange-600/50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 flex items-center justify-center shrink-0 cursor-pointer"
+                title={mode === 'garage' ? 'Search Parking Spots' : 'Search Storage Spots'}
               >
-                <svg className="w-5 h-5 xl:w-5 xl:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span className="ml-2 xl:hidden">Search</span>
+                <span className="ml-2 font-bold xl:hidden">{mode === 'garage' ? 'Find Parking' : 'Find Storage'}</span>
               </button>
             </form>
+          </div>
+
+          {/* Popular Places in Goa */}
+          <div className="flex flex-wrap items-center justify-center gap-2 mt-5 text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-semibold text-gray-600 dark:text-gray-400">Popular in Goa:</span>
+            {['Panaji', 'Calangute', 'Baga', 'Candolim', 'Madgaon', 'Anjuna', 'Vasco'].map((popCity) => (
+              <button
+                key={popCity}
+                type="button"
+                onClick={() => {
+                  setCity(popCity);
+                  setLat(null);
+                  setLon(null);
+                }}
+                className="px-3.5 py-1 rounded-full bg-white/70 dark:bg-gray-900/70 border border-gray-200/70 dark:border-gray-800 hover:border-orange-400 dark:hover:border-orange-500 hover:text-orange-600 dark:hover:text-orange-400 transition-all backdrop-blur-sm shadow-xs cursor-pointer"
+              >
+                📍 {popCity}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Trust & Safety Highlights Strip */}
+      <section className="relative z-10 max-w-5xl mx-auto px-4 mt-8 mb-16 w-full">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 p-4 md:p-6 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border border-gray-200/70 dark:border-neutral-800 rounded-3xl shadow-lg">
+          <div className="flex items-center gap-3 p-1">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg shrink-0">
+              🛡️
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-900 dark:text-white">100% Vetted Hosts</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">Hotels &amp; verified shops</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-1">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg shrink-0">
+              🔒
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-900 dark:text-white">Tamper-Proof Seals</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">Free barcode tags on bags</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-1">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg shrink-0">
+              💸
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-900 dark:text-white">₹10,000 Guarantee</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">Protection per booking</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-1">
+            <div className="w-10 h-10 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center font-bold text-lg shrink-0">
+              ⚡
+            </div>
+            <div>
+              <div className="text-xs font-bold text-gray-900 dark:text-white">Free Cancellation</div>
+              <div className="text-[11px] text-gray-500 dark:text-gray-400">100% refund up to 12h</div>
+            </div>
           </div>
         </div>
       </section>
       
       {/* Value Props / How it works */}
-      <section id="how-it-works" className="relative overflow-hidden bg-white dark:bg-gray-900 py-24 border-t border-gray-100 dark:border-gray-800">
+      <section id="how-it-works" className="relative overflow-hidden bg-white dark:bg-gray-950 py-24 border-t border-gray-200/60 dark:border-gray-800">
         {/* Ambient Glow */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 -left-64 w-[600px] h-[600px] bg-orange-300/15 dark:bg-orange-900/10 blur-[120px] rounded-full"></div>
-          <div className="absolute bottom-0 -right-64 w-[600px] h-[600px] bg-amber-300/15 dark:bg-amber-900/10 blur-[120px] rounded-full"></div>
+          <div className="absolute top-1/4 -left-64 w-[600px] h-[600px] bg-orange-300/15 dark:bg-orange-900/10 blur-[130px] rounded-full"></div>
+          <div className="absolute bottom-0 -right-64 w-[600px] h-[600px] bg-amber-300/15 dark:bg-amber-900/10 blur-[130px] rounded-full"></div>
         </div>
 
-        <div className="max-w-6xl mx-auto px-8 relative z-10">
+        <div className="max-w-6xl mx-auto px-6 md:px-8 relative z-10">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-4">How StashInn works</h2>
-            <p className="text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">Drop your bags in three simple steps and enjoy your day hands-free.</p>
+            <span className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-950/60 px-3 py-1 rounded-full">
+              Simple &amp; Hassle-Free
+            </span>
+            <h2 className="text-3xl md:text-5xl font-extrabold text-gray-900 dark:text-white mt-3 mb-4 tracking-tight">
+              How StashInn Works
+            </h2>
+            <p className="text-base md:text-lg text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+              Drop your bags in three simple steps and enjoy your day without carrying heavy luggage around.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 text-center">
-            <div>
-              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mx-auto mb-6 transform rotate-3">
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-gray-50/70 dark:bg-gray-900/60 border border-gray-200/70 dark:border-gray-800 p-8 rounded-3xl hover:-translate-y-1 hover:shadow-xl transition-all duration-300 text-center relative flex flex-col items-center">
+              <span className="absolute top-6 right-6 text-3xl font-black text-gray-200 dark:text-gray-800">
+                01
+              </span>
+              <div className="w-16 h-16 bg-orange-100 dark:bg-orange-950/70 text-orange-600 dark:text-orange-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Secure Storage</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">Every location is vetted, and your bags are secured with tamper-proof seals.</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">1. Book Online</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                Choose a vetted storage point near your transit stop, railway station, or tourist spot and reserve in seconds.
+              </p>
             </div>
-            <div>
-              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mx-auto mb-6 -rotate-3">
+
+            <div className="bg-gray-50/70 dark:bg-gray-900/60 border border-gray-200/70 dark:border-gray-800 p-8 rounded-3xl hover:-translate-y-1 hover:shadow-xl transition-all duration-300 text-center relative flex flex-col items-center">
+              <span className="absolute top-6 right-6 text-3xl font-black text-gray-200 dark:text-gray-800">
+                02
+              </span>
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/70 text-amber-600 dark:text-amber-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Flexible Hours</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">Find spots open 24/7 or late into the night. Book by the hour or by the day.</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">2. Drop Off &amp; Seal</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                Show your booking voucher. Your host fastens complimentary numbered security seals to each bag before storage.
+              </p>
             </div>
-            <div>
-              <div className="w-16 h-16 bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 rounded-2xl flex items-center justify-center mx-auto mb-6 rotate-3">
+
+            <div className="bg-gray-50/70 dark:bg-gray-900/60 border border-gray-200/70 dark:border-gray-800 p-8 rounded-3xl hover:-translate-y-1 hover:shadow-xl transition-all duration-300 text-center relative flex flex-col items-center">
+              <span className="absolute top-6 right-6 text-3xl font-black text-gray-200 dark:text-gray-800">
+                03
+              </span>
+              <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/70 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mb-6 shadow-sm">
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Instant Booking</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">No cash needed. Book online instantly and simply show your QR code to drop off.</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">3. Enjoy Hands-Free</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                Explore the city without dragging bags. Return anytime before closing and show your pickup code to retrieve your luggage.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
       {/* Airbnb-style Footer */}
-      <footer className="relative overflow-hidden bg-gray-50 dark:bg-gray-950 border-t border-gray-200 dark:border-gray-800 pt-16 pb-8">
+      <footer className="relative overflow-hidden bg-gray-50 dark:bg-black border-t border-gray-200 dark:border-neutral-900 pt-16 pb-8 transition-colors">
         {/* Ambient Glow */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-orange-300/10 dark:bg-orange-900/10 blur-[120px] rounded-full"></div>
         </div>
         
         <div className="max-w-7xl mx-auto px-6 md:px-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-12 border-b border-gray-200 dark:border-gray-800 pb-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-12 border-b border-gray-200 dark:border-neutral-900 pb-12">
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-4">Support</h4>
               <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline">Help Centre</a></li>
-                <li><a href="#" className="hover:underline">Safety information</a></li>
-                <li><a href="#" className="hover:underline">Cancellation options</a></li>
-                <li><a href="#" className="hover:underline">Report a concern</a></li>
+                <li><a href="/help" className="hover:underline">Help Centre</a></li>
+                <li><a href="/safety" className="hover:underline">Safety information</a></li>
+                <li><a href="/cancellation" className="hover:underline">Cancellation options</a></li>
+                <li><a href="/report-concern" className="hover:underline">Report a concern</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-4">Partner with us</h4>
               <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                 <li><a href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} className="hover:underline">Become a StashInn Partner</a></li>
-                <li><a href="#" className="hover:underline">Hosting resources</a></li>
-                <li><a href="#" className="hover:underline">Community forum</a></li>
-                <li><a href="#" className="hover:underline">Hosting responsibly</a></li>
+                <li><a href="/hosting-resources" className="hover:underline">Hosting resources</a></li>
+                <li><a href="/community-forum" className="hover:underline">Community forum</a></li>
+                <li><a href="/hosting-responsibly" className="hover:underline">Hosting responsibly</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-4">StashInn</h4>
               <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline">Newsroom</a></li>
-                <li><a href="#" className="hover:underline">New features</a></li>
-                <li><a href="#" className="hover:underline">Careers</a></li>
-                <li><a href="#" className="hover:underline">Investors</a></li>
+                <li><a href="/newsroom" className="hover:underline">Newsroom</a></li>
+                <li><a href="/new-features" className="hover:underline">New features</a></li>
+                <li><a href="/careers" className="hover:underline">Careers</a></li>
+                <li><a href="/investors" className="hover:underline">Investors</a></li>
               </ul>
             </div>
           </div>
@@ -645,11 +819,10 @@ export default function HomePage() {
               </button>
               <button className="hover:underline">₹ INR</button>
               <div className="flex gap-3 ml-2">
-                {/* Social placeholders */}
-                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" aria-label="Twitter">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
                 </a>
-                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white">
+                <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white" aria-label="Instagram">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
                 </a>
               </div>

@@ -207,28 +207,28 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-3">Support</h4>
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline">Help Centre</a></li>
-                <li><a href="#" className="hover:underline">Safety information</a></li>
-                <li><a href="#" className="hover:underline">Cancellation options</a></li>
-                <li><a href="#" className="hover:underline">Report a concern</a></li>
+                <li><a href="/help" className="hover:underline">Help Centre</a></li>
+                <li><a href="/safety" className="hover:underline">Safety information</a></li>
+                <li><a href="/cancellation" className="hover:underline">Cancellation options</a></li>
+                <li><a href="/report-concern" className="hover:underline">Report a concern</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-3">Partner with us</h4>
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
                 <li><a href={process.env.NEXT_PUBLIC_PARTNER_URL || "http://localhost:3001"} className="hover:underline">Become a StashInn Partner</a></li>
-                <li><a href="#" className="hover:underline">Hosting resources</a></li>
-                <li><a href="#" className="hover:underline">Community forum</a></li>
-                <li><a href="#" className="hover:underline">Hosting responsibly</a></li>
+                <li><a href="/hosting-resources" className="hover:underline">Hosting resources</a></li>
+                <li><a href="/community-forum" className="hover:underline">Community forum</a></li>
+                <li><a href="/hosting-responsibly" className="hover:underline">Hosting responsibly</a></li>
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-gray-900 dark:text-white mb-3">StashInn</h4>
               <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline">Newsroom</a></li>
-                <li><a href="#" className="hover:underline">New features</a></li>
-                <li><a href="#" className="hover:underline">Careers</a></li>
-                <li><a href="#" className="hover:underline">Investors</a></li>
+                <li><a href="/newsroom" className="hover:underline">Newsroom</a></li>
+                <li><a href="/new-features" className="hover:underline">New features</a></li>
+                <li><a href="/careers" className="hover:underline">Careers</a></li>
+                <li><a href="/investors" className="hover:underline">Investors</a></li>
               </ul>
             </div>
           </div>

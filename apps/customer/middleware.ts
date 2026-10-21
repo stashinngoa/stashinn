@@ -16,7 +16,18 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     path === '/register' || 
     path.startsWith('/search') || 
     path.startsWith('/checkout') ||
-    path.startsWith('/locations');
+    path.startsWith('/locations') ||
+    path.startsWith('/help') ||
+    path.startsWith('/safety') ||
+    path.startsWith('/cancellation') ||
+    path.startsWith('/report-concern') ||
+    path.startsWith('/hosting-resources') ||
+    path.startsWith('/community-forum') ||
+    path.startsWith('/hosting-responsibly') ||
+    path.startsWith('/newsroom') ||
+    path.startsWith('/new-features') ||
+    path.startsWith('/careers') ||
+    path.startsWith('/investors');
   // Check auth state
   const {
     data: { user },

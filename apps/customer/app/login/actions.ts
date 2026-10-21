@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendZavuOTP } from '@stashinn/lib/services/messaging';
 import crypto from 'crypto';
+import { getCustomerBaseUrl } from '../../lib/getBaseUrl';
 
 function getSupabaseAdmin() {
   return createClient(
@@ -121,9 +122,10 @@ export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl:
     if (user && user.email) email = user.email;
   }
   
+  const baseUrl = await getCustomerBaseUrl();
   const finalNextUrl = nextUrl || '/dashboard';
   const separator = finalNextUrl.includes('?') ? '&' : '?';
-  const redirectToUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${finalNextUrl}${separator}autoLogin=true`;
+  const redirectToUrl = `${baseUrl}${finalNextUrl}${separator}autoLogin=true`;
 
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',

@@ -1,2 +1,2 @@
 // Customer app — utility functions
-// Add shared utility functions here.
+export { getCustomerBaseUrl } from '../../lib/getBaseUrl';

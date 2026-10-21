@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@supabase/supabase-js';
+import { getCustomerBaseUrl } from '../../lib/getBaseUrl';
 
 // Extremely lightweight manual verification for Firebase JWT (mock verification for now until full admin SDK setup)
 // In production, use firebase-admin.
@@ -20,9 +21,10 @@ export async function verifyFirebaseAndGenerateSession(firebaseIdToken: string, 
     return { error: 'No StashInn account found with this phone number. Please book a space as a guest first to create an account.' };
   }
 
+  const baseUrl = await getCustomerBaseUrl();
   const finalNextUrl = nextUrl || '/dashboard';
   const separator = finalNextUrl.includes('?') ? '&' : '?';
-  const redirectToUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${finalNextUrl}${separator}autoLogin=true`;
+  const redirectToUrl = `${baseUrl}${finalNextUrl}${separator}autoLogin=true`;
 
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',

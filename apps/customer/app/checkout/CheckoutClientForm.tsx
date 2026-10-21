@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import { createRazorpayOrder } from './razorpayActions';
 import { createBooking, ensureCustomer } from './actions';
 
+// Feature flag: set to true or configure NEXT_PUBLIC_ENABLE_RAZORPAY=true once Razorpay account is activated
+const SHOW_RAZORPAY = process.env.NEXT_PUBLIC_ENABLE_RAZORPAY === 'true';
+
 export default function CheckoutClientForm({ location, resolvedParams, razorpayKey, userProfile }: { location: any, resolvedParams: any, razorpayKey: string, userProfile?: any }) {
   const [paymentMethod, setPaymentMethod] = useState('pay_at_location');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -15,13 +18,18 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
 
   const totalAmount = parseFloat(resolvedParams.price || '0');
 
-  // Load Razorpay SDK
+  // Load Razorpay SDK (only if online payment is enabled)
   useEffect(() => {
+    if (!SHOW_RAZORPAY) return;
     const script = document.createElement('script');
     script.src = 'https://checkout.razorpay.com/v1/checkout.js';
     script.async = true;
     document.body.appendChild(script);
-    return () => { document.body.removeChild(script); };
+    return () => { 
+      if (document.body.contains(script)) {
+        document.body.removeChild(script); 
+      }
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -228,20 +236,23 @@ export default function CheckoutClientForm({ location, resolvedParams, razorpayK
                 </div>
               </label>
               
-              <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'razorpay' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                <input 
-                  type="radio" 
-                  name="payment_method_ui" 
-                  value="razorpay" 
-                  checked={paymentMethod === 'razorpay'} 
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-5 h-5 text-brand-orange focus:ring-brand-orange" 
-                />
-                <div className="ml-3">
-                  <span className="block font-bold text-gray-900">Pay Online Now</span>
-                  <span className="block text-sm text-gray-500">Credit Card, Debit Card, Netbanking via Razorpay.</span>
-                </div>
-              </label>
+              {/* Razorpay Online Payment — hidden until account setup is activated */}
+              {SHOW_RAZORPAY && (
+                <label className={`flex items-center p-4 border rounded-xl cursor-pointer transition-colors ${paymentMethod === 'razorpay' ? 'border-brand-orange bg-orange-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                  <input 
+                    type="radio" 
+                    name="payment_method_ui" 
+                    value="razorpay" 
+                    checked={paymentMethod === 'razorpay'} 
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="w-5 h-5 text-brand-orange focus:ring-brand-orange" 
+                  />
+                  <div className="ml-3">
+                    <span className="block font-bold text-gray-900">Pay Online Now</span>
+                    <span className="block text-sm text-gray-500">Credit Card, Debit Card, Netbanking via Razorpay.</span>
+                  </div>
+                </label>
+              )}
             </div>
           </div>
         </div>
