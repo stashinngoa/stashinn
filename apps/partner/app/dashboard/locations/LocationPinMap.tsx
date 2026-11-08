@@ -1,6 +1,6 @@
 'use client';
 
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useState, useEffect } from 'react';
 import L from 'leaflet';
@@ -19,6 +19,15 @@ function MapEvents({ onLocationSelect }: { onLocationSelect: (lat: number, lng: 
       onLocationSelect(e.latlng.lat, e.latlng.lng);
     },
   });
+  return null;
+}
+
+// MapContainer only reads `center` once; move the view when the position changes (e.g. after a PIN lookup)
+function Recenter({ position, zoom }: { position: [number, number]; zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position, Math.max(map.getZoom(), zoom));
+  }, [map, position, zoom]);
   return null;
 }
 
@@ -46,7 +55,7 @@ export default function LocationPinMap({
   };
 
   return (
-    <div className="w-full h-64 rounded-xl overflow-hidden border border-gray-300 relative z-0">
+    <div className="w-full h-72 overflow-hidden relative z-0">
       <MapContainer 
         center={position} 
         zoom={initialLat ? 15 : 5} 
@@ -58,12 +67,13 @@ export default function LocationPinMap({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapEvents onLocationSelect={handleLocationSelect} />
+        {initialLat ? <Recenter position={position} zoom={15} /> : null}
         {position[0] !== 20.5937 && (
           <Marker position={position}></Marker>
         )}
       </MapContainer>
-      <div className="absolute bottom-2 left-2 right-2 bg-white/90 backdrop-blur text-xs px-3 py-2 rounded-lg shadow-sm border border-gray-100 z-[400] pointer-events-none text-gray-700 font-medium">
-        Click anywhere on the map to place your storefront pin.
+      <div className="absolute bottom-2 left-2 right-2 bg-white/90 dark:bg-gray-900/90 backdrop-blur text-xs px-3 py-2 rounded-lg shadow-sm border border-gray-100 dark:border-gray-800 z-[400] pointer-events-none text-gray-700 dark:text-gray-300 font-medium">
+        Click the map at your entrance to place the pin.
       </div>
     </div>
   );

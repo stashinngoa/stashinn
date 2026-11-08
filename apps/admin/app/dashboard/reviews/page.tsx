@@ -1,47 +1,43 @@
-import { createClient } from '@stashinn/lib/supabase/server';
-import DeleteReviewButton from './DeleteReviewButton';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
+import { getAdminContext } from '../../../lib/adminAccess';
+import { accessFor } from '../../../lib/permissions';
+import ReviewsWorkspace, { type AdminReview } from './ReviewsWorkspace';
+import { flagsFor } from './reviewShared';
+
+export const dynamic = 'force-dynamic';
+
+const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
 export default async function AdminReviewsPage() {
-  const supabase = await createClient();
+  const { role } = await getAdminContext();
+  const access = role ? accessFor(role, '/dashboard/reviews') : null;
+  if (!access) return null; // the middleware redirects before this
 
-  const { data: reviews } = await supabase
+  // Service role after the access check: customer emails aren't readable to every admin role
+  const db = createServiceClient();
+  const { data: rows, error } = await db
     .from('reviews')
-    .select('*, bookings(id), partners(business_name), users(full_name)')
-    .order('created_at', { ascending: false });
+    .select('*, bookings(id, end_time, booking_type, num_bags), partners(id, business_name), partner_locations(id, name, city), users!reviews_customer_id_fkey(id, full_name, email)')
+    .order('created_at', { ascending: false })
+    .limit(2000);
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white">Review Moderation</h1>
-        <p className="text-gray-500 mt-1">Monitor and remove abusive customer reviews.</p>
-      </div>
+  const reviews: AdminReview[] = (rows || []).map((r: any) => {
+    const customer = one(r.users) as any;
+    const partner = one(r.partners) as any;
+    const loc = one(r.partner_locations) as any;
+    return {
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment || '',
+      tags: r.tags || [],
+      createdAt: r.created_at,
+      bookingId: r.booking_id,
+      customer: { id: customer?.id || r.customer_id, name: customer?.full_name || 'Customer', email: customer?.email || '' },
+      partner: { id: partner?.id || r.partner_id, name: partner?.business_name || 'Partner' },
+      location: { id: loc?.id || r.location_id, name: loc?.name || 'Location', city: loc?.city || '' },
+      flags: flagsFor(r),
+    };
+  });
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-        {(!reviews || reviews.length === 0) ? (
-          <div className="p-12 text-center text-gray-500">No reviews found.</div>
-        ) : (
-          <div className="divide-y divide-gray-800">
-            {reviews.map((review: any) => (
-              <div key={review.id} className="p-6 hover:bg-gray-800/50 transition-colors flex flex-col md:flex-row justify-between items-start gap-4">
-                <div className="space-y-2 flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-yellow-500 font-bold text-lg">★ {review.rating}/5</span>
-                    <span className="text-gray-400 text-sm">
-                      {review.users?.full_name} &rarr; {review.partners?.business_name}
-                    </span>
-                  </div>
-                  <p className="text-gray-200 text-sm">"{review.comment}"</p>
-                  <p className="text-gray-600 text-xs mt-2">
-                    Booking: {review.bookings?.id.split('-')[0]} • Posted: {new Date(review.created_at).toLocaleDateString()}
-                  </p>
-                </div>
-                
-                <DeleteReviewButton reviewId={review.id} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  return <ReviewsWorkspace reviews={reviews} canEdit={access === 'full'} loadError={error ? 'Couldn’t load reviews. Refresh the page to try again.' : null} />;
 }

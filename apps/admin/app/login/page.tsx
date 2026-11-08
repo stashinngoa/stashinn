@@ -1,8 +1,15 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@stashinn/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { logger } from '@stashinn/lib/services/logger';
+import { ACTIVITY_COOKIE, ACTIVITY_COOKIE_OPTIONS, IDLE_TIMEOUT_MS, MAX_SESSION_MS, encodeActivity } from '../../lib/sessionPolicy';
 
-export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string }> }) {
+const SIGN_OUT_MESSAGES: Record<string, string> = {
+  idle: `You were signed out after ${IDLE_TIMEOUT_MS / 60000} minutes of inactivity. Please sign in again.`,
+  expired: `Your admin session reached its ${MAX_SESSION_MS / 3600000}-hour limit. Please sign in again.`,
+};
+
+export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string; reason?: string }> }) {
   const searchParams = await props.searchParams;
   const login = async (formData: FormData) => {
     'use server';
@@ -11,28 +18,43 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
     const nextUrl = formData.get('next') as string;
     
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       logger.warn('Auth Failure: Admin login failed', { email, error: error.message });
       return redirect('/login?error=Invalid admin credentials');
     }
+    // Start the idle clock for the new session (see lib/sessionPolicy.ts)
+    (await cookies()).set(ACTIVITY_COOKIE, encodeActivity(data.user.id), ACTIVITY_COOKIE_OPTIONS);
     return redirect(nextUrl || '/dashboard');
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-700">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-black py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white dark:bg-black p-10 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-800">
         <div>
-          <div className="flex justify-center mb-4">
-            <img src="/StashInn_Dark.png" alt="StashInn" className="h-16 w-auto" />
+          <div className="flex justify-center items-center gap-3 mb-4">
+            <img src="/StashInn_Light_no_text.png" alt="StashInn" className="h-14 w-auto dark:hidden" />
+            <img src="/StashInn_Dark_no_text.png" alt="StashInn" className="h-14 w-auto hidden dark:block" />
+            <span className="text-3xl font-black tracking-tighter">
+              <span className="text-gray-900 dark:text-white">Stash</span><span className="text-orange-500">Inn</span>
+            </span>
           </div>
-          <h2 className="text-center text-3xl font-extrabold text-white">StashInn Admin</h2>
-          <p className="mt-2 text-center text-sm text-gray-400">System Operations Login</p>
+          <h2 className="text-center text-xl font-bold text-gray-900 dark:text-gray-200">System Operations Login</h2>
+          <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">Admin Portal</p>
         </div>
         
+        {!searchParams?.error && searchParams?.reason && SIGN_OUT_MESSAGES[searchParams.reason] && (
+          <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 p-3 rounded-lg text-sm border border-amber-200 dark:border-amber-800/50">
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {SIGN_OUT_MESSAGES[searchParams.reason]}
+          </div>
+        )}
+
         {searchParams?.error && (
-          <div className="bg-red-900/50 text-red-400 p-3 rounded text-sm text-center border border-red-800">
+          <div className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 p-3 rounded text-sm text-center border border-red-200 dark:border-red-800">
             {searchParams.error}
           </div>
         )}
@@ -40,8 +62,8 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
         <form className="mt-8 space-y-6" action={login}>
           <input type="hidden" name="next" value={searchParams.next || ''} />
           <div className="rounded-md shadow-sm -space-y-px">
-            <input name="email" type="email" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" placeholder="Admin ID" />
-            <input name="password" type="password" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-600 bg-gray-700 placeholder-gray-400 text-white rounded-b-md focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" placeholder="Passcode" />
+            <input name="email" type="email" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-t-md focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" placeholder="Admin ID" />
+            <input name="password" type="password" required className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-800 bg-white dark:bg-gray-900 placeholder-gray-500 dark:placeholder-gray-400 text-gray-900 dark:text-white rounded-b-md focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm" placeholder="Passcode" />
           </div>
           <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700">
             Secure Login

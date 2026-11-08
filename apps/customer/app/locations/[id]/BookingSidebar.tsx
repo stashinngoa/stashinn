@@ -2,19 +2,27 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { bookingLengthError, type BookingRules } from '@stashinn/lib/services/bookingRules';
+import { hourlyRate, overlappingPause, quote, vehicleCapacity, type PauseWindow } from '@stashinn/lib/services/bookingAvailability';
 
 export default function BookingSidebar({ 
   location, 
   initialSearch,
   isGarage,
   vehicleType,
-  label
+  label,
+  rules,
+  pauses = [],
+  gstPercent
 }: { 
   location: any, 
   initialSearch: any,
   isGarage: boolean,
   vehicleType: string,
-  label: string
+  label: string,
+  rules: BookingRules,
+  pauses?: PauseWindow[],
+  gstPercent: number
 }) {
   const router = useRouter();
   
@@ -41,57 +49,26 @@ export default function BookingSidebar({
   const [inTime, setInTime] = useState(initialIn.t);
   const [outDate, setOutDate] = useState(initialOut.d);
   const [outTime, setOutTime] = useState(initialOut.t);
-  const [quantity, setQuantity] = useState(parseInt(initialSearch.bags || '1'));
+  const [quantity, setQuantity] = useState(isGarage ? 1 : parseInt(initialSearch.bags || '1'));
 
   const [totalPrice, setTotalPrice] = useState(0);
   const [pricingBreakdown, setPricingBreakdown] = useState({ diffHours: 0, baseTotal: 0, gstTotal: 0, finalTotal: 0, pricePerHourIncGst: 0 });
 
   const hours = Array.from({ length: 24 }, (_, i) => `${String(i).padStart(2, '0')}:00`);
 
-  let maxCapacity = location.capacity || 20;
-  if (isGarage && location.vehicle_pricing) {
-    const vp = Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0] : location.vehicle_pricing;
-    if (vp) {
-      if (vehicleType === 'bike') maxCapacity = vp.bike_capacity || 10;
-      if (vehicleType === 'sedan') maxCapacity = vp.sedan_capacity || 10;
-      if (vehicleType === 'suv') maxCapacity = vp.suv_capacity || 10;
-    }
-  }
+  const maxCapacity = isGarage ? 1 : (location.max_bags || 20);
 
-  // Calculate pricing
+  // Calculate pricing (same rules the server uses at checkout)
   useEffect(() => {
-    let basePriceHr = location.price_per_hour;
-    if (isGarage && location.vehicle_pricing) {
-      const vp = Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0] : location.vehicle_pricing;
-      if (vp) {
-        if (vehicleType === 'bike') basePriceHr = vp.bike_rate_hr || location.price_per_hour;
-        if (vehicleType === 'sedan') basePriceHr = vp.sedan_rate_hr || location.price_per_hour;
-        if (vehicleType === 'suv') basePriceHr = vp.suv_rate_hr || location.price_per_hour;
-      }
-    }
+    const rate = hourlyRate(location, isGarage ? 'garage' : 'luggage', vehicleType);
+    const q = quote(rate, new Date(`${inDate}T${inTime}`), new Date(`${outDate}T${outTime}`), isGarage ? 1 : quantity, gstPercent);
+    setTotalPrice(q.total);
+    setPricingBreakdown({ diffHours: q.hours, baseTotal: q.base, gstTotal: q.gst, finalTotal: q.total, pricePerHourIncGst: q.pricePerHourIncGst });
+  }, [inDate, inTime, outDate, outTime, quantity, location, isGarage, vehicleType, gstPercent]);
 
-    const pricePerHourIncGst = Math.ceil((basePriceHr || 0) * 1.18);
-
-    const inDateObj = new Date(`${inDate}T${inTime}`);
-    const outDateObj = new Date(`${outDate}T${outTime}`);
-    
-    if (outDateObj > inDateObj && quantity > 0) {
-      const diffMs = outDateObj.getTime() - inDateObj.getTime();
-      const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-      
-      const finalTotal = pricePerHourIncGst * diffHours * quantity;
-      
-      // Reverse calculate base and GST from the final rounded total
-      const baseTotal = finalTotal / 1.18;
-      const gstTotal = finalTotal - baseTotal;
-      
-      setTotalPrice(finalTotal);
-      setPricingBreakdown({ diffHours, baseTotal, gstTotal, finalTotal, pricePerHourIncGst });
-    } else {
-      setTotalPrice(0);
-      setPricingBreakdown({ diffHours: 0, baseTotal: 0, gstTotal: 0, finalTotal: 0, pricePerHourIncGst });
-    }
-  }, [inDate, inTime, outDate, outTime, quantity, location, isGarage, vehicleType]);
+  const noVehicleSpace = isGarage && vehicleCapacity(location, vehicleType) === 0;
+  const hasRate = hourlyRate(location, isGarage ? 'garage' : 'luggage', vehicleType) > 0;
+  const pause = overlappingPause(pauses, new Date(`${inDate}T${inTime}`), new Date(`${outDate}T${outTime}`));
 
   const handleInChange = (type: 'date' | 'time', value: string) => {
     let newDate = inDate;
@@ -104,7 +81,7 @@ export default function BookingSidebar({
 
     const dropOff = new Date(`${newDate}T${newTime}`);
     if (!isNaN(dropOff.getTime())) {
-      dropOff.setHours(dropOff.getHours() + 1);
+      dropOff.setHours(dropOff.getHours() + Math.ceil(rules.minHours));
       const yyyy = dropOff.getFullYear();
       const mm = String(dropOff.getMonth() + 1).padStart(2, '0');
       const dd = String(dropOff.getDate()).padStart(2, '0');
@@ -115,134 +92,113 @@ export default function BookingSidebar({
     }
   };
 
+  // Booking length limits from Admin → Configuration
+  const lengthError = bookingLengthError(new Date(`${inDate}T${inTime}`), new Date(`${outDate}T${outTime}`), rules);
+
   const handleBook = () => {
+    if (lengthError || pause || noVehicleSpace || !hasRate) return;
     const params = new URLSearchParams({
       location_id: location.id,
       in: `${inDate}T${inTime}`,
       out: `${outDate}T${outTime}`,
       bags: quantity.toString(),
-      price: totalPrice.toString()
     });
+    if (isGarage) params.set('vehicleType', vehicleType);
     router.push(`/checkout?${params.toString()}`);
   };
 
+  const fmtHour = (h: string) => {
+    const n = parseInt(h);
+    return `${((n + 11) % 12) + 1}:00 ${n < 12 ? 'AM' : 'PM'}`;
+  };
+  const blocked = totalPrice === 0 || !!lengthError || !!pause || noVehicleSpace || !hasRate;
+  const field = 'rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 px-3 py-2.5 text-sm font-semibold text-gray-900 dark:text-white outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 [color-scheme:light] dark:[color-scheme:dark]';
+  const notice = 'mb-3 rounded-xl border px-3 py-2 text-sm font-medium';
+  const danger = `${notice} border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300`;
+
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100 sticky top-24">
-      <div className="mb-6 flex justify-between items-start">
-        <div>
-          <span className="text-3xl font-black text-gray-900">₹{pricingBreakdown.pricePerHourIncGst || 0}</span>
-          <span className="text-gray-500 font-medium"> / hr</span>
-        </div>
-        <div className="bg-red-50 text-red-600 font-black text-[10px] px-2 py-1 rounded border border-red-200 transform rotate-[-5deg] uppercase tracking-wider shadow-sm mt-1 inline-block">
-          No Platform Fee
-        </div>
+    <div className="rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 sm:p-6 shadow-xl shadow-gray-900/5 dark:shadow-none">
+      <div className="flex items-start justify-between gap-3">
+        <p>
+          <span className="text-3xl font-black text-gray-900 dark:text-white">₹{pricingBreakdown.pricePerHourIncGst || 0}</span>
+          <span className="text-sm font-medium text-gray-500 dark:text-gray-400"> / hour{isGarage ? '' : ' per bag'}</span>
+        </p>
+        <span className="mt-1.5 shrink-0 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">No booking fee</span>
       </div>
 
-      <div className="space-y-4 mb-6">
-        {/* Drop off */}
-        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-col gap-2">
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Drop off</label>
+      <div className="mt-5 space-y-3">
+        <fieldset>
+          <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Drop-off</legend>
           <div className="flex gap-2">
-            <input 
-              type="date" 
-              value={inDate}
-              onChange={e => handleInChange('date', e.target.value)}
-              min={minDate}
-              className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
-            />
-            <select 
-              value={inTime}
-              onChange={e => handleInChange('time', e.target.value)}
-              className="w-24 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
-            >
-              {hours.map(h => <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`}>{h}</option>)}
+            <input type="date" aria-label="Drop-off date" value={inDate} onChange={e => handleInChange('date', e.target.value)} min={minDate} className={`${field} flex-1 min-w-0`} />
+            <select aria-label="Drop-off time" value={inTime} onChange={e => handleInChange('time', e.target.value)} className={`${field} w-[7.5rem]`}>
+              {hours.map(h => <option key={h} value={h} disabled={inDate === minDate && h < `${currentHour}:00`}>{fmtHour(h)}</option>)}
             </select>
           </div>
-        </div>
+        </fieldset>
 
-        {/* Pick up */}
-        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200 flex flex-col gap-2">
-          <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Pick up</label>
+        <fieldset>
+          <legend className="mb-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Pick-up</legend>
           <div className="flex gap-2">
-            <input 
-              type="date" 
-              value={outDate}
-              onChange={e => setOutDate(e.target.value)}
-              min={inDate || minDate}
-              className="flex-1 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
-            />
-            <select 
-              value={outTime}
-              onChange={e => setOutTime(e.target.value)}
-              className="w-24 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-medium outline-none"
-            >
-              {hours.map(h => <option key={h} value={h} disabled={outDate === inDate && h <= inTime}>{h}</option>)}
+            <input type="date" aria-label="Pick-up date" value={outDate} onChange={e => setOutDate(e.target.value)} min={inDate || minDate} className={`${field} flex-1 min-w-0`} />
+            <select aria-label="Pick-up time" value={outTime} onChange={e => setOutTime(e.target.value)} className={`${field} w-[7.5rem]`}>
+              {hours.map(h => <option key={h} value={h} disabled={outDate === inDate && h <= inTime}>{fmtHour(h)}</option>)}
             </select>
           </div>
-        </div>
+        </fieldset>
 
-        <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">{isGarage ? label + (quantity > 1 ? 's' : '') : (quantity > 1 ? 'Bags' : 'Bag')}</label>
-            <span className="text-xs font-bold text-gray-400">Max: {maxCapacity}</span>
+        {isGarage ? (
+          <div className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 px-3.5 py-3">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Vehicle</span>
+            <span className="text-sm font-bold text-gray-900 dark:text-white">1 × {label}</span>
           </div>
-          
-          <div className="flex gap-4 items-center">
-            <input 
-              type="range"
-              min={1}
-              max={maxCapacity}
-              value={quantity}
-              onChange={e => setQuantity(parseInt(e.target.value) || 1)}
-              className="flex-1 accent-orange-500 cursor-pointer"
-            />
-            <input 
-              type="number"
-              min={1}
-              max={maxCapacity}
-              value={quantity}
-              onChange={e => {
-                let v = parseInt(e.target.value);
-                if (isNaN(v)) return;
-                if (v > maxCapacity) v = maxCapacity;
-                if (v < 1) v = 1;
-                setQuantity(v);
-              }}
-              onBlur={e => {
-                if (!e.target.value || isNaN(parseInt(e.target.value))) {
-                  setQuantity(1);
-                }
-              }}
-              className="w-16 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-sm font-bold outline-none text-center"
-            />
+        ) : (
+          <div className="flex items-center justify-between rounded-xl bg-gray-50 dark:bg-gray-950/60 border border-gray-200 dark:border-gray-800 px-3.5 py-2.5">
+            <div>
+              <span className="block text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Bags</span>
+              <span className="text-xs text-gray-400 dark:text-gray-500">Up to {maxCapacity}</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <button type="button" aria-label="Fewer bags" disabled={quantity <= 1} onClick={() => setQuantity(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-bold hover:border-orange-400 hover:text-orange-600 disabled:opacity-30 disabled:pointer-events-none">−</button>
+              <span className="w-6 text-center text-base font-bold text-gray-900 dark:text-white tabular-nums" aria-live="polite">{quantity}</span>
+              <button type="button" aria-label="More bags" disabled={quantity >= maxCapacity} onClick={() => setQuantity(q => Math.min(maxCapacity, q + 1))} className="w-8 h-8 rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-bold hover:border-orange-400 hover:text-orange-600 disabled:opacity-30 disabled:pointer-events-none">+</button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="border-t border-gray-100 pt-4 mb-6">
-        <div className="flex justify-between text-gray-600 mb-2">
-          <span>{quantity} × {label} × {pricingBreakdown.diffHours} hrs</span>
-          <span>₹{pricingBreakdown.baseTotal.toFixed(2)}</span>
+      <dl className="mt-5 space-y-2 border-t border-gray-100 dark:border-gray-800 pt-4 text-sm">
+        <div className="flex justify-between gap-3 text-gray-600 dark:text-gray-400">
+          <dt>₹{pricingBreakdown.pricePerHourIncGst} × {isGarage ? '' : `${quantity} bag${quantity === 1 ? '' : 's'} × `}{pricingBreakdown.diffHours} hour{pricingBreakdown.diffHours === 1 ? '' : 's'}</dt>
+          <dd className="tabular-nums">₹{pricingBreakdown.finalTotal.toFixed(2)}</dd>
         </div>
-        <div className="flex justify-between text-gray-600 mb-2">
-          <span>GST (18%)</span>
-          <span>₹{pricingBreakdown.gstTotal.toFixed(2)}</span>
+        <div className="flex justify-between gap-3 border-t border-gray-100 dark:border-gray-800 pt-3 text-base font-extrabold text-gray-900 dark:text-white">
+          <dt>Total</dt>
+          <dd className="tabular-nums">₹{pricingBreakdown.finalTotal.toFixed(2)}</dd>
         </div>
-        <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t border-gray-100 mt-2">
-          <span>Total</span>
-          <span>₹{pricingBreakdown.finalTotal.toFixed(2)}</span>
-        </div>
-      </div>
+      </dl>
 
-      <button 
-        onClick={handleBook}
-        disabled={totalPrice === 0}
-        className="w-full py-4 bg-gradient-to-r from-orange-500 to-amber-500 text-white font-bold rounded-xl hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-50 disabled:transform-none disabled:shadow-none"
-      >
-        Book Now
-      </button>
-      
-      <p className="text-center text-xs text-gray-500 mt-4">You won't be charged yet.</p>
+      <div className="mt-4">
+        {pause && (
+          <p className={`${notice} border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300`}>
+            This location isn&apos;t taking bookings from {new Date(pause.starts_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })} to {new Date(pause.ends_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}. Please pick other times.
+          </p>
+        )}
+        {!hasRate && <p className={danger}>This location isn&apos;t taking bookings right now.</p>}
+        {noVehicleSpace && <p className={danger}>This location has no space for this vehicle type.</p>}
+        {lengthError && totalPrice > 0 && <p className={danger}>{lengthError}</p>}
+
+        <button
+          onClick={handleBook}
+          disabled={blocked}
+          className="w-full rounded-xl bg-orange-600 py-3.5 text-base font-bold text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-800 dark:disabled:text-gray-500"
+        >
+          Book now
+        </button>
+        <p className="mt-3 text-center text-xs text-gray-500 dark:text-gray-400">
+          You won&apos;t be charged yet. Bookings from {rules.minHours} hour{rules.minHours === 1 ? '' : 's'} up to {rules.maxDays} day{rules.maxDays === 1 ? '' : 's'}.
+        </p>
+      </div>
     </div>
   );
 }

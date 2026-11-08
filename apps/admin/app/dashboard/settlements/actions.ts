@@ -1,9 +1,12 @@
 'use server';
 
+import { requireAccess } from '../../../lib/adminAccess';
+
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function processSettlement(formData: FormData) {
+  await requireAccess('/dashboard/settlements'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const paymentId = formData.get('payment_id') as string;
   const transactionId = formData.get('transaction_id') as string;
@@ -17,6 +20,13 @@ export async function processSettlement(formData: FormData) {
     
     // 2. Mark transaction as completed
     await supabase.from('partner_transactions').update({ transfer_status: 'completed', updated_at: new Date().toISOString() }).eq('id', transactionId);
+
+    // 3. The partner has paid, so the booking's own ledger row is no longer outstanding
+    const { data: proofRow } = await supabase.from('partner_transactions').select('booking_id').eq('id', transactionId).maybeSingle();
+    if (proofRow?.booking_id) {
+      await supabase.from('partner_transactions').update({ transfer_status: 'completed', updated_at: new Date().toISOString() })
+        .eq('booking_id', proofRow.booking_id).is('transfer_proof', null).eq('transfer_status', 'pending');
+    }
   } else {
     // Reject - revert payment to pending and mark transaction failed
     await supabase.from('payments').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', paymentId);
@@ -37,8 +47,8 @@ export async function processSettlement(formData: FormData) {
         user_id: pUserId,
         title: action === 'approve' ? 'Settlement Approved' : 'Settlement Rejected',
         message: action === 'approve' 
-          ? `Your commission settlement has been approved and completed.`
-          : `Your commission settlement proof was rejected. Please review and re-submit.`,
+          ? `Your settlement has been approved and completed.`
+          : `Your settlement proof was rejected. Please review and re-submit.`,
         category: 'payment'
       });
     }

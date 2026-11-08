@@ -2,6 +2,15 @@
 const nextConfig = {
   transpilePackages: ["@repo/ui", "@stashinn/lib"],
   serverExternalPackages: ['jspdf', 'fflate'],
+  experimental: {
+    // Uploads (signed registration forms, settlement proofs) go through server actions, which
+    // reject bodies over 1 MB by default. Files may be up to 10 MB, plus form overhead.
+    serverActions: {
+      bodySizeLimit: '12mb',
+    },
+    // The middleware reads request bodies too and caps them at 10 MB by default
+    proxyClientMaxBodySize: '12mb',
+  },
   images: {
     remotePatterns: [
       {

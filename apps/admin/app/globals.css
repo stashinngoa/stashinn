@@ -3,7 +3,56 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  /* Light mode: warm sand neutrals that sit well with the orange/amber brand */
+  :root {
+    --white: 255 253 249;
+    --gray-50: 247 243 236;
+    --gray-100: 240 233 222;
+    --gray-200: 228 219 205;
+    --gray-300: 211 199 182;
+    --gray-400: 166 154 138;
+    --gray-500: 115 104 92;
+    --gray-600: 92 83 72;
+    --gray-700: 70 63 55;
+    --gray-800: 46 41 36;
+    --gray-900: 31 27 23;
+    --gray-950: 18 15 12;
   }
+
+  /* Dark mode (and always-neutral pages like the printable documents) keep Tailwind's default grays */
+  .dark,
+  .neutral-gray {
+    --white: 255 255 255;
+    --gray-50: 249 250 251;
+    --gray-100: 243 244 246;
+    --gray-200: 229 231 235;
+    --gray-300: 209 213 219;
+    --gray-400: 156 163 175;
+    --gray-500: 107 114 128;
+    --gray-600: 75 85 99;
+    --gray-700: 55 65 81;
+    --gray-800: 31 41 55;
+    --gray-900: 17 24 39;
+    --gray-950: 3 7 18;
+  }
+
+  body {
+    @apply bg-gray-50 text-gray-900 dark:bg-black dark:text-gray-100;
+  }
+}
+
+/* View-only pages (lib/permissions.ts): hide controls that change data */
+[data-readonly="true"] [data-edit] {
+  display: none !important;
+}
+
+@keyframes dashboard-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
+}
+
+/* Detail modals (partner location / contact) */
+@keyframes modal-in {
+  from { transform: translateY(8px) scale(0.98); opacity: 0; }
+  to { transform: none; opacity: 1; }
 }

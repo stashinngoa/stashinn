@@ -1,4 +1,4 @@
-import { createClient } from '../supabase/server';
+import { createClient, createAdminClient } from '../supabase/server';
 import { AdminRole } from '../types/index';
 
 interface BroadcastParams {
@@ -14,7 +14,7 @@ interface BroadcastParams {
  * Superadmins always receive notifications by default.
  */
 export async function notifyAdmins(params: BroadcastParams) {
-  const supabase = await createClient();
+  const supabase = await createAdminClient();
 
   // Find all admins matching the roles (or superadmins)
   const { data: admins, error } = await supabase
@@ -55,57 +55,67 @@ export async function notifyAdmins(params: BroadcastParams) {
   }
 }
 
+// Reuse one SMTP connection pool per server process
+let mailTransport: import('nodemailer').Transporter | null = null;
+
+async function getMailTransport() {
+  const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD } = process.env;
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASSWORD) return null;
+  if (!mailTransport) {
+    const nodemailer = await import('nodemailer');
+    const port = Number(SMTP_PORT) || 465;
+    mailTransport = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port,
+      secure: port === 465, // 465 = SSL; 587 = STARTTLS
+      auth: { user: SMTP_USER, pass: SMTP_PASSWORD },
+      pool: true,
+    });
+  }
+  return mailTransport;
+}
+
+const escapeHtml = (text: string) =>
+  text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Wraps plain-text messages in a simple branded layout; HTML bodies are sent as-is. */
+function toHtml(body: string) {
+  if (body.trim().startsWith('<')) return body;
+  return `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
+    <h2 style="color: #ea580c; margin-top: 0;">StashInn</h2>
+    <p style="font-size: 16px; line-height: 1.5; color: #333; white-space: pre-line;">${escapeHtml(body)}</p>
+    <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;"/>
+    <p style="font-size: 12px; color: #666; margin-bottom: 0;">This is an automated notification from StashInn. Please do not reply directly to this email.</p>
+  </div>`;
+}
+
 /**
- * Mock External Notification Service
- * In a production environment, this would integrate with SendGrid/Twilio/WhatsApp Business API
+ * External notification channels (email, WhatsApp, SMS).
+ * Email goes out over SMTP — the same mailbox Supabase Auth uses (see .env.example: SMTP_*).
  */
 export const ExternalNotificationService = {
-  sendEmail: async (to: string, subject: string, body: string) => {
-    console.log(`[EXTERNAL_EMAIL] To: ${to} | Subject: ${subject}`);
-    
-    const resendKey = process.env.RESEND_API_KEY;
-    if (resendKey) {
-      try {
-        const isHtml = body.trim().startsWith('<');
-        const htmlBody = isHtml ? body : `<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-          <h2 style="color: #9333ea; margin-top: 0;">StashInn</h2>
-          <p style="font-size: 16px; line-height: 1.5; color: #333; white-space: pre-line;">${body}</p>
-          <hr style="border: none; border-top: 1px solid #eaeaea; margin: 20px 0;"/>
-          <p style="font-size: 12px; color: #666; margin-bottom: 0;">This is an automated notification from StashInn. Please do not reply directly to this email.</p>
-        </div>`;
-
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            from: 'StashInn <onboarding@resend.dev>',
-            to: [to],
-            subject: subject,
-            html: htmlBody
-          }),
-        });
-
-        if (response.ok) {
-          const resData = await response.json();
-          console.log(`[RESEND_SUCCESS] Email sent successfully. Message ID: ${resData.id}`);
-          return { success: true, messageId: resData.id };
-        } else {
-          const errText = await response.text();
-          console.error(`[RESEND_ERROR] Failed to send email via Resend: ${errText}`);
-        }
-      } catch (err) {
-        console.error('[RESEND_EXCEPTION] Exception occurred while calling Resend API:', err);
-      }
-    } else {
-      console.log(`[EXTERNAL_EMAIL_MOCK_FALLBACK] RESEND_API_KEY not set. Body:\n${body}`);
+  sendEmail: async (to: string, subject: string, body: string): Promise<{ success: boolean; messageId?: string; error?: string }> => {
+    const transport = await getMailTransport();
+    if (!transport) {
+      console.warn(`[EMAIL_NOT_SENT] SMTP is not configured (SMTP_HOST / SMTP_USER / SMTP_PASSWORD). To: ${to} | Subject: ${subject}`);
+      return { success: false, error: 'SMTP not configured' };
     }
 
-    // Simulate network delay for mock fallback
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return { success: true, messageId: `msg_${Math.random().toString(36).substr(2, 9)}` };
+    try {
+      const info = await transport.sendMail({
+        from: process.env.EMAIL_FROM || `StashInn <${process.env.SMTP_USER}>`,
+        replyTo: process.env.EMAIL_REPLY_TO || undefined,
+        to,
+        subject,
+        html: toHtml(body),
+        text: body.trim().startsWith('<') ? undefined : body,
+      });
+      console.log(`[EMAIL_SENT] To: ${to} | Subject: ${subject} | Message ID: ${info.messageId}`);
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error(`[EMAIL_ERROR] To: ${to} | Subject: ${subject} |`, err?.message || err);
+      return { success: false, error: err?.message || String(err) };
+    }
   },
 
   sendWhatsApp: async (phone: string, templateName: string, variables: Record<string, string>) => {
@@ -212,8 +222,10 @@ export const ExternalNotificationService = {
 /**
  * Notifies a partner based on their configured preferences.
  */
-export async function notifyPartnerExternal(partnerId: string, payload: { title: string, message: string }) {
-  const supabase = await createClient();
+/** In-app + external notification for a partner, following their notification preferences.
+ *  Pass `email` to send a formatted email instead of the plain title/message. */
+export async function notifyPartnerExternal(partnerId: string, payload: { title: string, message: string, email?: { subject: string, html: string } }) {
+  const supabase = await createAdminClient();
 
   // 1. Get Partner User ID & contact info
   const { data: partner } = await supabase
@@ -226,7 +238,8 @@ export async function notifyPartnerExternal(partnerId: string, payload: { title:
   
   const userId = partner.user_id;
   const email = (partner.users as any)?.email;
-  const phone = (partner.users as any)?.phone || '+910000000000'; // Default mock phone
+  // No fallback number: SMS / WhatsApp are skipped when the partner hasn't given a mobile
+  const phone: string | null = (partner.users as any)?.phone || null;
 
   // 2. Get preferences
   const { data: prefs } = await supabase
@@ -253,14 +266,14 @@ export async function notifyPartnerExternal(partnerId: string, payload: { title:
   }
 
   if (activePrefs.email && email) {
-    await ExternalNotificationService.sendEmail(email, payload.title, payload.message);
+    await ExternalNotificationService.sendEmail(email, payload.email?.subject ?? payload.title, payload.email?.html ?? payload.message);
   }
 
-  if (activePrefs.whatsapp) {
+  if (activePrefs.whatsapp && phone) {
     await ExternalNotificationService.sendWhatsApp(phone, 'partner_alert', { message: payload.message });
   }
 
-  if (activePrefs.sms) {
+  if (activePrefs.sms && phone) {
     await ExternalNotificationService.sendSMS(phone, `StashInn: ${payload.title} - ${payload.message}`);
   }
 }

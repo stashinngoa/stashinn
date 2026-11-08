@@ -3,12 +3,49 @@
 import { createClient } from '@supabase/supabase-js';
 import { sendZavuOTP } from '@stashinn/lib/services/messaging';
 import crypto from 'crypto';
+import { getCustomerBaseUrl } from '../../lib/getBaseUrl';
 
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+}
+
+export async function auditLoginAttempt(identifier: string, method: 'email' | 'whatsapp' | 'sms' | 'auto', success: boolean) {
+  try {
+    const supabaseAdmin = getSupabaseAdmin();
+    let userId = null;
+    
+    // Try to find the user ID for the audit log safely
+    const isEmail = identifier.includes('@');
+    const { data: user, error: lookupErr } = await supabaseAdmin
+      .from('users')
+      .select('id')
+      .eq(isEmail ? 'email' : 'phone', identifier)
+      .maybeSingle();
+
+    if (lookupErr) {
+      console.error("[Audit] User lookup error:", lookupErr);
+    }
+    
+    if (user) {
+      userId = user.id;
+    }
+
+    const { error: insertErr } = await supabaseAdmin.from('auth_audits').insert({
+      user_id: userId,
+      identifier,
+      method,
+      success
+    });
+
+    if (insertErr) {
+      console.error("[Audit] Insert error:", insertErr);
+    }
+  } catch (e) {
+    console.error("[Audit] Fatal exception:", e);
+  }
 }
 
 const SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || 'stashinn-otp-secret-key';
@@ -44,9 +81,13 @@ export async function requestOTP(identifier: string) {
   const verificationToken = `${expiresAt}.${hash}`;
 
   // Call Messaging API wrapper (WhatsApp/Fast2SMS)
-  await sendZavuOTP({ to: identifier, otp });
+  const result = await sendZavuOTP({ to: identifier, otp });
 
-  return { success: true, verificationToken };
+  if (!result.success) {
+    return { error: 'Failed to send OTP via WhatsApp or SMS. Please use Email login.' };
+  }
+
+  return { success: true, verificationToken, method: result.method };
 }
 
 export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl: string, verificationToken?: string) {
@@ -81,9 +122,10 @@ export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl:
     if (user && user.email) email = user.email;
   }
   
+  const baseUrl = await getCustomerBaseUrl();
   const finalNextUrl = nextUrl || '/dashboard';
   const separator = finalNextUrl.includes('?') ? '&' : '?';
-  const redirectToUrl = `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}${finalNextUrl}${separator}autoLogin=true`;
+  const redirectToUrl = `${baseUrl}${finalNextUrl}${separator}autoLogin=true`;
 
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: 'magiclink',

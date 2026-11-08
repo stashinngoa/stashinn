@@ -1,155 +1,110 @@
-import { createClient } from '@stashinn/lib/supabase/server';
-import DisputeResolutionForm from './DisputeResolutionForm';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
+import { getAdminContext } from '../../../lib/adminAccess';
+import { accessFor } from '../../../lib/permissions';
+import { parseReport } from './disputeShared';
+import DisputesWorkspace, { type DisputeCase } from './DisputesWorkspace';
 
-export default async function DisputesPage(props: { searchParams: Promise<{ status?: string }> }) {
-  const searchParams = await props.searchParams;
-  const statusFilter = searchParams?.status || 'all';
-  const supabase = await createClient();
+export const dynamic = 'force-dynamic';
 
-  let query = supabase
+const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
+
+export default async function DisputesPage(props: { searchParams: Promise<{ id?: string; status?: string }> }) {
+  const params = await props.searchParams;
+  const { role } = await getAdminContext();
+  const access = role ? accessFor(role, '/dashboard/disputes') : null;
+  if (!access) return null; // the middleware redirects before this
+
+  // Read with the service role after the access check above: the RLS role check can't see
+  // every admin's role, and the customer / partner contact details live in tables admins
+  // only partly see.
+  const db = createServiceClient();
+  const { data: rows, error } = await db
     .from('damage_reports')
     .select(`
       *,
-      bookings ( id, total_amount, booking_type, vehicle_make, model, plate, check_in_photos ),
-      partners ( business_name, user_id, users(email) ),
-      users!damage_reports_customer_id_fkey ( full_name, email )
+      bookings (
+        id, status, booking_type, num_bags, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos,
+        start_time, end_time, actual_checkin, actual_checkout, total_amount, cancellation_reason, cancelled_by, created_at,
+        partner_locations ( name, address_line1, city )
+      ),
+      partners ( id, business_name, users!partners_user_id_fkey ( full_name, email, phone ) ),
+      users!damage_reports_customer_id_fkey ( id, full_name, email, phone )
     `)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .limit(500);
 
-  if (statusFilter !== 'all') {
-    query = query.eq('status', statusFilter);
-  }
+  const list = rows || [];
+  const bookingIds = [...new Set(list.map(r => r.booking_id))];
+  const reportIds = list.map(r => r.id);
 
-  const { data: disputes } = await query;
+  const [{ data: payments }, { data: logs }] = await Promise.all([
+    bookingIds.length
+      ? db.from('payments').select('booking_id, amount, status, method, refund_amount, created_at').in('booking_id', bookingIds).order('created_at', { ascending: false })
+      : Promise.resolve({ data: [] as any[] }),
+    reportIds.length
+      ? db.from('audit_logs').select('entity_id, action, new_values, created_at, users(full_name, email)').eq('entity_type', 'damage_reports').in('entity_id', reportIds).order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const cases: DisputeCase[] = list.map((r: any) => {
+    const b = one(r.bookings) as any;
+    const loc = one(b?.partner_locations) as any;
+    const partner = one(r.partners) as any;
+    const partnerUser = one(partner?.users) as any;
+    const customer = one(r.users) as any;
+    const report = parseReport(r.description, r.photos);
+    const pay = (payments || []).find((p: any) => p.booking_id === r.booking_id && p.status !== 'failed') || null;
+    return {
+      id: r.id,
+      bookingId: r.booking_id,
+      status: r.status,
+      source: report.source,
+      category: report.category,
+      details: report.details,
+      photos: r.photos || [],
+      adminNotes: r.admin_notes || '',
+      refundAmount: Number(r.refund_amount) || 0,
+      award: Number(r.partner_award) || 0,
+      awardPaidAt: r.partner_award_paid_at ?? null,
+      awardReference: r.partner_award_reference ?? '',
+      resolvedAt: r.resolved_at,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      customer: { name: customer?.full_name || 'Customer', email: customer?.email || '', phone: customer?.phone || '' },
+      partner: { id: partner?.id || '', name: partner?.business_name || 'Partner', contact: partnerUser?.full_name || '', email: partnerUser?.email || '', phone: partnerUser?.phone || '' },
+      booking: b ? {
+        status: b.status,
+        type: b.booking_type,
+        bags: b.num_bags,
+        vehicle: b.booking_type === 'garage' ? [b.vehicle_make, b.vehicle_model].filter(Boolean).join(' ') : '',
+        make: b.vehicle_make || '',
+        model: b.vehicle_model || '',
+        plate: b.vehicle_license_plate || '',
+        checkInPhotos: b.check_in_photos || [],
+        start: b.start_time,
+        end: b.end_time,
+        checkedIn: b.actual_checkin,
+        checkedOut: b.actual_checkout,
+        total: Number(b.total_amount) || 0,
+        cancellation: b.cancellation_reason ? `${b.cancellation_reason}${b.cancelled_by ? ` (by ${b.cancelled_by})` : ''}` : '',
+        location: loc ? { name: loc.name, address: [loc.address_line1, loc.city].filter(Boolean).join(', ') } : null,
+      } : null,
+      payment: pay ? { amount: Number(pay.amount) || 0, status: pay.status, method: pay.method, refunded: Number(pay.refund_amount) || 0 } : null,
+      history: (logs || []).filter((l: any) => l.entity_id === r.id).map((l: any) => {
+        const who = one(l.users) as any;
+        return { at: l.created_at, by: who?.full_name || who?.email || 'Admin', action: l.action, status: l.new_values?.status || '', note: l.new_values?.admin_notes || l.new_values?.reference || '', refund: Number(l.new_values?.refund_amount) || Number(l.new_values?.partner_award) || 0 };
+      }),
+    };
+  });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-extrabold text-white">Dispute Arbitration</h1>
-        <p className="text-gray-500 mt-1">Review partner-submitted incident reports and adjudicate refunds.</p>
-      </div>
-
-      <div className="flex gap-2 pb-4 border-b border-gray-800">
-        {['all', 'submitted', 'under_review', 'resolved_refund', 'resolved_no_action', 'escalated'].map(status => (
-          <a
-            key={status}
-            href={`/dashboard/disputes?status=${status}`}
-            className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${
-              statusFilter === status
-                ? 'bg-red-900/30 text-red-400 border-red-700/50'
-                : 'bg-gray-900 text-gray-400 border-gray-700 hover:bg-gray-800 hover:text-gray-200'
-            }`}
-          >
-            {status.replace(/_/g, ' ').toUpperCase()}
-          </a>
-        ))}
-      </div>
-
-      <div className="space-y-6">
-        {!disputes || disputes.length === 0 ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">
-            No disputes found matching this filter.
-          </div>
-        ) : (
-          disputes.map((dispute: any) => (
-            <div key={dispute.id} className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-xl">
-              <div className="px-6 py-4 bg-gray-950 border-b border-gray-800 flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-3 mb-1">
-                    <h3 className="text-sm font-bold text-gray-200">
-                      Booking: <span className="font-mono text-red-400">{dispute.booking_id.split('-')[0]}</span>
-                    </h3>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                      dispute.status === 'submitted' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
-                      dispute.status === 'under_review' ? 'bg-amber-900/30 text-amber-400 border-amber-700/50' :
-                      dispute.status.startsWith('resolved') ? 'bg-green-900/30 text-green-400 border-green-700/50' :
-                      'bg-gray-800 text-gray-300 border-gray-600'
-                    }`}>
-                      {dispute.status.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Filed on {new Date(dispute.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Booking Value: <strong className="text-white">₹{dispute.bookings?.total_amount}</strong></p>
-                </div>
-              </div>
-
-              <div className="p-6 grid grid-cols-1 xl:grid-cols-3 gap-8">
-                
-                {/* Left Col - Details */}
-                <div className="xl:col-span-2 space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Claimant (Partner)</p>
-                      <p className="text-sm font-medium text-gray-200">{dispute.partners?.business_name}</p>
-                      <p className="text-xs text-gray-500">{dispute.partners?.users?.email}</p>
-                    </div>
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-800">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Defendant (Customer)</p>
-                      <p className="text-sm font-medium text-gray-200">{dispute.users?.full_name || 'Unknown'}</p>
-                      <p className="text-xs text-gray-500">{dispute.users?.email}</p>
-                    </div>
-                  </div>
-
-                  {dispute.bookings?.booking_type === 'garage' && (
-                    <div className="bg-purple-950/20 p-4 rounded-lg border border-purple-900/50 space-y-3">
-                      <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Vehicle Details</h4>
-                      <p className="text-sm text-gray-200">
-                        🚗 <strong className="text-white">{dispute.bookings.vehicle_make} {dispute.bookings.model}</strong> — Plate: <strong className="font-mono text-white">{dispute.bookings.plate}</strong>
-                      </p>
-                      
-                      {dispute.bookings.check_in_photos && dispute.bookings.check_in_photos.length > 0 && (
-                        <div>
-                          <p className="text-xs font-bold text-gray-400 mb-2">Check-in Condition Photos (To compare against claim):</p>
-                          <div className="flex gap-4 overflow-x-auto pb-2">
-                            {dispute.bookings.check_in_photos.map((url: string, idx: number) => (
-                              <a key={idx} href={url} target="_blank" rel="noreferrer" className="block shrink-0">
-                                <img src={url} alt="Check-in condition" className="w-28 h-28 object-cover rounded-lg border border-gray-800 hover:border-purple-500 transition-colors" />
-                              </a>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="text-xs font-bold text-gray-400 mb-2">Partner's Incident Report:</h4>
-                    <div className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 text-sm text-gray-300 leading-relaxed">
-                      {dispute.description}
-                    </div>
-                  </div>
-
-                  {dispute.photos && dispute.photos.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-400 mb-2">Evidence ({dispute.photos.length})</h4>
-                      <div className="flex gap-4 overflow-x-auto pb-2">
-                        {dispute.photos.map((url: string, idx: number) => (
-                          <a key={idx} href={url} target="_blank" rel="noreferrer" className="block shrink-0">
-                            <img src={url} alt="Evidence" className="w-32 h-32 object-cover rounded-lg border border-gray-700 hover:border-red-500 transition-colors" />
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Right Col - Arbitration Form */}
-                <div className="xl:col-span-1">
-                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-800">
-                    <h4 className="text-sm font-bold text-white mb-4">Adjudication Panel</h4>
-                    <DisputeResolutionForm dispute={dispute} />
-                  </div>
-                </div>
-
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+    <DisputesWorkspace
+      cases={cases}
+      canEdit={access === 'full'}
+      canPay={accessFor(role!, '/dashboard/settlements') === 'full'}
+      initialId={params.id || null}
+      initialStatus={params.status || null}
+      loadError={error ? 'Couldn’t load disputes. Refresh the page to try again.' : null}
+    />
   );
 }
