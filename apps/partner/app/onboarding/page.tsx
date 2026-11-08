@@ -1,13 +1,14 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import OnboardingForm from './OnboardingForm';
+import { fillLegal, loadLegal } from '@stashinn/lib/services/legal';
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/#login-section');
   }
 
   // Check if they already submitted
@@ -21,8 +22,28 @@ export default async function OnboardingPage() {
     redirect('/dashboard');
   }
 
+  const { docs, details, live } = await loadLegal(supabase);
+  const legal = {
+    terms: fillLegal(docs.partner_terms_and_conditions.text, { details, live }, docs.partner_terms_and_conditions.updatedAt),
+    privacy: fillLegal(docs.partner_privacy_policy.text, { details, live }, docs.partner_privacy_policy.updatedAt),
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8 font-inter relative transition-colors">
+      {/* Signed into the wrong account? Let them leave */}
+      <form
+        action={async () => {
+          'use server';
+          const supabase = await createClient();
+          await supabase.auth.signOut();
+          redirect('/');
+        }}
+        className="absolute top-6 right-6 sm:top-8 sm:right-8"
+      >
+        <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400 mr-2">{user.email}</span>
+        <button type="submit" className="text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400">Sign out</button>
+      </form>
+
       {/* Top Left Logo */}
       <div className="absolute top-6 left-6 sm:top-8 sm:left-8 flex items-center space-x-2">
         <div className="flex items-center gap-2">
@@ -45,6 +66,7 @@ export default async function OnboardingPage() {
             defaultEmail={user.email || ''} 
             defaultName={user.user_metadata?.full_name || ''}
             userId={user.id} 
+            legal={legal}
           />
         </div>
       </div>

@@ -4,6 +4,8 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { notifyAdmins } from '@stashinn/lib/services/notifications';
+import { markInfoRequestAnswered } from '../../../lib/infoRequest';
+import { ONBOARDING_LIMITS, checkFiles, isValidEmail, isValidPhone, isValidPin } from '../../onboarding/validation';
 
 async function geocodeAddress(address: string, city: string, state: string, pincode: string): Promise<{ lat: number, lng: number }> {
   const queries = [
@@ -34,238 +36,220 @@ async function geocodeAddress(address: string, city: string, state: string, pinc
   return { lat: 20.5937, lng: 78.9629 }; // Fallback to India center
 }
 
+const text = (fd: FormData, key: string) => ((fd.get(key) as string) || '').trim();
+const files = (fd: FormData, key: string) => (fd.getAll(key) as File[]).filter(f => f && typeof f !== 'string' && f.size > 0);
+const int = (fd: FormData, key: string) => parseInt(text(fd, key)) || 0;
+
+/** Problems with a new location's form, checked on the server (the form checks the same things). */
+function validateNewLocation(fd: FormData, existingPocCount: number): string | null {
+  const type = text(fd, 'location_type') || 'luggage';
+  if (!text(fd, 'name')) return 'Give the location a name.';
+  if (!isValidPin(text(fd, 'pincode'))) return 'Enter a valid 6-digit PIN code.';
+  if (!text(fd, 'city') || !text(fd, 'state')) return 'Enter the city and state.';
+  if (!text(fd, 'address_line1')) return 'Enter the street address.';
+  if (!/^\d{2}:\d{2}$/.test(text(fd, 'open_time')) || !/^\d{2}:\d{2}$/.test(text(fd, 'close_time'))) return 'Set opening and closing times.';
+  if (type === 'luggage' && int(fd, 'max_bags') < 1) return 'Bag capacity must be at least 1.';
+  if (type === 'garage' && int(fd, 'bike_capacity') + int(fd, 'sedan_capacity') + int(fd, 'suv_capacity') < 1) return 'Add at least one parking space.';
+
+  const photoRules = { maxCount: ONBOARDING_LIMITS.maxPhotos, maxMb: ONBOARDING_LIMITS.photoMaxMb, types: ONBOARDING_LIMITS.imageTypes };
+  const photoProblem = checkFiles(files(fd, 'photos'), photoRules, 'Location photos');
+  if (photoProblem) return photoProblem;
+
+  const pocOption = text(fd, 'poc_option') || 'new';
+  if (pocOption === 'existing') {
+    if (!existingPocCount || !text(fd, 'existing_poc_id')) return 'Choose a contact for this location.';
+  } else {
+    if (!text(fd, 'poc_name')) return 'Enter the contact\'s name.';
+    if (!isValidPhone(text(fd, 'poc_phone'))) return 'Enter a valid 10-digit mobile number for the contact.';
+    if (text(fd, 'poc_email') && !isValidEmail(text(fd, 'poc_email'))) return 'Enter a valid email for the contact, or leave it empty.';
+    if (!files(fd, 'poc_id_document').length) return 'Upload the contact\'s ID proof.';
+    if (!files(fd, 'poc_photo').length) return 'Upload a photo of the contact.';
+    return checkFiles(files(fd, 'poc_id_document'), { maxCount: 1, maxMb: ONBOARDING_LIMITS.docMaxMb, types: ONBOARDING_LIMITS.docTypes }, 'ID proof')
+      || checkFiles(files(fd, 'poc_photo'), { maxCount: 1, maxMb: ONBOARDING_LIMITS.photoMaxMb, types: ONBOARDING_LIMITS.imageTypes }, 'Contact photo');
+  }
+  return null;
+}
+
 export async function addLocation(formData: FormData) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Please sign in again.' };
 
-  if (!user) return { error: 'Unauthorized.' };
-
-  const { data: partner } = await supabase
-    .from('partners')
-    .select('id, status, business_name')
-    .eq('user_id', user.id)
-    .single();
-
+  const { data: partner } = await supabase.from('partners').select('id, status, business_name').eq('user_id', user.id).single();
   if (!partner) return { error: 'Partner profile not found.' };
 
-  const amenities = formData.getAll('amenities') as string[];
-  const photosFiles = formData.getAll('photos') as File[];
-  const photoUrls: string[] = [];
-  
-  if (photosFiles && photosFiles.length > 0) {
-    for (const file of photosFiles) {
-      if (file.size === 0) continue;
-      const fileExt = file.name.split('.').pop();
-      const fileName = `loc_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${partner.id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('location-photos')
-        .upload(filePath, file, { upsert: true });
-        
-      if (!uploadError) {
-        const { data } = supabase.storage.from('location-photos').getPublicUrl(filePath);
-        photoUrls.push(data.publicUrl);
-      }
-    }
-  }
+  const { data: partnerPocs } = await supabase.from('partner_pocs').select('*').eq('partner_id', partner.id);
+  const problem = validateNewLocation(formData, partnerPocs?.length || 0);
+  if (problem) return { error: problem };
 
-  let latitude = parseFloat(formData.get('latitude') as string) || 0;
-  let longitude = parseFloat(formData.get('longitude') as string) || 0;
+  const ext = (f: File) => f.name.split('.').pop()?.toLowerCase() || 'bin';
+  const upload = async (bucket: string, path: string, file: File) => {
+    const { error } = await supabase.storage.from(bucket).upload(path, file);
+    if (error) throw new Error(`Couldn't upload ${file.name}: ${error.message}`);
+    return path;
+  };
 
+  const locationType = text(formData, 'location_type') === 'garage' ? 'garage' : 'luggage';
+  let latitude = parseFloat(text(formData, 'latitude')) || 0;
+  let longitude = parseFloat(text(formData, 'longitude')) || 0;
   if (latitude === 0 && longitude === 0) {
-    const address = formData.get('address_line1') as string;
-    const city = formData.get('city') as string;
-    const state = formData.get('state') as string;
-    const pincode = formData.get('pincode') as string;
-    const coords = await geocodeAddress(address, city, state, pincode);
+    const coords = await geocodeAddress(text(formData, 'address_line1'), text(formData, 'city'), text(formData, 'state'), text(formData, 'pincode'));
     latitude = coords.lat;
     longitude = coords.lng;
   }
 
-  const locationType = formData.get('location_type') as string || 'luggage';
-  const hasCctv = formData.get('has_cctv') === 'on';
-  const hasSecurityGuard = formData.get('has_security_guard') === 'on';
-  const hasEvCharging = formData.get('has_ev_charging') === 'on';
-  const hasLockableGate = formData.get('has_lockable_gate') === 'on';
-
-  const pocOption = formData.get('poc_option') as string || 'new';
-
-  const { data: locData, error } = await supabase
-    .from('partner_locations')
-    .insert({
-      partner_id: partner.id,
-      name: formData.get('name') as string,
-      address_line1: formData.get('address_line1') as string,
-      address_line2: formData.get('address_line2') as string || null,
-      city: formData.get('city') as string,
-      state: formData.get('state') as string,
-      pincode: formData.get('pincode') as string,
-      latitude,
-      longitude,
-      max_bags: locationType === 'luggage' ? parseInt(formData.get('max_bags') as string) : 0,
-      available_bags: locationType === 'luggage' ? parseInt(formData.get('max_bags') as string) : 0,
-      operating_hours: {
-        open: formData.get('open_time') as string,
-        close: formData.get('close_time') as string
-      },
-      amenities,
-      photos: photoUrls,
-      is_active: pocOption === 'new' ? false : formData.get('is_active') === 'true',
-      location_type: locationType,
-      has_cctv: hasCctv,
-      has_security_guard: hasSecurityGuard,
-      has_ev_charging: hasEvCharging,
-      has_lockable_gate: hasLockableGate
-    })
-    .select('id')
-    .single();
-
-  if (error || !locData) {
-    console.error('Add Location Error:', error);
-    return { error: error?.message || 'Failed to create location' };
-  }
-
-  // If garage, upsert vehicle_pricing
-  if (locationType === 'garage') {
-    await supabase.from('vehicle_pricing').insert({
-      location_id: locData.id,
-      bike_capacity: parseInt(formData.get('bike_capacity') as string) || 0,
-      bike_rate_hr: parseFloat(formData.get('bike_rate_hr') as string) || null,
-      bike_rate_day: parseFloat(formData.get('bike_rate_day') as string) || null,
-      sedan_capacity: parseInt(formData.get('sedan_capacity') as string) || 0,
-      sedan_rate_hr: parseFloat(formData.get('sedan_rate_hr') as string) || null,
-      sedan_rate_day: parseFloat(formData.get('sedan_rate_day') as string) || null,
-      suv_capacity: parseInt(formData.get('suv_capacity') as string) || 0,
-      suv_rate_hr: parseFloat(formData.get('suv_rate_hr') as string) || null,
-      suv_rate_day: parseFloat(formData.get('suv_rate_day') as string) || null
-    });
-  }
-
-  // Handle POC Creation / Duplication
-  
-  
-  if (pocOption === 'existing') {
-    const existingPocId = formData.get('existing_poc_id') as string;
-    if (existingPocId) {
-      const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
-      if (existingPoc) {
-        // Duplicate the POC for the new location
-        await supabase.from('partner_pocs').insert({
-          partner_id: partner.id,
-          location_id: locData.id,
-          name: existingPoc.name,
-          phone: existingPoc.phone,
-          email: existingPoc.email,
-          is_primary: true,
-          id_document_url: existingPoc.id_document_url,
-          photo_url: existingPoc.photo_url
-        });
-      }
-    }
-  } else if (pocOption === 'new') {
-    // Process new POC uploads
-    let idDocUrl = null;
-    let photoUrl = null;
-
-    const pocIdFile = formData.get('poc_id_document') as File;
-    if (pocIdFile && pocIdFile.size > 0) {
-      const ext = pocIdFile.name.split('.').pop();
-      const path = `${partner.id}/poc_id_${Date.now()}.${ext}`;
-      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocIdFile);
-      if (!err) idDocUrl = path;
+  let locationId: string | null = null;
+  try {
+    const photoUrls: string[] = [];
+    for (const file of files(formData, 'photos')) {
+      const path = await upload('location-photos', `${partner.id}/loc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext(file)}`, file);
+      photoUrls.push(supabase.storage.from('location-photos').getPublicUrl(path).data.publicUrl);
     }
 
-    const pocPhotoFile = formData.get('poc_photo') as File;
-    if (pocPhotoFile && pocPhotoFile.size > 0) {
-      const ext = pocPhotoFile.name.split('.').pop();
-      const path = `${partner.id}/poc_photo_${Date.now()}.${ext}`;
-      const { error: err } = await supabase.storage.from('kyc-documents').upload(path, pocPhotoFile);
-      if (!err) photoUrl = path;
+    // Review status, live status, prices and commission are set by the database for new
+    // locations (see guard_location_admin_fields); StashInn approves the location first.
+    const { data: locData, error } = await supabase
+      .from('partner_locations')
+      .insert({
+        partner_id: partner.id,
+        name: text(formData, 'name'),
+        address_line1: text(formData, 'address_line1'),
+        address_line2: text(formData, 'address_line2') || null,
+        city: text(formData, 'city'),
+        state: text(formData, 'state'),
+        pincode: text(formData, 'pincode'),
+        latitude,
+        longitude,
+        max_bags: locationType === 'luggage' ? int(formData, 'max_bags') : 0,
+        available_bags: locationType === 'luggage' ? int(formData, 'max_bags') : 0,
+        operating_hours: { open: text(formData, 'open_time'), close: text(formData, 'close_time') },
+        amenities: formData.getAll('amenities') as string[],
+        photos: photoUrls,
+        is_active: false,
+        location_type: locationType,
+        has_cctv: formData.get('has_cctv') === 'on',
+        has_security_guard: formData.get('has_security_guard') === 'on',
+        has_ev_charging: formData.get('has_ev_charging') === 'on',
+        has_lockable_gate: formData.get('has_lockable_gate') === 'on',
+      })
+      .select('id')
+      .single();
+    if (error || !locData) throw new Error(`Couldn't save the location: ${error?.message ?? 'unknown error'}`);
+    locationId = locData.id;
+
+    if (locationType === 'garage') {
+      // Capacities only; StashInn sets the rates
+      const { error: vpError } = await supabase.from('vehicle_pricing').insert({
+        location_id: locData.id,
+        bike_capacity: int(formData, 'bike_capacity'),
+        sedan_capacity: int(formData, 'sedan_capacity'),
+        suv_capacity: int(formData, 'suv_capacity'),
+      });
+      if (vpError) throw new Error(`Couldn't save the parking capacity: ${vpError.message}`);
     }
 
-    await supabase.from('partner_pocs').insert({
-      partner_id: partner.id,
-      location_id: locData.id,
-      name: formData.get('poc_name') as string,
-      phone: formData.get('poc_phone') as string,
-      email: formData.get('poc_email') as string || null,
-      is_primary: true,
-      id_document_url: idDocUrl,
-      photo_url: photoUrl
-    });
+    // Contact: the same person is stored once per location
+    if ((text(formData, 'poc_option') || 'new') === 'existing') {
+      const existingPoc = (partnerPocs || []).find(p => p.id === text(formData, 'existing_poc_id'));
+      if (!existingPoc) throw new Error('That contact couldn\'t be found. Please choose again.');
+      const { error: pocError } = await supabase.from('partner_pocs').insert({
+        partner_id: partner.id,
+        location_id: locData.id,
+        name: existingPoc.name,
+        phone: existingPoc.phone,
+        email: existingPoc.email,
+        is_primary: false,
+        id_document_url: existingPoc.id_document_url,
+        photo_url: existingPoc.photo_url,
+        is_verified: existingPoc.is_verified, // the same person, already checked by StashInn
+      });
+      if (pocError) throw new Error(`Couldn't assign the contact: ${pocError.message}`);
+    } else {
+      const idFile = files(formData, 'poc_id_document')[0]!;
+      const photoFile = files(formData, 'poc_photo')[0]!;
+      const idPath = await upload('kyc-documents', `${partner.id}/poc_id_${Date.now()}.${ext(idFile)}`, idFile);
+      const photoPath = await upload('kyc-documents', `${partner.id}/poc_photo_${Date.now()}.${ext(photoFile)}`, photoFile);
+      const { error: pocError } = await supabase.from('partner_pocs').insert({
+        partner_id: partner.id,
+        location_id: locData.id,
+        name: text(formData, 'poc_name'),
+        phone: text(formData, 'poc_phone'),
+        email: text(formData, 'poc_email') || null,
+        is_primary: false,
+        id_document_url: idPath,
+        photo_url: photoPath,
+      });
+      if (pocError) throw new Error(`Couldn't save the contact: ${pocError.message}`);
+    }
+  } catch (err: any) {
+    // Don't leave a half-created location behind (its contact and capacity rows go with it)
+    if (locationId) await supabase.from('partner_locations').delete().eq('id', locationId);
+    console.error('Add Location Error:', err);
+    return { error: `${err?.message || 'Something went wrong.'} Nothing was saved, please try again.` };
   }
 
-  if (partner?.status === 'pending') {
-    await notifyAdmins({
-      title: 'Pending Partner Added Location',
-      message: `${partner.business_name || 'A pending partner'} has added a new location while pending.`,
-      category: 'system',
-      targetRoles: ['ops'],
-      action_url: `/dashboard/locations`
-    });
-  }
+  // Every new location is reviewed by StashInn before it goes live
+  await notifyAdmins({
+    title: 'New location to review',
+    message: `${partner.business_name} added "${text(formData, 'name')}" (${locationType === 'garage' ? 'vehicle parking' : 'luggage storage'}, ${text(formData, 'city')}).`,
+    category: 'system',
+    targetRoles: ['ops'],
+    action_url: `/dashboard/partners/${partner.id}`,
+  });
 
-  revalidatePath('/dashboard/locations');
-  redirect('/dashboard/locations');
+  revalidatePath('/dashboard', 'layout');
+  redirect(`/dashboard/locations/${locationId}?saved=new`);
 }
 
 export async function updateLocation(formData: FormData) {
   const supabase = await createClient();
-  const locationId = formData.get('id') as string;
-  const amenities = formData.getAll('amenities') as string[];
-  const photosFiles = formData.getAll('photos') as File[];
-  const photoUrls: string[] = [];
-  
-  if (photosFiles && photosFiles.length > 0) {
-    for (const file of photosFiles) {
-      if (file.size === 0) continue;
-      // Note: In a real app we'd need to fetch the partner ID to construct the path properly,
-      // but the bucket allows any folder if RLS allows. Let's just upload it.
-      const fileExt = file.name.split('.').pop();
-      const fileName = `loc_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: partner } = await supabase.from('partners').select('id').eq('user_id', user?.id).single();
-      const filePath = `${partner?.id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('location-photos')
-        .upload(filePath, file, { upsert: true });
-        
-      if (!uploadError) {
-        const { data } = supabase.storage.from('location-photos').getPublicUrl(filePath);
-        photoUrls.push(data.publicUrl);
-      }
-    }
-  }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Please sign in again.' };
 
-  const existingPhotos = formData.getAll('existing_photos') as string[];
-  const finalPhotos = [...existingPhotos, ...photoUrls];
+  const { data: partner } = await supabase.from('partners').select('id, business_name, status').eq('user_id', user.id).single();
+  if (!partner) return { error: 'Partner profile not found.' };
+
+  const locationId = formData.get('id') as string;
+  const { data: current } = await supabase
+    .from('partner_locations')
+    .select('id, name, location_type, admin_status')
+    .eq('id', locationId)
+    .eq('partner_id', partner.id)
+    .maybeSingle();
+  if (!current) return { error: 'Location not found.' };
+
+  const { data: pocs } = await supabase.from('partner_pocs').select('is_primary').eq('location_id', locationId);
+  const isPrimary = (pocs || []).some((p: any) => p.is_primary);
+
+  const amenities = formData.getAll('amenities') as string[];
+  const photoUrls: string[] = [];
+  for (const file of formData.getAll('photos') as File[]) {
+    if (file.size === 0) continue;
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${partner.id}/loc_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+    const { error: uploadError } = await supabase.storage.from('location-photos').upload(filePath, file);
+    if (uploadError) return { error: `Couldn't upload ${file.name}: ${uploadError.message}` };
+    photoUrls.push(supabase.storage.from('location-photos').getPublicUrl(filePath).data.publicUrl);
+  }
+  const finalPhotos = [...(formData.getAll('existing_photos') as string[]), ...photoUrls];
 
   let latitude = parseFloat(formData.get('latitude') as string) || 0;
   let longitude = parseFloat(formData.get('longitude') as string) || 0;
-
   if (latitude === 0 && longitude === 0) {
-    const address = formData.get('address_line1') as string;
-    const city = formData.get('city') as string;
-    const state = formData.get('state') as string;
-    const pincode = formData.get('pincode') as string;
-    const coords = await geocodeAddress(address, city, state, pincode);
+    const coords = await geocodeAddress(
+      formData.get('address_line1') as string, formData.get('city') as string,
+      formData.get('state') as string, formData.get('pincode') as string,
+    );
     latitude = coords.lat;
     longitude = coords.lng;
   }
 
-  const locationType = formData.get('location_type') as string || 'luggage';
-  const hasCctv = formData.get('has_cctv') === 'on';
-  const hasSecurityGuard = formData.get('has_security_guard') === 'on';
-  const hasEvCharging = formData.get('has_ev_charging') === 'on';
-  const hasLockableGate = formData.get('has_lockable_gate') === 'on';
+  // The primary location (created at onboarding) keeps its type
+  const locationType = isPrimary ? current.location_type : ((formData.get('location_type') as string) || current.location_type);
+  // A location the team flagged goes back for review, and the old note is cleared
+  const resubmitted = current.admin_status === 'update_required' || current.admin_status === 'rejected';
 
-  // Check if location has a verified POC
-  const { data: pocs } = await supabase.from('partner_pocs').select('is_verified').eq('location_id', locationId);
-  const hasVerifiedPoc = pocs && pocs.some((p: any) => p.is_verified);
-  const isActive = hasVerifiedPoc ? formData.get('is_active') === 'true' : false;
-
+  // is_active, rates and commission are managed by StashInn, so they're not written here
   const { error } = await supabase
     .from('partner_locations')
     .update({
@@ -284,12 +268,12 @@ export async function updateLocation(formData: FormData) {
       },
       amenities,
       photos: finalPhotos,
-      is_active: isActive,
       location_type: locationType,
-      has_cctv: hasCctv,
-      has_security_guard: hasSecurityGuard,
-      has_ev_charging: hasEvCharging,
-      has_lockable_gate: hasLockableGate
+      has_cctv: formData.get('has_cctv') === 'on',
+      has_security_guard: formData.get('has_security_guard') === 'on',
+      has_ev_charging: formData.get('has_ev_charging') === 'on',
+      has_lockable_gate: formData.get('has_lockable_gate') === 'on',
+      ...(resubmitted ? { admin_status: 'pending', status_reason: null } : {}),
     })
     .eq('id', locationId);
 
@@ -300,93 +284,80 @@ export async function updateLocation(formData: FormData) {
 
   // Handle POC assignment/creation on update
   const pocOption = formData.get('poc_option') as string;
-  const { data: { user: authUser } } = await supabase.auth.getUser();
-  const { data: partnerForPoc } = await supabase.from('partners').select('id').eq('user_id', authUser?.id).single();
+  if (pocOption === 'existing' || pocOption === 'new') {
+    const currentIsPrimary = isPrimary;
 
-  if (pocOption === 'existing') {
-    const existingPocId = formData.get('existing_poc_id') as string;
-    if (existingPocId && partnerForPoc) {
-      const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
-      if (existingPoc) {
-        // Delete current POCs for this location
-        await supabase.from('partner_pocs').delete().eq('location_id', locationId);
-        
-        // Insert the selected POC
-        await supabase.from('partner_pocs').insert({
-          partner_id: partnerForPoc.id,
-          location_id: locationId,
-          name: existingPoc.name,
-          phone: existingPoc.phone,
-          email: existingPoc.email,
-          is_primary: true,
-          id_document_url: existingPoc.id_document_url,
-          photo_url: existingPoc.photo_url,
-          is_verified: existingPoc.is_verified
-        });
+    if (pocOption === 'existing') {
+      const existingPocId = formData.get('existing_poc_id') as string;
+      if (existingPocId) {
+        const { data: existingPoc } = await supabase.from('partner_pocs').select('*').eq('id', existingPocId).single();
+        if (existingPoc) {
+          await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+          await supabase.from('partner_pocs').insert({
+            partner_id: partner.id,
+            location_id: locationId,
+            name: existingPoc.name,
+            phone: existingPoc.phone,
+            email: existingPoc.email,
+            is_primary: currentIsPrimary,
+            id_document_url: existingPoc.id_document_url,
+            photo_url: existingPoc.photo_url,
+            is_verified: existingPoc.is_verified
+          });
+          if (!existingPoc.is_verified) await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
+        }
       }
-    }
-  } else if (pocOption === 'new' && partnerForPoc) {
-    // Delete current POCs for this location
-    await supabase.from('partner_pocs').delete().eq('location_id', locationId);
-
-    // Insert new POC
-    await supabase.from('partner_pocs').insert({
-      partner_id: partnerForPoc.id,
-      location_id: locationId,
-      name: formData.get('poc_name') as string,
-      phone: formData.get('poc_phone') as string,
-      email: formData.get('poc_email') as string || null,
-      is_primary: true,
-      is_verified: false
-    });
-
-    // Set location inactive since new POC needs verification
-    await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
-  }
-
-  // If garage, upsert vehicle_pricing
-  if (locationType === 'garage') {
-    const { data: existingPricing } = await supabase.from('vehicle_pricing').select('id').eq('location_id', locationId).single();
-    
-    const pricingData = {
-      location_id: locationId,
-      bike_capacity: parseInt(formData.get('bike_capacity') as string) || 0,
-      bike_rate_hr: parseFloat(formData.get('bike_rate_hr') as string) || null,
-      bike_rate_day: parseFloat(formData.get('bike_rate_day') as string) || null,
-      sedan_capacity: parseInt(formData.get('sedan_capacity') as string) || 0,
-      sedan_rate_hr: parseFloat(formData.get('sedan_rate_hr') as string) || null,
-      sedan_rate_day: parseFloat(formData.get('sedan_rate_day') as string) || null,
-      suv_capacity: parseInt(formData.get('suv_capacity') as string) || 0,
-      suv_rate_hr: parseFloat(formData.get('suv_rate_hr') as string) || null,
-      suv_rate_day: parseFloat(formData.get('suv_rate_day') as string) || null
-    };
-
-    if (existingPricing) {
-      await supabase.from('vehicle_pricing').update(pricingData).eq('id', existingPricing.id);
     } else {
-      await supabase.from('vehicle_pricing').insert(pricingData);
+      await supabase.from('partner_pocs').delete().eq('location_id', locationId);
+      await supabase.from('partner_pocs').insert({
+        partner_id: partner.id,
+        location_id: locationId,
+        name: formData.get('poc_name') as string,
+        phone: formData.get('poc_phone') as string,
+        email: formData.get('poc_email') as string || null,
+        is_primary: currentIsPrimary,
+        is_verified: false
+      });
+      await supabase.from('partner_locations').update({ is_active: false }).eq('id', locationId);
     }
   }
 
-  const { data: { user: currentUser } } = await supabase.auth.getUser();
-  const { data: partnerRec } = await supabase.from('partners').select('business_name, status').eq('user_id', currentUser?.id).single();
+  // Vehicle capacities (rates are set by StashInn and left untouched)
+  if (locationType === 'garage') {
+    const capacities = {
+      bike_capacity: parseInt(formData.get('bike_capacity') as string) || 0,
+      sedan_capacity: parseInt(formData.get('sedan_capacity') as string) || 0,
+      suv_capacity: parseInt(formData.get('suv_capacity') as string) || 0,
+    };
+    const { data: existingPricing } = await supabase.from('vehicle_pricing').select('id').eq('location_id', locationId).maybeSingle();
+    const { error: vpError } = existingPricing
+      ? await supabase.from('vehicle_pricing').update(capacities).eq('id', existingPricing.id)
+      : await supabase.from('vehicle_pricing').insert({ location_id: locationId, ...capacities });
+    if (vpError) return { error: `Couldn't save vehicle capacity: ${vpError.message}` };
+  }
 
-  if (partnerRec?.status === 'pending') {
+  if (resubmitted || partner.status === 'pending') {
     await notifyAdmins({
-      title: 'Pending Location Updated',
-      message: `${partnerRec.business_name} has updated their pending location details.`,
+      title: resubmitted ? 'Location resubmitted for review' : 'Pending Location Updated',
+      message: resubmitted
+        ? `${partner.business_name} updated "${current.name}" after your review note.`
+        : `${partner.business_name} has updated their pending location details.`,
       category: 'system',
       targetRoles: ['ops'],
-      action_url: `/dashboard/locations`
+      action_url: `/dashboard/partners/${partner.id}`
     });
   }
+  await markInfoRequestAnswered(supabase, partner.id, 'locations');
 
-  revalidatePath('/dashboard/locations');
-  redirect('/dashboard/locations');
+  revalidatePath('/dashboard', 'layout');
+  redirect(`/dashboard/locations/${locationId}?saved=1`);
 }
 
 export async function deleteLocation(locationId: string) {
   const supabase = await createClient();
+  const { data: primary } = await supabase.from('partner_pocs').select('id').eq('location_id', locationId).eq('is_primary', true).limit(1);
+  if (primary?.length) return { error: 'Your primary location can\'t be deleted.' };
+
   const { error } = await supabase
     .from('partner_locations')
     .delete()

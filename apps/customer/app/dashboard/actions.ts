@@ -1,115 +1,71 @@
 'use server';
 
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
-import { sendSMS } from '@stashinn/lib/services/messaging';
+import { getBookingRules } from '@stashinn/lib/services/bookingRules';
+import { cancelBooking as cancel, isPaidOnline, livePayment, refundableAmount, rupees } from '@stashinn/lib/services/bookingLifecycle';
+import { bookingRef } from '@stashinn/lib/services/bookingEmails';
 
-export async function cancelBooking(formData: FormData) {
-  const bookingId = formData.get('booking_id') as string;
+/** Cancels the customer's own pending or confirmed booking, refunding online payments inside the free window. */
+export async function cancelBooking(bookingId: string): Promise<{ ok: true; message: string } | { ok: false; error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session has expired. Please sign in again.' };
 
-  if (!user) throw new Error('Not authenticated');
-
-  // 1. Fetch booking to check refund rules
-  const { data: bookingToCancel } = await supabase
+  // Ownership is checked with the customer's own session
+  const { data: booking } = await supabase
     .from('bookings')
-    .select('id, start_time, total_amount, status, payments(*)')
+    .select('id, start_time, status, partner_id, partners(user_id)')
     .eq('id', bookingId)
     .eq('customer_id', user.id)
     .in('status', ['pending', 'confirmed'])
-    .single();
+    .maybeSingle();
+  if (!booking) return { ok: false, error: 'This booking can no longer be cancelled.' };
 
-  if (!bookingToCancel) {
-    throw new Error('Booking not found or cannot be cancelled');
-  }
+  const db = createServiceClient();
+  const { cancellationWindowHours } = await getBookingRules(db);
+  const hoursUntilStart = (new Date(booking.start_time).getTime() - Date.now()) / 3_600_000;
+  const payment = await livePayment(db, bookingId);
+  const paidOnline = isPaidOnline(payment);
+  const fullRefund = paidOnline && hoursUntilStart >= cancellationWindowHours;
+  const refund = fullRefund ? refundableAmount(payment) : 0;
 
-  const startTime = new Date(bookingToCancel.start_time);
-  const now = new Date();
-  const hoursUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+  const r = await cancel(db, bookingId, {
+    by: 'customer',
+    code: 'customer',
+    reason: `Cancelled by customer.${paidOnline ? (fullRefund ? ' Full refund.' : ' Late cancellation, no refund.') : ''}`,
+    refund: fullRefund ? 'full' : 'none',
+  });
+  if (!r.ok) return { ok: false, error: r.reason === 'changed' ? r.error : 'Could not cancel the booking. Please try again.' };
 
-  let refundAmount = 0;
-  let isFullRefund = false;
-  if (hoursUntilStart >= 12) {
-    refundAmount = bookingToCancel.total_amount;
-    isFullRefund = true;
-  }
-
-  // 2. Update booking status
-  const { error } = await supabase
-    .from('bookings')
-    .update({ 
-      status: 'cancelled',
-      cancellation_reason: `Cancelled by customer. ${isFullRefund ? 'Full refund eligible' : 'Late cancellation - no refund'}`,
-      cancelled_by: 'customer'
-    })
-    .eq('id', bookingId);
-
-  if (error) {
-    console.error('Cancel Error:', error);
-    throw new Error('Could not cancel booking.');
-  }
-
-  // 3. Process Refund if eligible
-  if (refundAmount > 0) {
-    const payment = bookingToCancel.payments?.[0];
-    if (payment && payment.method === 'razorpay' && payment.razorpay_payment_id) {
-      const rzpKeyId = process.env.RAZORPAY_KEY_ID;
-      const rzpKeySecret = process.env.RAZORPAY_KEY_SECRET;
-
-      if (rzpKeyId && rzpKeySecret) {
-        const authString = Buffer.from(`${rzpKeyId}:${rzpKeySecret}`).toString('base64');
-        try {
-          const rzpRes = await fetch(`https://api.razorpay.com/v1/payments/${payment.razorpay_payment_id}/refund`, {
-            method: 'POST',
-            headers: { 'Authorization': `Basic ${authString}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: Math.round(refundAmount * 100) })
-          });
-          if (rzpRes.ok) {
-            const rzpData = await rzpRes.json();
-            await supabase.from('payments').update({
-              status: 'refunded',
-              refund_amount: payment.refund_amount + refundAmount,
-              refund_reason: `Razorpay Refund ID: ${rzpData.id}. Customer cancellation.`,
-              updated_at: new Date().toISOString()
-            }).eq('id', payment.id);
-          }
-        } catch (err) {
-          console.error('Customer Cancellation Refund Error:', err);
-        }
-      }
-    }
-  }
-
-  // Fetch booking details for notifications
-  const { data: booking } = await supabase
-    .from('bookings')
-    .select('partner_id, partners(user_id)')
-    .eq('id', bookingId)
-    .single();
-
-  if (booking && (booking.partners as any)?.user_id) {
-    // Notify Partner
-    const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
-    const supabaseService = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    await supabaseService.from('notifications').insert({
-      user_id: (booking.partners as any).user_id,
-      title: 'Booking Cancelled',
-      message: `Booking ${bookingId} was cancelled by the customer.`,
-      category: 'booking'
+  const ref = bookingRef(bookingId);
+  const partnerUserId = (Array.isArray(booking.partners) ? booking.partners[0] : booking.partners as any)?.user_id;
+  if (partnerUserId) {
+    await db.from('notifications').insert({
+      user_id: partnerUserId,
+      title: 'Booking cancelled',
+      message: `Booking #${ref} was cancelled by the customer.`,
+      category: 'booking',
+      action_url: '/dashboard/bookings',
     });
   }
 
-  // Notify Customer
-  const refundMsg = isFullRefund ? ` A full refund of ₹${refundAmount} has been initiated.` : ` Note: Cancellations within 12h of check-in are non-refundable.`;
-  await sendSMS({
-    to: user.phone || '+1234567890',
-    message: `StashInn: Your booking ${bookingId} has been successfully cancelled.${refundMsg}`
+  const outcome = r.refunded > 0
+    ? `A refund of ${rupees(r.refunded)} has been started and should reach you in 5–7 business days.`
+    : r.refundQueued > 0
+      ? `Your refund of ${rupees(r.refundQueued)} is being processed. If it doesn’t show within 7 business days, contact support.`
+      : paidOnline
+        ? `Cancellations within ${cancellationWindowHours} hours of drop-off aren't refunded.`
+        : 'You weren’t charged for this booking.';
+  await db.from('notifications').insert({
+    user_id: user.id,
+    title: 'Booking cancelled',
+    message: `Your booking #${ref} has been cancelled. ${outcome}`,
+    category: refund > 0 ? 'payment' : 'booking',
+    action_url: '/dashboard',
   });
 
   revalidatePath('/dashboard');
+  return { ok: true, message: `Booking cancelled. ${outcome}` };
 }

@@ -1,49 +1,57 @@
 'use client';
 
-export default function DownloadPDFButton({ transaction }: { transaction: any }) {
-  const handleDownload = async () => {
+export type Receipt = {
+  reference: string;
+  submittedAt: string;
+  status: string;
+  total: number;
+  bookings: { id: string; owed: number }[];
+  partner: string;
+};
+
+const STATUS: Record<string, string> = { pending: 'Waiting for verification', processing: 'Waiting for verification', completed: 'Verified', failed: 'Rejected' };
+
+/** A PDF of one settlement the partner sent: reference, bookings covered and total. */
+export default function DownloadPDFButton({ receipt }: { receipt: Receipt }) {
+  const download = async () => {
     const { jsPDF } = await import('jspdf');
     const autoTable = (await import('jspdf-autotable')).default;
-
     const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.text('Settlement Receipt', 14, 22);
-    
+    const inr = (n: number) => `INR ${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    doc.setFontSize(18);
+    doc.text('StashInn settlement receipt', 14, 22);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
-    
-    // Details
+    doc.text(`${receipt.partner} · generated ${new Date().toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}`, 14, 30);
     doc.setTextColor(0);
-    doc.setFontSize(12);
-    doc.text('Transaction Details', 14, 45);
-    
-    autoTable(doc, {
-      startY: 50,
-      head: [['Field', 'Value']],
-      body: [
-        ['Transaction ID', transaction.id],
-        ['Booking ID', transaction.bookings?.id || 'N/A'],
-        ['Date', new Date(transaction.created_at).toLocaleString()],
-        ['Status', transaction.transfer_status.toUpperCase()],
-        ['Amount', `INR ${transaction.amount || transaction.commission || 0}`],
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [147, 51, 234] } // Purple-600
-    });
 
-    doc.save(`settlement-${transaction.id.substring(0,8)}.pdf`);
+    autoTable(doc, {
+      startY: 38,
+      body: [
+        ['Reference (UTR)', receipt.reference || '—'],
+        ['Sent on', new Date(receipt.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })],
+        ['Status', STATUS[receipt.status] || receipt.status],
+        ['Total paid to StashInn', inr(receipt.total)],
+      ],
+      theme: 'plain',
+      styles: { fontSize: 10 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 } },
+    });
+    autoTable(doc, {
+      startY: (doc as any).lastAutoTable.finalY + 8,
+      head: [['Booking', 'Commission + GST']],
+      body: receipt.bookings.map(b => [`#${b.id.slice(0, 8).toUpperCase()}`, inr(b.owed)]),
+      foot: [['Total', inr(receipt.total)]],
+      theme: 'grid',
+      headStyles: { fillColor: [234, 88, 12] },
+      footStyles: { fillColor: [243, 244, 246], textColor: 20 },
+    });
+    doc.save(`stashinn-settlement-${receipt.reference || receipt.submittedAt.slice(0, 10)}.pdf`);
   };
 
   return (
-    <button
-      onClick={handleDownload}
-      className="text-gray-500 hover:text-gray-900 text-xs font-medium underline flex items-center gap-1"
-      title="Download PDF Receipt"
-    >
-      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+    <button type="button" onClick={download} className="text-xs font-bold text-gray-600 dark:text-gray-300 hover:text-orange-700 dark:hover:text-orange-400 underline underline-offset-2">
       PDF
     </button>
   );

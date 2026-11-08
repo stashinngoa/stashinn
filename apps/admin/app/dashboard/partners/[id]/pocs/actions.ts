@@ -1,9 +1,12 @@
 'use server';
 
+import { requireAccess } from '../../../../../lib/adminAccess';
+
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function verifyPoc(pocId: string, partnerId: string) {
+  await requireAccess('/dashboard/partners'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Unauthorized' };
@@ -20,6 +23,7 @@ export async function verifyPoc(pocId: string, partnerId: string) {
 }
 
 export async function deletePoc(pocId: string, partnerId: string) {
+  await requireAccess('/dashboard/partners'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Unauthorized' };
@@ -36,6 +40,7 @@ export async function deletePoc(pocId: string, partnerId: string) {
 }
 
 export async function editPoc(formData: FormData) {
+  await requireAccess('/dashboard/partners'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Unauthorized' };

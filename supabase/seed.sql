@@ -210,4 +210,5 @@ INSERT INTO public.email_templates (slug, subject, body_html, variables) VALUES
 
   ('partner_approved', 'Welcome to StashInn, {{partner_name}}! 🎉',
    '<h2>Congratulations, {{partner_name}}!</h2><p>Your StashInn partner application for <strong>{{business_name}}</strong> has been approved.</p><p>You can now log into the <a href="{{partner_url}}">Partner Dashboard</a> to set up your storage locations and start receiving bookings.</p>',
-   ARRAY['partner_name', 'business_name', 'partner_url']);
+   ARRAY['partner_name', 'business_name', 'partner_url'])
+ON CONFLICT (slug) DO NOTHING;

@@ -24,7 +24,10 @@ const OPTIONAL_VARS = [
   "NEXT_PUBLIC_RAZORPAY_KEY_ID",
   "RAZORPAY_KEY_SECRET",
   "RAZORPAY_WEBHOOK_SECRET",
-  "RESEND_API_KEY",
+  "SMTP_HOST",
+  "SMTP_USER",
+  "SMTP_PASSWORD",
+  "EMAIL_FROM",
   "TURBO_TOKEN",
   "TURBO_TEAM",
 ];
@@ -34,6 +37,15 @@ let hasErrors = false;
 console.log("🔍 Checking required environment variables...\n");
 
 for (const varName of REQUIRED_VARS) {
+  if (varName === "NEXT_PUBLIC_CUSTOMER_URL") {
+    if (!process.env.NEXT_PUBLIC_CUSTOMER_URL && !process.env.NEXT_PUBLIC_SITE_URL) {
+      console.error(`  ❌ MISSING: NEXT_PUBLIC_CUSTOMER_URL (or NEXT_PUBLIC_SITE_URL)`);
+      hasErrors = true;
+    } else {
+      console.log(`  ✅ ${process.env.NEXT_PUBLIC_CUSTOMER_URL ? 'NEXT_PUBLIC_CUSTOMER_URL' : 'NEXT_PUBLIC_SITE_URL'}`);
+    }
+    continue;
+  }
   if (!process.env[varName]) {
     console.error(`  ❌ MISSING: ${varName}`);
     hasErrors = true;

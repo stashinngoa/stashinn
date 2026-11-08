@@ -7,13 +7,19 @@ export const metadata: Metadata = {
     "Partner dashboard to manage your luggage storage locations, bookings, and payouts.",
 };
 
+// Applies the saved theme before first paint so pages don't flash light
+const themeInitScript = `try{if(localStorage.getItem('theme')==='dark')document.documentElement.classList.add('dark')}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );

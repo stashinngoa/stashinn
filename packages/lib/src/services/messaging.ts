@@ -106,57 +106,118 @@ export async function sendWhatsApp({ to, message }: MessagingPayload): Promise<b
 
 
 export async function sendWhatsAppOTP({ to, otp }: { to: string; otp: string }): Promise<boolean> {
-  const apiKey = process.env.WHATSAPP_API_KEY;
-  const endpoint = process.env.WHATSAPP_API_ENDPOINT;
+  const token = process.env.WHATSAPP_API_TOKEN;
+  const phoneId = process.env.WHATSAPP_PHONE_ID;
+  const templateName = process.env.WHATSAPP_TEMPLATE_NAME || 'stashinn_otp';
 
-  if (!apiKey || !endpoint) {
-    console.log(`[WhatsApp Mock] WHATSAPP_API_KEY or ENDPOINT missing. Would have sent OTP: ${otp} to ${to}`);
-    return false; // Force fallback to SMS if not configured
+  if (!token || !phoneId) {
+    console.log(`[WhatsApp Mock] WHATSAPP_API_TOKEN or PHONE_ID missing. Would have sent OTP: ${otp} to ${to}`);
+    return false;
   }
+
+  // Meta requires country code without the '+'
+  const cleanNumber = to.replace('+', '').trim();
+  const endpoint = `https://graph.facebook.com/v20.0/${phoneId}/messages`;
 
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        phoneNumber: to,
-        message: `Your StashInn verification code is: ${otp}. Valid for 5 minutes.`,
-        // Adjust these payload keys based on your specific WhatsApp provider (Zavu/Interakt/Wati)
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanNumber,
+        type: "template",
+        template: {
+          name: templateName,
+          language: {
+            code: "en_US" // Adjust to 'en' or your template's language if needed
+          },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                {
+                  type: "text",
+                  text: otp
+                }
+              ]
+            },
+            {
+              type: "button",
+              sub_type: "url",
+              index: "0",
+              parameters: [
+                {
+                  type: "text",
+                  text: otp
+                }
+              ]
+            }
+          ]
+        }
       })
     });
 
+    const data = await response.json();
+
     if (response.ok) {
-      console.log(`[WhatsApp] Successfully sent OTP to ${to}`);
+      console.log(`[WhatsApp Meta] Successfully sent OTP to ${cleanNumber}. Message ID: ${data.messages?.[0]?.id}`);
       return true;
     } else {
-      console.error(`[WhatsApp] Failed:`, await response.text());
+      console.error(`[WhatsApp Meta] Failed:`, JSON.stringify(data.error));
+      
+      // If failure was due to button parameter mismatch, try fallback without button
+      if (data.error?.message?.includes('button')) {
+        console.log('[WhatsApp Meta] Retrying without button parameters...');
+        const retryResponse = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: cleanNumber,
+            type: "template",
+            template: {
+              name: templateName,
+              language: { code: "en_US" },
+              components: [
+                {
+                  type: "body",
+                  parameters: [ { type: "text", text: otp } ]
+                }
+              ]
+            }
+          })
+        });
+        if (retryResponse.ok) return true;
+      }
       return false;
     }
   } catch (err) {
-    console.error("[WhatsApp] Exception:", err);
+    console.error("[WhatsApp Meta] Exception:", err);
     return false;
   }
 }
 
-export async function sendZavuOTP({ to, otp }: { to: string; otp: string }): Promise<boolean> {
+export async function sendZavuOTP({ to, otp }: { to: string; otp: string }): Promise<{ success: boolean, method?: 'whatsapp' | 'sms' }> {
   console.log(`[OTP Engine] Initiating OTP delivery cascade for: ${to} | OTP: ${otp}`);
   
   // 1. Attempt WhatsApp First
   const waSuccess = await sendWhatsAppOTP({ to, otp });
   if (waSuccess) {
-    return true; // Stop here if WhatsApp succeeded
+    return { success: true, method: 'whatsapp' }; // Stop here if WhatsApp succeeded
   }
 
-  console.log(`[OTP Engine] WhatsApp failed or not configured. Falling back to Fast2SMS...`);
+  console.log(`[OTP Engine] WhatsApp failed or not configured. Falling back to Fast2SMS Quick API...`);
 
-  // 2. Fallback to Fast2SMS
+  // 2. Fallback to Fast2SMS (Quick API Route - ₹5/SMS but requires no DLT)
   const apiKey = process.env.FAST2SMS_API_KEY;
   if (!apiKey) {
     console.error("[Fast2SMS] FAST2SMS_API_KEY is missing!");
-    return false;
+    return { success: false };
   }
 
   const cleanNumber = to.replace('+91', '').replace('+', '').trim();
@@ -169,8 +230,9 @@ export async function sendZavuOTP({ to, otp }: { to: string; otp: string }): Pro
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        "variables_values": otp,
-        "route": "otp",
+        "route": "q",
+        "message": `Your StashInn login code is: ${otp}`,
+        "flash": 0,
         "numbers": cleanNumber
       })
     });
@@ -178,15 +240,15 @@ export async function sendZavuOTP({ to, otp }: { to: string; otp: string }): Pro
     const data = await response.json();
     
     if (data.return) {
-      console.log(`[Fast2SMS] Success: SMS sent to ${cleanNumber}. Request ID: ${data.request_id}`);
-      return true;
+      console.log(`[Fast2SMS] Success: Quick SMS sent to ${cleanNumber}. Request ID: ${data.request_id}`);
+      return { success: true, method: 'sms' };
     } else {
       console.error(`[Fast2SMS] Error:`, data.message);
-      return false;
+      return { success: false };
     }
   } catch (err) {
     console.error("[Fast2SMS] Exception:", err);
-    return false;
+    return { success: false };
   }
 }
 

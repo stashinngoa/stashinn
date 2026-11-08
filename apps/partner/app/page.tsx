@@ -35,7 +35,9 @@ export default async function PartnerHome() {
       logger.warn('Auth Failure: Partner login failed', { email, error: error.message });
       return redirect(`/?error=${encodeURIComponent(error.message)}`);
     }
-    return redirect('/dashboard');
+    // Return to the page the middleware bounced them from (same-site paths only)
+    const next = String(formData.get('next') || '');
+    return redirect(next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard');
   };
 
   return <MarketingLandingView loginAction={loginAction} />;
@@ -73,206 +75,253 @@ function IncompleteOnboardingView() {
   );
 }
 
+const CUSTOMER_URL = process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3000';
+
+const ICON = {
+  rupee: 'M9 8h6m-5 0a3 3 0 110 6H9l3 3m-3-6h6m6 1a9 9 0 11-18 0 9 9 0 0118 0z',
+  clock: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+  shield: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+  chart: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z',
+  bag: 'M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z',
+  car: 'M8 17a2 2 0 11-4 0 2 2 0 014 0zM20 17a2 2 0 11-4 0 2 2 0 014 0zM4 17H3v-5l2-5h10l4 5h2v5h-1M8 17h8M5 12h14',
+  store: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
+  check: 'M5 13l4 4L19 7',
+  pin: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z',
+} as const;
+
+function Icon({ name, className = 'w-5 h-5' }: { name: keyof typeof ICON; className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICON[name]} />
+    </svg>
+  );
+}
+
+const STEPS = [
+  { title: 'Apply online', body: 'Tell us about your business and add your storage locations. Takes about 10 minutes.' },
+  { title: 'Get verified', body: 'Our team reviews your documents and location, then your listing goes live.' },
+  { title: 'Accept bookings', body: 'Travellers book on StashInn. You accept requests, and bags are handed over with a one-time code.' },
+  { title: 'Get paid', body: 'Pay-at-location bookings are paid to you directly. Online payments are settled to your bank each month.' },
+];
+
+const BENEFITS: { icon: keyof typeof ICON; title: string; body: string }[] = [
+  { icon: 'rupee', title: 'No upfront cost', body: 'No listing or joining fees. StashInn only takes a commission on completed bookings.' },
+  { icon: 'clock', title: 'You stay in control', body: 'Set your own opening hours, capacity and prices for each location.' },
+  { icon: 'shield', title: 'Safe handovers', body: 'Every drop-off and pick-up is confirmed with a one-time code, with photos for vehicles.' },
+  { icon: 'chart', title: 'Everything in one place', body: 'Manage requests, check-ins and earnings from your partner dashboard.' },
+];
+
+const FAQS = [
+  { q: 'What kind of space do I need?', a: 'Any secure, staffed area where bags can be kept safely during your opening hours: a storeroom, back office or behind a counter. For vehicle parking, an attended lot or private parking area.' },
+  { q: 'How much can I earn?', a: 'You set an hourly rate per bag or vehicle for each location. StashInn deducts a commission on completed bookings, and you keep the rest.' },
+  { q: 'When do I get paid?', a: 'For pay-at-location bookings you collect payment from the customer directly. For online payments, your share is settled to your bank account monthly; you can track it under Earnings in your dashboard.' },
+  { q: 'Can I decline a booking?', a: 'Yes. You see every request first and can accept or decline it, for example when you are out of space.' },
+  { q: 'What happens if something is damaged?', a: 'Report it from your dashboard with photos. Our team reviews every claim and works with you and the customer to resolve it.' },
+];
+
 function MarketingLandingView({ loginAction }: { loginAction: (formData: FormData) => Promise<void> }) {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 transition-colors selection:bg-orange-200 dark:selection:bg-orange-900 font-inter">
       {/* Navbar */}
-      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-black backdrop-blur-md dark:backdrop-blur-none border-b border-gray-50 dark:border-gray-900 transition-colors">
-        <div className="flex items-center justify-between px-4 md:px-8 py-3 md:py-4 w-full">
-          <div className="flex items-center gap-2">
-            <img src="/StashInn_Light_no_text.png" alt="StashInn Logo" className="h-7 md:h-10 w-auto dark:hidden" />
-            <img src="/StashInn_Dark_no_text.png" alt="StashInn Logo" className="h-7 md:h-10 w-auto hidden dark:block" />
+      <nav className="sticky top-0 z-50 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-b border-gray-100 dark:border-gray-900">
+        <div className="w-full flex items-center justify-between gap-3 px-4 md:px-8 lg:px-12 py-3">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
+            <img src="/StashInn_Light_no_text.png" alt="" className="h-8 md:h-10 w-auto dark:hidden" />
+            <img src="/StashInn_Dark_no_text.png" alt="" className="h-8 md:h-10 w-auto hidden dark:block" />
             <span className="text-lg md:text-2xl font-black tracking-tighter shrink-0">
               <span className="text-gray-900 dark:text-white">Stash</span><span className="text-orange-500">Inn</span>
-              <span className="ml-1.5 md:ml-2 text-xs md:text-sm text-gray-500 font-bold bg-gray-100 dark:bg-gray-900 px-1.5 md:px-2 py-0.5 md:py-1 rounded-md md:rounded-lg">Partner</span>
             </span>
-          </div>
-          <div className="flex items-center gap-3 md:gap-6">
+            <span className="hidden sm:inline text-[10px] md:text-xs font-bold uppercase tracking-wider text-orange-700 dark:text-orange-300 bg-orange-50 dark:bg-orange-950/60 border border-orange-200 dark:border-orange-800/60 px-2 py-0.5 rounded-md">Partner</span>
+          </Link>
+          <div className="flex items-center gap-2 md:gap-4">
+            <a href="#how-it-works" className="hidden md:inline text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400">How it works</a>
+            <a href="#faq" className="hidden md:inline text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400">FAQ</a>
             <ThemeToggle />
-            <a href="#login-section" className="flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-gray-800 md:bg-transparent md:dark:bg-transparent text-white md:text-gray-600 md:dark:text-gray-400 px-4 py-2 md:px-0 md:py-0 rounded-full md:rounded-none hover:text-gray-300 md:hover:text-orange-600 md:dark:hover:text-orange-500 transition-colors shadow-sm md:shadow-none">
-              <svg className="w-4 h-4 hidden md:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-              </svg>
-              Log In
-            </a>
-            <Link href="/register" className="hidden md:flex items-center gap-1.5 text-sm font-semibold bg-gray-900 dark:bg-orange-600 text-white px-5 py-2.5 rounded-full hover:bg-gray-800 dark:hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-sm">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2-2v10a2 2 0 002 2z" />
-              </svg>
-              Become a Partner
+            <Link href="/register" className="inline-flex items-center px-4 py-2 md:px-5 md:py-2.5 text-sm font-bold text-white rounded-full bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 shadow-sm whitespace-nowrap">
+              Become a partner
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-12 md:pt-20 pb-20 md:pb-32">
-        {/* Background Gradients */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 flex justify-center">
-          <div className="absolute top-1/4 -left-32 w-[600px] h-[600px] bg-orange-300/40 dark:bg-orange-900/30 blur-[140px] rounded-full"></div>
-          <div className="absolute top-1/3 w-[800px] h-[400px] bg-orange-400/10 dark:bg-orange-700/10 blur-[140px] rounded-full"></div>
-          <div className="absolute top-1/4 -right-32 w-[600px] h-[600px] bg-orange-400/20 dark:bg-orange-800/20 blur-[140px] rounded-full"></div>
+      {/* Hero + sign in */}
+      <section className="relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="absolute -top-40 -left-40 w-[560px] h-[560px] bg-orange-300/30 dark:bg-orange-900/25 blur-[140px] rounded-full" />
+          <div className="absolute top-20 -right-40 w-[520px] h-[520px] bg-amber-300/25 dark:bg-amber-900/20 blur-[140px] rounded-full" />
         </div>
 
-        <div className="w-full px-4 md:px-8 flex flex-col lg:flex-row items-center gap-10 md:gap-16">
-          {/* Text Content */}
-          <div className="lg:w-1/2 z-10 w-full text-center lg:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-900/30 border border-orange-100 dark:border-orange-800/50 text-orange-700 dark:text-orange-400 text-xs md:text-sm font-semibold mb-6 shadow-sm mx-auto lg:mx-0">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-600"></span>
-              </span>
-              Now accepting partners across India
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-gray-900 dark:text-white tracking-tight leading-[1.1] mb-4 md:mb-6">
-              Turn your empty <br className="hidden lg:block"/>
-              space into <span className="block lg:inline text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-500 mt-2 lg:mt-0">extra income.</span>
+        <div className="relative w-full px-4 md:px-8 lg:px-12 pt-10 md:pt-20 pb-16 md:pb-24 grid lg:grid-cols-2 gap-10 lg:gap-12 items-center">
+          <div className="text-center lg:text-left">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-50 dark:bg-orange-950/50 border border-orange-200/70 dark:border-orange-800/50 text-orange-700 dark:text-orange-300 text-xs md:text-sm font-semibold">
+              <Icon name="pin" className="w-4 h-4" />
+              Now onboarding partners in Goa
+            </span>
+            <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-black text-gray-900 dark:text-white tracking-tight leading-[1.05]">
+              Earn from the space you <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-600 to-amber-500">already have.</span>
             </h1>
-            <p className="text-base md:text-xl text-gray-500 dark:text-gray-400 mb-8 md:mb-10 leading-relaxed max-w-lg mx-auto lg:mx-0">
-              Join thousands of hotels, cafes, and local shops earning passive income by securely storing luggage for travelers.
+            <p className="mt-5 text-base md:text-lg text-gray-600 dark:text-gray-400 leading-relaxed max-w-2xl mx-auto lg:mx-0">
+              Store luggage, and park vehicles, for travellers exploring Goa. StashInn brings you the bookings and handles payments; you provide a safe spot.
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center lg:justify-start">
-              <Link href="/register" className="inline-flex justify-center items-center px-6 py-3.5 md:px-8 md:py-4 bg-orange-600 text-white text-base md:text-lg font-semibold rounded-2xl hover:bg-orange-700 transition-all shadow-xl shadow-orange-200 dark:shadow-none hover:-translate-y-1">
-                Start Earning Today
+
+            <ul className="mt-7 grid sm:grid-cols-2 gap-x-6 gap-y-3 max-w-2xl mx-auto lg:mx-0 text-left">
+              {['No joining or listing fees', 'Set your own hours and capacity', 'One-time code for every handover', 'Track bookings and earnings online'].map(item => (
+                <li key={item} className="flex items-center gap-2.5 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <span className="w-5 h-5 shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                    <Icon name="check" className="w-3.5 h-3.5" />
+                  </span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+
+            {/* On phones the nav button and the sign-in card already link to registration */}
+            <div className="mt-8 hidden sm:flex flex-row gap-3 justify-center lg:justify-start">
+              <Link href="/register" className="inline-flex justify-center items-center whitespace-nowrap px-6 xl:px-7 py-3.5 text-base font-bold text-white rounded-2xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 shadow-lg shadow-orange-500/25 transition-transform hover:-translate-y-0.5">
+                Apply to become a partner
               </Link>
-              <a href="#how-it-works" className="inline-flex justify-center items-center px-6 py-3.5 md:px-8 md:py-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-base md:text-lg font-semibold rounded-2xl border-2 border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all">
-                How it works
+              <a href="#how-it-works" className="inline-flex justify-center items-center whitespace-nowrap px-6 xl:px-7 py-3.5 text-base font-bold text-gray-900 dark:text-white rounded-2xl border-2 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-900 transition-colors">
+                See how it works
               </a>
-            </div>
-            <div className="mt-8 md:mt-10 flex items-center justify-center lg:justify-start gap-4 text-xs md:text-sm text-gray-500 dark:text-gray-400 font-medium">
-              <div className="flex -space-x-2">
-                {[1,2,3,4].map(i => (
-                  <div key={i} className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-950 flex items-center justify-center text-[10px] md:text-xs font-bold text-gray-400 dark:text-gray-300">P</div>
-                ))}
-              </div>
-              <span>Trusted by 500+ local businesses</span>
             </div>
           </div>
 
-          <div className="w-full lg:w-1/2 flex justify-center mt-12 lg:mt-0 px-4">
+          <div className="w-full flex justify-center">
             <InlineLoginForm loginAction={loginAction} />
           </div>
         </div>
       </section>
 
-      {/* How it Works & Benefits */}
-      <section id="how-it-works" className="py-24 bg-gray-50 dark:bg-gray-950 border-t border-gray-100 dark:border-gray-900 relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 -left-64 w-[600px] h-[600px] bg-orange-300/10 dark:bg-orange-900/10 blur-[120px] rounded-full"></div>
-        </div>
-        
-        <div className="w-full px-8 relative z-10">
-          <div className="text-center max-w-2xl mx-auto mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Zero Investment, Pure Profit.</h2>
-            <p className="text-lg text-gray-500 dark:text-gray-400">StashInn handles the marketing, booking, and payments. You just provide the secure space and verify the luggage.</p>
-          </div>
-          
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow">
-              <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center mb-6">
-                <span className="text-2xl font-black text-orange-600 dark:text-orange-500">1</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">List your space</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">Register your business, set your operating hours, and define how many bags you can safely store.</p>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow relative">
-              <div className="hidden md:block absolute top-12 -left-4 w-8 h-[2px] bg-gray-200 dark:bg-gray-800"></div>
-              <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center mb-6">
-                <span className="text-2xl font-black text-orange-600 dark:text-orange-500">2</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Receive Luggage</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">Customers book online. They drop off their bags at your location and verify using a secure OTP.</p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-900 p-8 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow relative">
-               <div className="hidden md:block absolute top-12 -left-4 w-8 h-[2px] bg-gray-200 dark:bg-gray-800"></div>
-              <div className="w-14 h-14 bg-orange-50 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center mb-6">
-                <span className="text-2xl font-black text-orange-600 dark:text-orange-500">3</span>
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Get Paid Weekly</h3>
-              <p className="text-gray-500 dark:text-gray-400 leading-relaxed">Payments are processed automatically. Earnings are deposited directly to your bank account every week.</p>
-            </div>
+      {/* Who it's for */}
+      <section className="border-y border-gray-100 dark:border-gray-900 bg-gray-50/60 dark:bg-gray-900/30">
+        <div className="w-full px-4 md:px-8 lg:px-12 py-8 flex flex-col md:flex-row items-center gap-4 md:gap-8">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 shrink-0">Ideal for</p>
+          <div className="flex flex-wrap justify-center md:justify-start gap-2">
+            {[
+              { icon: 'store' as const, label: 'Hotels & guesthouses' },
+              { icon: 'store' as const, label: 'Cafés & restaurants' },
+              { icon: 'bag' as const, label: 'Shops & travel agents' },
+              { icon: 'car' as const, label: 'Private parking & garages' },
+            ].map(w => (
+              <span key={w.label} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <Icon name={w.icon} className="w-4 h-4 text-orange-500" />
+                {w.label}
+              </span>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer CTA */}
-      <section className="bg-gradient-to-br from-gray-900 to-black dark:from-gray-950 dark:to-black py-20 text-center border-t border-gray-800">
-        <h2 className="text-3xl font-bold text-white mb-6">Ready to maximize your space?</h2>
-        <Link href="/register" className="inline-flex px-8 py-4 bg-orange-600 text-white font-semibold rounded-full hover:bg-orange-700 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-orange-900/50">
-          Join StashInn Partner Network
-        </Link>
+      {/* How it works */}
+      <section id="how-it-works" className="scroll-mt-20 py-20 md:py-24">
+        <div className="w-full px-4 md:px-8 lg:px-12">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <p className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">How it works</p>
+            <h2 className="mt-2 text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white">From application to first booking</h2>
+          </div>
+          <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="relative p-6 rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 shadow-sm dark:shadow-none">
+                <span className="w-10 h-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 text-white text-lg font-black flex items-center justify-center">{i + 1}</span>
+                <h3 className="mt-5 text-lg font-bold text-gray-900 dark:text-white">{s.title}</h3>
+                <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
       </section>
 
-      {/* Airbnb-style Footer */}
-      <footer className="relative overflow-hidden bg-gray-50 dark:bg-black border-t border-gray-200 dark:border-gray-900 pt-16 pb-8 transition-colors">
-        {/* Ambient Glow */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[300px] bg-orange-300/10 dark:bg-orange-900/10 blur-[120px] rounded-full"></div>
+      {/* Benefits */}
+      <section className="py-20 md:py-24 bg-gray-50 dark:bg-gray-900/40 border-y border-gray-100 dark:border-gray-900">
+        <div className="w-full px-4 md:px-8 lg:px-12 grid lg:grid-cols-[1fr_1.4fr] gap-10 lg:gap-16 items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">Why StashInn</p>
+            <h2 className="mt-2 text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white">Extra income, without extra work</h2>
+            <p className="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">
+              We bring travellers to your door and take care of booking and payments. You keep running your business.
+            </p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {BENEFITS.map(b => (
+              <div key={b.title} className="p-6 rounded-3xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
+                <span className="w-11 h-11 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+                  <Icon name={b.icon} />
+                </span>
+                <h3 className="mt-4 font-bold text-gray-900 dark:text-white">{b.title}</h3>
+                <p className="mt-1.5 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{b.body}</p>
+              </div>
+            ))}
+          </div>
         </div>
-        
-        <div className="w-full px-6 md:px-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 mb-12 border-b border-gray-200 dark:border-gray-800 pb-12">
-            <div>
-              <h4 className="font-bold text-gray-900 dark:text-white mb-4">Support</h4>
-              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Partner Help Centre</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Security guidelines</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Insurance details</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Contact Partner Support</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 dark:text-white mb-4">Hosting</h4>
-              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Hosting resources</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Success stories</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Community forum</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Hosting responsibly</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-gray-900 dark:text-white mb-4">StashInn</h4>
-              <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">About us</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Careers</a></li>
-                <li><a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Investors</a></li>
-                <li><a href={process.env.NEXT_PUBLIC_CUSTOMER_URL || "http://localhost:3000"} className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Book luggage storage</a></li>
-              </ul>
-            </div>
-          </div>
+      </section>
 
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-            <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4">
-              <span>© {new Date().getFullYear()} StashInn, Inc.</span>
-              <span className="hidden md:inline">·</span>
-              <div className="flex gap-4">
-                <a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Privacy</a>
-                <a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Terms</a>
-                <a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Sitemap</a>
-                <a href="#" className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">Company details</a>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 font-medium text-gray-900 dark:text-gray-300">
-              <button className="flex items-center gap-1 hover:underline hover:text-orange-600 dark:hover:text-orange-500">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                </svg>
-                English (IN)
-              </button>
-              <button className="hover:underline hover:text-orange-600 dark:hover:text-orange-500">₹ INR</button>
-              <div className="flex gap-3 ml-2">
-                <a href="#" className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/></svg>
-                </a>
-                <a href="#" className="text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                </a>
-              </div>
-            </div>
+      {/* FAQ */}
+      <section id="faq" className="scroll-mt-20 py-20 md:py-24">
+        <div className="w-full px-4 md:px-8 lg:px-12 grid lg:grid-cols-[1fr_1.6fr] gap-8 lg:gap-16 items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-orange-600 dark:text-orange-400">FAQ</p>
+            <h2 className="mt-2 text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white">Questions partners ask</h2>
+            <p className="mt-4 text-gray-600 dark:text-gray-400 leading-relaxed">
+              Something else on your mind? Write to{' '}
+              <a href="mailto:support@stashinn.in" className="font-semibold text-orange-600 dark:text-orange-400 hover:underline">support@stashinn.in</a>.
+            </p>
           </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800 border-y border-gray-200 dark:border-gray-800">
+            {FAQS.map(f => (
+              <details key={f.q} className="group py-5">
+                <summary className="flex items-center justify-between gap-4 cursor-pointer list-none font-bold text-gray-900 dark:text-white">
+                  {f.q}
+                  <span className="w-7 h-7 shrink-0 rounded-full border border-gray-200 dark:border-gray-700 flex items-center justify-center text-gray-500 transition-transform group-open:rotate-45">+</span>
+                </summary>
+                <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section className="px-4 md:px-8 lg:px-12 pb-20">
+        <div className="w-full relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 px-6 py-14 md:py-16 text-center text-white shadow-xl shadow-orange-500/20">
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-white/10" aria-hidden="true" />
+          <div className="absolute -left-10 -bottom-20 w-48 h-48 rounded-full bg-white/10" aria-hidden="true" />
+          <h2 className="relative text-3xl md:text-4xl font-extrabold">Ready to put your space to work?</h2>
+          <p className="relative mt-3 text-white/90 max-w-xl mx-auto">Apply in minutes. We&apos;ll review your details and help you get your first location live.</p>
+          <Link href="/register" className="relative mt-8 inline-flex px-8 py-3.5 rounded-full bg-white text-orange-700 font-bold hover:bg-orange-50 shadow-lg transition-transform hover:scale-105">
+            Become a partner
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-200 dark:border-gray-900 bg-gray-50 dark:bg-black">
+        <div className="w-full px-4 md:px-8 lg:px-12 py-12 grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <div className="flex items-center gap-2">
+              <img src="/StashInn_Light_no_text.png" alt="" className="h-8 w-auto dark:hidden" />
+              <img src="/StashInn_Dark_no_text.png" alt="" className="h-8 w-auto hidden dark:block" />
+              <span className="text-lg font-black tracking-tighter"><span className="text-gray-900 dark:text-white">Stash</span><span className="text-orange-500">Inn</span></span>
+            </div>
+            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 max-w-xs">Short-term luggage and vehicle storage for travellers in Goa.</p>
+            <a href="mailto:support@stashinn.in" className="mt-3 inline-block text-sm font-semibold text-orange-600 dark:text-orange-400 hover:underline">support@stashinn.in</a>
+          </div>
+          {[
+            { title: 'Partners', links: [['Become a partner', '/register'], ['How it works', '#how-it-works'], ['FAQ', '#faq']] },
+            { title: 'Hosting', links: [['Hosting resources', `${CUSTOMER_URL}/hosting-resources`], ['Hosting responsibly', `${CUSTOMER_URL}/hosting-responsibly`], ['Community forum', `${CUSTOMER_URL}/community-forum`], ['Safety', `${CUSTOMER_URL}/safety`]] },
+            { title: 'StashInn', links: [['Book storage', CUSTOMER_URL], ['Help centre', `${CUSTOMER_URL}/help`], ['Careers', `${CUSTOMER_URL}/careers`], ['Newsroom', `${CUSTOMER_URL}/newsroom`]] },
+          ].map(col => (
+            <div key={col.title}>
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white">{col.title}</h4>
+              <ul className="mt-3 space-y-2.5 text-sm text-gray-600 dark:text-gray-400">
+                {col.links.map(([label, href]) => (
+                  <li key={label}><a href={href} className="hover:text-orange-600 dark:hover:text-orange-400">{label}</a></li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-gray-200 dark:border-gray-900">
+          <p className="w-full px-4 md:px-8 lg:px-12 py-5 text-xs text-gray-500 dark:text-gray-400">© {new Date().getFullYear()} StashInn. All rights reserved.</p>
         </div>
       </footer>
     </div>

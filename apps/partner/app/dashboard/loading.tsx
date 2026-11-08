@@ -1,8 +1,10 @@
 export default function DashboardLoading() {
   return (
-    <div className="fixed inset-0 z-[9999] bg-white/70 backdrop-blur-sm flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-purple-100 border-t-purple-600 rounded-full animate-spin mb-4"></div>
-      <p className="text-gray-600 font-medium animate-pulse">Loading...</p>
+    <div className="flex h-[50vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-orange-100 border-t-orange-600 dark:border-gray-800 dark:border-t-orange-500" />
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Loading…</p>
+      </div>
     </div>
   );
 }

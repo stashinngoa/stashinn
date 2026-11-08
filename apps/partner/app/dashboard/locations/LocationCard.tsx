@@ -1,110 +1,97 @@
 'use client';
 
 import Link from 'next/link';
-import { deleteLocation } from './actions';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { deleteLocation } from './actions';
+import Icon from '../../../components/Icon';
+import { capacitySummary, fmtTime12, locationStatus } from './locationUi';
 
-export default function LocationCard({ location, partnerStatus, isPrimary }: { location: any, partnerStatus?: string, isPrimary?: boolean }) {
+export default function LocationCard({ location, isPrimary, pausedUntil }: { location: any; isPrimary?: boolean; pausedUntil?: string }) {
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const isPending = partnerStatus === 'pending';
+  const router = useRouter();
+  const st = locationStatus(location.admin_status);
+  const garage = location.location_type === 'garage';
+  const needsChanges = (location.admin_status === 'update_required' || location.admin_status === 'rejected') && location.status_reason;
+  const href = `/dashboard/locations/${location.id}`;
 
-  const handleDelete = async () => {
-    if (confirm('Are you sure you want to delete this location?')) {
-      setIsDeleting(true);
-      await deleteLocation(location.id);
-      setIsDeleting(false);
-    }
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!confirm(`Delete "${location.name}"? This can't be undone.`)) return;
+    setIsDeleting(true);
+    const res = await deleteLocation(location.id);
+    setIsDeleting(false);
+    if (res?.error) alert(res.error);
+    else router.refresh();
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden flex flex-col">
-      <div className="h-32 bg-gradient-to-r from-gray-100 to-gray-200 relative">
-        {location.photos && location.photos.length > 0 ? (
-          <img src={location.photos[0]} alt={location.name} className="w-full h-full object-cover" />
+    <Link href={href} className={`group flex flex-col overflow-hidden rounded-2xl bg-white dark:bg-gray-900 border shadow-sm dark:shadow-none hover:shadow-md transition-all ${
+      needsChanges ? 'border-sky-300 dark:border-sky-700/60' : 'border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700/60'
+    } ${isDeleting ? 'opacity-50 pointer-events-none' : ''}`}>
+      <div className="relative h-40 bg-gray-100 dark:bg-gray-800">
+        {location.photos?.length ? (
+          <img src={location.photos[0]} alt="" className="absolute inset-0 h-full w-full object-cover group-hover:scale-[1.02] transition-transform" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-             <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-             </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-gradient-to-br from-orange-50 to-amber-100 dark:from-gray-800 dark:to-gray-900 text-orange-400 dark:text-gray-500">
+            <Icon name={garage ? 'car' : 'bag'} className="w-9 h-9" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">No photos yet</span>
           </div>
         )}
-        <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
-          {isPending ? (
-            <div className="bg-yellow-100 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-yellow-800 border border-yellow-200">
-              Pending Verification
-            </div>
-          ) : (
-            <div className={`px-2 py-1 rounded-md text-xs font-semibold shadow-sm border ${location.is_active ? 'bg-white text-green-700 border-green-100' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-              {location.is_active ? 'Active' : 'Inactive'}
-            </div>
-          )}
-          
-          {location.location_type === 'garage' ? (
-            <div className="bg-blue-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-blue-700">
-              Garage
-            </div>
-          ) : (
-            <div className="bg-purple-600 px-2 py-1 rounded-md text-xs font-semibold shadow-sm text-white border border-purple-700">
-              Luggage
-            </div>
-          )}
+        <div className="absolute inset-x-0 top-0 p-3 flex items-start justify-between gap-2">
+          <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[11px] font-bold ${st.cls}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />{st.label}
+          </span>
+          {isPrimary && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-white/95 dark:bg-gray-900/95 text-orange-700 dark:text-orange-400 shadow-sm">Primary</span>}
         </div>
-      </div>
-      <div className="p-5 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2 overflow-hidden">
-          <span className="truncate">{location.name}</span>
-          {isPrimary && (
-            <span className="text-[10px] uppercase tracking-wider font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded shrink-0">Primary</span>
-          )}
-        </h3>
-        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{location.address_line1}, {location.city}</p>
-        
-        {location.location_type === 'luggage' ? (
-          <div className="mt-4 grid grid-cols-1 gap-2 text-sm text-gray-600">
-            <div className="bg-gray-50 p-2 rounded">
-              <span className="block text-xs text-gray-400">Capacity</span>
-              <span className="font-semibold">{location.max_bags} Bags</span>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4 text-sm text-gray-600 space-y-2">
-            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
-              <span className="text-xs font-semibold text-gray-500">Bike</span>
-              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.bike_capacity : location.vehicle_pricing?.bike_capacity) || 0} Slots</span>
-            </div>
-            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
-              <span className="text-xs font-semibold text-gray-500">Sedan</span>
-              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.sedan_capacity : location.vehicle_pricing?.sedan_capacity) || 0} Slots</span>
-            </div>
-            <div className="bg-gray-50 p-2 rounded flex justify-between items-center">
-              <span className="text-xs font-semibold text-gray-500">SUV</span>
-              <span className="font-bold">{(Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0]?.suv_capacity : location.vehicle_pricing?.suv_capacity) || 0} Slots</span>
-            </div>
-          </div>
+        {pausedUntil && (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-md bg-amber-400 px-2 py-0.5 text-[11px] font-bold text-amber-950">
+            <Icon name="clock" className="w-3.5 h-3.5" />Paused until {new Date(pausedUntil).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}
+          </span>
         )}
-        
-        <div className="mt-6 flex gap-3 pt-4 border-t border-gray-50">
-          <Link 
-            href={`/dashboard/locations/${location.id}`} 
-            onClick={() => setIsEditing(true)}
-            className="flex-1 flex justify-center items-center py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-medium rounded-lg transition-colors border border-gray-200"
-          >
-            {isEditing ? (
-              <svg className="animate-spin h-4 w-4 text-gray-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            ) : 'Edit'}
-          </Link>
+        {location.photos?.length > 1 && (
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            <Icon name="photo" className="w-3 h-3" />{location.photos.length}
+          </span>
+        )}
+      </div>
+
+      <div className="flex-1 flex flex-col p-4">
+        <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <Icon name={garage ? 'car' : 'bag'} className="w-3.5 h-3.5" />{garage ? 'Vehicle parking' : 'Luggage storage'}
+        </div>
+        <h3 className="mt-1 font-bold text-gray-900 dark:text-white truncate group-hover:text-orange-700 dark:group-hover:text-orange-400">{location.name}</h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{[location.address_line1, location.city].filter(Boolean).join(', ')}</p>
+
+        {needsChanges && (
+          <p className="mt-3 flex gap-1.5 rounded-lg border border-sky-200 dark:border-sky-800/50 bg-sky-50 dark:bg-sky-950/40 px-2.5 py-2 text-xs text-sky-900 dark:text-sky-200">
+            <Icon name="info" className="w-4 h-4 shrink-0" />
+            <span className="line-clamp-2"><span className="font-bold">StashInn:</span> {location.status_reason}</span>
+          </p>
+        )}
+
+        <div className="mt-auto pt-3 flex items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <span className="truncate">{capacitySummary(location)}</span>
+          <span className="inline-flex items-center gap-1 shrink-0"><Icon name="clock" className="w-3.5 h-3.5" />{fmtTime12(location.operating_hours?.open)} – {fmtTime12(location.operating_hours?.close)}</span>
+        </div>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <span className="text-sm font-bold text-orange-600 dark:text-orange-400 inline-flex items-center gap-1">
+            {needsChanges ? 'Review & update' : 'View details'} <Icon name="chevron" className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+          </span>
           {!isPrimary && (
-            <button 
-              onClick={handleDelete} 
-              disabled={isDeleting} 
-              className="px-4 py-2 text-sm font-medium rounded-lg transition-colors border bg-red-50 hover:bg-red-100 text-red-600 border-red-100"
+            <button
+              type="button"
+              onClick={handleDelete}
+              aria-label={`Delete ${location.name}`}
+              title="Delete location"
+              className="p-1.5 rounded-lg text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
             >
-              {isDeleting ? '...' : 'Delete'}
+              <Icon name="trash" className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

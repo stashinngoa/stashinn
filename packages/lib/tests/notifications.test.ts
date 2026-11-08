@@ -5,7 +5,11 @@
  * options introduced in AD-08 (Admin Notification Center).
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// Stand-in SMTP transport so tests never send real email
+const sendMail = vi.fn(async (_mail: Record<string, unknown>) => ({ messageId: '<test@stashinn.in>' }));
+vi.mock('nodemailer', () => ({ createTransport: () => ({ sendMail }) }));
 import { ExternalNotificationService } from '../src/services/notifications';
 
 // Mock representation of the notifications list state
@@ -114,10 +118,27 @@ describe('Notification Filters', () => {
 });
 
 describe('External Notification Service Deliverability & Fallbacks', () => {
-  it('Should simulate/send external email successfully', async () => {
+  it('Should report email as not sent when SMTP is not configured', async () => {
+    vi.stubEnv('SMTP_HOST', '');
     const res = await ExternalNotificationService.sendEmail('test@stashinn.com', 'Welcome', 'Hello partner!');
+    expect(res.success).toBe(false);
+    expect(sendMail).not.toHaveBeenCalled();
+    vi.unstubAllEnvs();
+  });
+
+  it('Should send email over SMTP with the configured sender', async () => {
+    vi.stubEnv('SMTP_HOST', 'smtp.example.com');
+    vi.stubEnv('SMTP_USER', 'support@stashinn.in');
+    vi.stubEnv('SMTP_PASSWORD', 'secret');
+    vi.stubEnv('EMAIL_FROM', 'StashInn <noreply@stashinn.in>');
+    const res = await ExternalNotificationService.sendEmail('test@stashinn.com', 'Welcome', 'Hello <partner>!');
     expect(res.success).toBe(true);
     expect(res.messageId).toBeDefined();
+    const mail = sendMail.mock.calls[0]![0];
+    expect(mail.from).toBe('StashInn <noreply@stashinn.in>');
+    expect(mail.to).toBe('test@stashinn.com');
+    expect(mail.html).toContain('Hello &lt;partner&gt;!'); // plain text is escaped inside the HTML layout
+    vi.unstubAllEnvs();
   });
 
   it('Should simulate/send external SMS successfully', async () => {

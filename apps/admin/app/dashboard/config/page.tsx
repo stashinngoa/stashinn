@@ -1,70 +1,139 @@
+import { effectiveRole } from '../../../lib/permissions';
+import Link from 'next/link';
 import { createClient } from '@stashinn/lib/supabase/server';
 import ConfigForm from './ConfigForm';
 import TemplateForm from './TemplateForm';
-import CreateTemplateForm from './CreateTemplateForm';
+import AmenityManager from './AmenityManager';
+import { getAmenities } from '@stashinn/lib/services/amenities';
+
+// Which templates the platform actually sends. Templates are looked up by slug in code, so
+// anything not listed here is stored but never emailed.
+const TEMPLATE_USAGE: Record<string, { name: string; used: boolean; when: string }> = {
+  partner_approved: { name: 'Partner approved', used: true, when: 'Sent to a partner when an admin approves their application.' },
+  booking_requested: { name: 'Booking request (customer)', used: true, when: 'Sent to the customer as soon as they request a booking.' },
+  partner_booking_request: { name: 'Booking request (partner)', used: true, when: 'Sent to the partner for each new booking request, if they get email notifications.' },
+  booking_confirmed: { name: 'Booking confirmed', used: true, when: 'Sent to the customer when the partner accepts, with the exact address, directions, contact and check-in code.' },
+  booking_dropped_off: { name: 'Dropped off (customer)', used: true, when: 'Sent to the customer when the partner checks in their items, with the pick-up code.' },
+  booking_picked_up: { name: 'Picked up (customer)', used: true, when: 'Sent to the customer when the partner checks them out. The review request follows later from a scheduled job.' },
+  booking_cancelled: { name: 'Booking cancelled', used: false, when: 'Not sent yet: cancellation emails currently use built-in text.' },
+  otp_checkin: { name: 'Check-in code', used: false, when: 'Not sent yet: check-in codes currently use built-in text.' },
+  otp_checkout: { name: 'Pick-up code', used: false, when: 'Not sent yet: pick-up codes currently use built-in text.' },
+  // Sent by the scheduled jobs; built-in text is used unless a template with this slug exists
+  partner_response_reminder: { name: 'Reminder: answer a booking (partner)', used: true, when: 'Scheduled job: sent to a partner who hasn’t accepted or declined a booking.' },
+  booking_partner_delay: { name: 'Booking not confirmed yet (customer)', used: true, when: 'Scheduled job: sent to the customer when the partner still hasn’t answered close to drop-off.' },
+  booking_auto_cancelled: { name: 'Booking auto-cancelled (customer)', used: true, when: 'Scheduled job: the partner didn’t answer in time, so the booking was cancelled and refunded.' },
+  partner_booking_auto_cancelled: { name: 'Booking auto-cancelled (partner)', used: true, when: 'Scheduled job: tells the partner a booking was cancelled because they didn’t answer.' },
+  dropoff_reminder: { name: 'Drop-off reminder', used: true, when: 'Scheduled job: address, contact and check-in code before drop-off.' },
+  pickup_reminder: { name: 'Pick-up reminder', used: true, when: 'Scheduled job: pick-up time and code an hour before the booking ends.' },
+  no_show_nudge: { name: 'Are you still coming?', used: true, when: 'Scheduled job: a confirmed customer hasn’t dropped off 2 hours after drop-off time.' },
+  booking_no_show: { name: 'Marked as a no-show', used: true, when: 'Scheduled job: nothing was dropped off before the booking ended.' },
+  pickup_overdue: { name: 'Pick-up overdue', used: true, when: 'Scheduled job: the items weren’t collected by the end of the booking.' },
+  review_request: { name: 'Review request', used: true, when: 'Scheduled job: asks the customer to rate the location after pick-up (and one reminder).' },
+  partner_info_request_reminder: { name: 'Info request reminder (partner)', used: true, when: 'Scheduled job: a partner hasn’t answered an admin’s request for details.' },
+  partner_pause_ending: { name: 'Pause ending (partner)', used: true, when: 'Scheduled job: a paused location starts taking bookings again within a day.' },
+  partner_day_plan: { name: 'Morning plan (partner)', used: true, when: 'Scheduled job: 07:30 list of the day’s drop-offs and pick-ups, for partners who opted in.' },
+  partner_cash_dues: { name: 'Cash commission reminder (partner)', used: true, when: 'Scheduled job: weekly, while StashInn’s share of pay-at-location bookings is unsettled.' },
+  partner_monthly_statement: { name: 'Monthly statement (partner)', used: true, when: 'Scheduled job: on the 1st, last month’s online earnings and cash commission.' },
+};
 
 export default async function ConfigPage() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // Fetch System Config
-  const { data: configRows } = await supabase
-    .from('system_config')
-    .select('*')
-    .order('key');
+  const [{ data: configRows }, { data: emailTemplates }, { data: me }, amenities] = await Promise.all([
+    supabase.from('system_config').select('key, value'),
+    supabase.from('email_templates').select('*').order('slug'),
+    supabase.from('users').select('admin_role').eq('id', user?.id ?? '').single(),
+    getAmenities(supabase),
+  ]);
+  const canEdit = effectiveRole(me?.admin_role) === 'superadmin'; // no role = superadmin, as everywhere else
 
-  // Fetch Email Templates
-  const { data: emailTemplates } = await supabase
-    .from('email_templates')
-    .select('*')
-    .order('slug');
-
-  const configMap = (configRows || []).reduce((acc: any, row: any) => {
-    acc[row.key] = row.value;
-    return acc;
-  }, {});
+  const configMap = Object.fromEntries((configRows || []).map((r: any) => [r.key, r.value]));
+  const templates = [...(emailTemplates || [])].sort(
+    (a: any, b: any) => Number(!!TEMPLATE_USAGE[b.slug]?.used) - Number(!!TEMPLATE_USAGE[a.slug]?.used) || a.slug.localeCompare(b.slug)
+  );
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8">
       <div>
-        <h1 className="text-3xl font-extrabold text-white">Platform Configuration</h1>
-        <p className="text-gray-500 mt-1">Manage global system variables and email templates.</p>
+        <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">Configuration</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Platform-wide rules, amenities, legal documents and email templates.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
-        {/* System Config */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-800">
-            <h2 className="text-xl font-bold text-white">System Variables</h2>
-            <p className="text-sm text-gray-500">Core parameters that drive platform logic.</p>
-          </div>
-          <div className="p-6">
-            <ConfigForm initialConfig={configMap} />
-          </div>
+      {!canEdit && (
+        <div className="p-4 rounded-xl border bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/50 text-sm text-amber-800 dark:text-amber-300">
+          View only. Only superadmins can change these settings.
+        </div>
+      )}
+
+      <section className="space-y-4">
+        <ConfigForm initialConfig={configMap} canEdit={canEdit} />
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Commission is set per location on each partner&apos;s page (falling back to the partner&apos;s own rate).
+        </p>
+      </section>
+
+      <AmenityManager amenities={amenities} canEdit={canEdit} />
+
+      <Link
+        href="/dashboard/config/legal"
+        className="group flex items-center gap-4 p-5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm dark:shadow-none hover:border-orange-300 dark:hover:border-orange-600/60 transition-colors"
+      >
+        <span className="w-11 h-11 shrink-0 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 flex items-center justify-center">
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-bold text-gray-900 dark:text-white">Legal documents</span>
+          <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">Partner and customer terms and privacy policies, and the business details they use. Partners see theirs at sign-up and on the registration form.</span>
+        </span>
+        <svg className="w-5 h-5 text-gray-300 dark:text-gray-600 group-hover:text-orange-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+      </Link>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-lg font-extrabold text-gray-900 dark:text-white">Email templates</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Use <code className="px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-xs">{'{{variable}}'}</code> placeholders; the variables each template supports are listed on it.
+          </p>
         </div>
 
-        {/* Email Templates */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
-          <div className="px-6 py-4 border-b border-gray-800">
-            <h2 className="text-xl font-bold text-white">Email Templates</h2>
-            <p className="text-sm text-gray-500">Manage transactional email content.</p>
+        {templates.length === 0 ? (
+          <div className="p-6 text-center rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+            No email templates in the database yet. Apply the latest Supabase migrations (<code className="text-xs">npx supabase db push</code>) to add the defaults.
           </div>
-          <div className="p-6 flex-1 overflow-y-auto max-h-[800px]">
-            <CreateTemplateForm />
-            
-            <div className="space-y-6">
-            {!emailTemplates || emailTemplates.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center">No email templates found in database.</p>
-            ) : (
-              emailTemplates.map((template) => (
-                <TemplateForm key={template.id} template={template} />
-              ))
-            )}
-            </div>
+        ) : (
+          <div className="space-y-3">
+            {templates.map((t: any) => {
+              const usage = TEMPLATE_USAGE[t.slug] ?? { name: t.slug, used: false, when: 'Custom template: not sent by the platform.' };
+              return (
+                <details key={t.id} className="group bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm dark:shadow-none overflow-hidden">
+                  <summary className="flex items-start gap-3 px-5 py-4 cursor-pointer list-none hover:bg-gray-50 dark:hover:bg-gray-800/40">
+                    <span className="flex-1 min-w-0">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900 dark:text-white">{usage.name}</span>
+                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider ${
+                          usage.used
+                            ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-400'
+                            : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {usage.used ? 'In use' : 'Not used yet'}
+                        </span>
+                        {!t.is_active && <span className="px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wider bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-400">Disabled</span>}
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-1">{usage.when}</span>
+                      <span className="block text-xs text-gray-700 dark:text-gray-300 mt-1.5 truncate"><span className="text-gray-400 dark:text-gray-500">Subject:</span> {t.subject}</span>
+                    </span>
+                    <svg className="w-5 h-5 mt-0.5 shrink-0 text-gray-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </summary>
+                  <div className="px-5 pb-5">
+                    <TemplateForm template={t} />
+                  </div>
+                </details>
+              );
+            })}
           </div>
-        </div>
-
-      </div>
+        )}
+      </section>
     </div>
   );
 }
