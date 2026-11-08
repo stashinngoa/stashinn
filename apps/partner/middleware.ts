@@ -5,7 +5,8 @@ import { logger } from '@stashinn/lib/services/logger';
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const { supabase, supabaseResponse } = await updateSession(request);
   const path = request.nextUrl.pathname;
-  const isPublicRoute = path === '/register' || path === '/';
+  // /auth/* receives Supabase email links, before a session exists
+  const isPublicRoute = path === '/register' || path === '/' || path.startsWith('/auth/');
 
   const {
     data: { user },

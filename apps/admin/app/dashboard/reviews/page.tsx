@@ -22,7 +22,7 @@ export default async function AdminReviewsPage() {
         ) : (
           <div className="divide-y divide-gray-200 dark:divide-gray-800">
             {reviews.map((review: any) => (
-              <div key={review.id} className="p-6 hover:bg-gray-50 dark:bg-gray-800/50 transition-colors flex flex-col md:flex-row justify-between items-start gap-4">
+              <div key={review.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors flex flex-col md:flex-row justify-between items-start gap-4">
                 <div className="space-y-2 flex-1">
                   <div className="flex items-center gap-3">
                     <span className="text-yellow-500 font-bold text-lg">★ {review.rating}/5</span>

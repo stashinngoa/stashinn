@@ -27,7 +27,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     path.startsWith('/newsroom') ||
     path.startsWith('/new-features') ||
     path.startsWith('/careers') ||
-    path.startsWith('/investors');
+    path.startsWith('/investors') ||
+    path === '/terms' ||
+    path === '/privacy';
   // Check auth state
   const {
     data: { user },

@@ -50,8 +50,8 @@ export default function SupportFooter() {
             <span>© {new Date().getFullYear()} StashInn, Inc.</span>
             <span className="hidden md:inline">·</span>
             <div className="flex gap-4">
-              <a href="#" className="hover:underline">Privacy</a>
-              <a href="#" className="hover:underline">Terms</a>
+              <a href="/privacy" className="hover:underline">Privacy</a>
+              <a href="/terms" className="hover:underline">Terms</a>
               <a href="#" className="hover:underline">Sitemap</a>
               <a href="#" className="hover:underline">Company details</a>
             </div>

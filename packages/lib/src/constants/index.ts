@@ -35,3 +35,5 @@ export const BOOKING_DEFAULTS = {
 
 /** Supported OTP delivery channels */
 export const OTP_CHANNELS = ["email", "whatsapp", "sms"] as const;
+
+export * from './partnerInfoRequest';

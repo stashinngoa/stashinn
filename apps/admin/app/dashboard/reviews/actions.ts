@@ -1,9 +1,12 @@
 'use server';
 
+import { requireAccess } from '../../../lib/adminAccess';
+
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function moderateReview(formData: FormData) {
+  await requireAccess('/dashboard/reviews'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

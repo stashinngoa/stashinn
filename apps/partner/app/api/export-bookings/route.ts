@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   const csvRows = [];
   // Headers
-  csvRows.push(['Booking ID', 'Customer Name', 'Customer Email', 'Location', 'Check In', 'Check Out', 'Bags', 'Amount', 'Commission', 'Status'].join(','));
+  csvRows.push(['Booking ID', 'Customer Name', 'Customer Email', 'Location', 'Check In', 'Check Out', 'Bags', 'Total Paid', 'Excl. GST', 'GST', 'Commission', 'Your Share', 'Status'].join(','));
   
   // Rows
   for (const b of bookings) {
@@ -51,7 +51,10 @@ export async function GET(request: Request) {
       b.end_time,
       b.num_bags,
       b.total_amount,
+      b.base_amount,
+      b.gst_amount ?? '',
       b.commission_amount,
+      b.partner_amount ?? '',
       b.status
     ].join(','));
   }

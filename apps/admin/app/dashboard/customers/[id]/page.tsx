@@ -21,7 +21,7 @@ export default async function CustomerProfilePage(props: { params: Promise<{ id:
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <Link href="/dashboard/customers" className="text-purple-400 hover:text-purple-300 text-sm font-bold flex items-center mb-2">
+          <Link href="/dashboard/customers" className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 text-sm font-bold flex items-center mb-2">
             &larr; Back to Customers
           </Link>
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">{customer.full_name || 'Unnamed Customer'}</h1>
@@ -29,7 +29,7 @@ export default async function CustomerProfilePage(props: { params: Promise<{ id:
         </div>
         <div>
           <span className={`px-3 py-1 rounded-full text-xs font-bold border uppercase ${
-            customer.is_blocked ? 'bg-red-900/40 text-red-400 border-red-700/50' : 'bg-green-900/40 text-green-400 border-green-700/50'
+            customer.is_blocked ? 'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-700/50' : 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50'
           }`}>
             {customer.is_blocked ? 'Blocked' : 'Active'}
           </span>
@@ -53,7 +53,7 @@ export default async function CustomerProfilePage(props: { params: Promise<{ id:
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-950/50 border-b border-gray-200 dark:border-gray-800">
+            <thead className="bg-gray-50 dark:bg-gray-950/50 border-b border-gray-200 dark:border-gray-800">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">ID</th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Location</th>
@@ -67,7 +67,7 @@ export default async function CustomerProfilePage(props: { params: Promise<{ id:
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">No bookings found.</td></tr>
               ) : (
                 customer.bookings.map((b: any) => (
-                  <tr key={b.id} className="hover:bg-gray-50 dark:bg-gray-800/30">
+                  <tr key={b.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/30">
                     <td className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-400">{b.id.split('-')[0]}</td>
                     <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{b.partner_locations?.name || 'Unknown'}</td>
                     <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">{new Date(b.start_time).toLocaleDateString()}</td>

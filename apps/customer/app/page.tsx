@@ -32,7 +32,7 @@ export default function HomePage() {
   
   const [bags, setBags] = useState(1);
   const [mode, setMode] = useState<'luggage' | 'garage'>('luggage');
-  const [vehicleType, setVehicleType] = useState<'bike' | 'sedan' | 'suv'>('sedan');
+  const [vehicleType, setVehicleType] = useState<'bike' | 'car' | 'suv'>('car');
   const [vehiclesCount, setVehiclesCount] = useState(1);
   const [user, setUser] = useState<any>(null);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -163,7 +163,6 @@ export default function HomePage() {
       params.append('bags', bags.toString());
     } else {
       params.append('vehicleType', vehicleType);
-      params.append('vehicles', vehiclesCount.toString());
     }
 
     router.push(`/search?${params.toString()}`);
@@ -347,7 +346,7 @@ export default function HomePage() {
                 { char: '🛵', hue: '210deg' }, { char: '🏍️', hue: '210deg' }, { char: '🛵', hue: '320deg' }, { char: '🏍️', hue: '35deg' },
                 { char: '🛵', hue: '60deg' }, { char: '🏍️', hue: '260deg' }
               ][i] || { char: '🛵', hue: '0deg' };
-              if (vehicleType === 'sedan') return [
+              if (vehicleType === 'car') return [
                 { char: '🚗', hue: '0deg' }, { char: '🚕', hue: '0deg' }, { char: '🚘', hue: '0deg' }, { char: '🏎️', hue: '0deg' },
                 { char: '🚗', hue: '210deg' }, { char: '🚘', hue: '210deg' }, { char: '🚗', hue: '260deg' }, { char: '🏎️', hue: '210deg' },
                 { char: '🚗', hue: '35deg' }, { char: '🚘', hue: '320deg' }
@@ -595,16 +594,8 @@ export default function HomePage() {
                       <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Vehicle</label>
                       <select value={vehicleType} onChange={(e) => setVehicleType(e.target.value as any)} className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer">
                         <option value="bike" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Bike</option>
-                        <option value="sedan" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Sedan</option>
+                        <option value="car" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">Car</option>
                         <option value="suv" className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">SUV</option>
-                      </select>
-                    </div>
-                    <div className="w-12 border-l border-gray-200 dark:border-gray-700 pl-2">
-                      <label className="block text-[9px] font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider mb-0.5">Qty</label>
-                      <select value={vehiclesCount} onChange={(e) => setVehiclesCount(parseInt(e.target.value))} className="w-full bg-transparent text-sm text-gray-900 dark:text-white font-medium outline-none cursor-pointer">
-                        {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                          <option key={n} value={n} className="bg-white dark:bg-gray-900 text-gray-900 dark:text-white">{n}</option>
-                        ))}
                       </select>
                     </div>
                   </div>
@@ -804,8 +795,8 @@ export default function HomePage() {
               <span>© {new Date().getFullYear()} StashInn, Inc.</span>
               <span className="hidden md:inline">·</span>
               <div className="flex gap-4">
-                <a href="#" className="hover:underline">Privacy</a>
-                <a href="#" className="hover:underline">Terms</a>
+                <a href="/privacy" className="hover:underline">Privacy</a>
+                <a href="/terms" className="hover:underline">Terms</a>
                 <a href="#" className="hover:underline">Sitemap</a>
                 <a href="#" className="hover:underline">Company details</a>
               </div>

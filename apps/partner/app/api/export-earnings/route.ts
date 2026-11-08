@@ -35,6 +35,7 @@ export async function GET(req: NextRequest) {
         )
       `)
       .eq('partner_id', partner.id)
+      .is('transfer_proof', null) // proof rows repeat a booking's amounts
       .order('created_at', { ascending: false });
 
     if (startDate) {

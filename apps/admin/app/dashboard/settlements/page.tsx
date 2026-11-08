@@ -1,6 +1,8 @@
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { processSettlement } from './actions';
 import DownloadPDFWrapper from './DownloadPDFWrapper';
+import { platformDue } from '@stashinn/lib/services/bookingAvailability';
 
 export default async function AdminSettlementsPage() {
   const supabase = await createClient();
@@ -8,25 +10,25 @@ export default async function AdminSettlementsPage() {
   // Fetch pending validation payments
   const { data: pendingPayments } = await supabase
     .from('payments')
-    .select('*, bookings!inner(id, partner_id), partner_transactions(*)')
+    .select('*, bookings!inner(id, partner_id, commission_amount, gst_amount, partner_transactions(*))')
     .eq('status', 'pending_validation')
     .order('updated_at', { ascending: false });
 
   // Filter transactions logically
-  const validationItems = pendingPayments?.map((p: any) => {
-    // Find the latest pending transaction for this booking
-    const tx = p.partner_transactions?.find((t: any) => t.transfer_status === 'pending');
-    return {
-      payment: p,
-      transaction: tx
-    };
-  }).filter((item: any) => item.transaction) || [];
+  const service = createServiceClient();
+  const validationItems = await Promise.all((pendingPayments || []).map(async (p: any) => {
+    // The proof the partner submitted (the booking's own ledger row has no proof)
+    const tx = p.bookings?.partner_transactions?.find((t: any) => t.transfer_status === 'pending' && t.transfer_proof);
+    if (!tx) return null;
+    const { data } = await service.storage.from('settlement_proofs').createSignedUrl(tx.transfer_proof, 3600);
+    return { payment: p, transaction: tx, proofUrl: data?.signedUrl ?? null };
+  })).then(items => items.filter(Boolean) as any[]);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Settlement Verification</h1>
-        <p className="text-gray-500 mt-1">Verify partner transfer proofs for pay-at-location commissions.</p>
+        <p className="text-gray-500 mt-1">Verify partner transfer proofs for pay-at-location commission and GST.</p>
       </div>
 
       <div className="space-y-4">
@@ -41,7 +43,8 @@ export default async function AdminSettlementsPage() {
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-2">Booking ID: {item.payment.bookings.id.split('-')[0]}</h3>
                 <div className="space-y-1 mb-6 text-sm">
                   <p className="text-gray-600 dark:text-gray-400">Total Paid at Hotel: <span className="text-gray-900 dark:text-white font-mono">₹{item.payment.amount}</span></p>
-                  <p className="text-gray-600 dark:text-gray-400">Commission Owed: <span className="text-red-400 font-mono font-bold">₹{item.transaction.commission}</span></p>
+                  <p className="text-gray-600 dark:text-gray-400">Amount Owed: <span className="text-red-600 dark:text-red-400 font-mono font-bold">₹{platformDue(item.payment.bookings).toFixed(2)}</span></p>
+                  <p className="text-gray-500 text-xs">Commission ₹{Number(item.payment.bookings.commission_amount).toFixed(2)}{item.payment.bookings.gst_amount != null ? ` + GST ₹${Number(item.payment.bookings.gst_amount).toFixed(2)}` : ''}</p>
                   <p className="text-gray-500 text-xs">Submitted on: {new Date(item.transaction.created_at).toLocaleString()}</p>
                 </div>
 
@@ -52,7 +55,7 @@ export default async function AdminSettlementsPage() {
                     type="submit"
                     name="action"
                     value="approve"
-                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-gray-900 dark:text-white text-sm font-bold rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-lg transition-colors"
                   >
                     Approve Payment
                   </button>
@@ -60,27 +63,27 @@ export default async function AdminSettlementsPage() {
                     type="submit"
                     name="action"
                     value="reject"
-                    className="flex-1 py-2 px-4 bg-gray-50 dark:bg-gray-800 hover:bg-red-600/80 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:text-white border border-gray-300 dark:border-gray-700 hover:border-red-500 text-sm font-bold rounded-lg transition-colors"
+                    className="flex-1 py-2 px-4 bg-gray-50 dark:bg-gray-800 hover:bg-red-600/80 text-gray-700 dark:text-gray-300 hover:text-white border border-gray-300 dark:border-gray-700 hover:border-red-500 text-sm font-bold rounded-lg transition-colors"
                   >
                     Reject (Fake Proof)
                   </button>
                 </form>
               </div>
 
-              <div className="p-6 md:w-1/2 flex items-center justify-center bg-gray-950 relative">
+              <div className="p-6 md:w-1/2 flex items-center justify-center bg-gray-50 dark:bg-gray-950 relative">
                 <div className="w-full h-full min-h-[200px] flex items-center justify-center">
-                  {item.transaction.transfer_proof ? (
+                  {item.proofUrl ? (
                     item.transaction.transfer_proof.endsWith('.pdf') ? (
-                      <a href={item.transaction.transfer_proof} target="_blank" rel="noreferrer" className="text-red-400 hover:underline flex items-center gap-2">
+                      <a href={item.proofUrl} target="_blank" rel="noreferrer" className="text-red-600 dark:text-red-400 hover:underline flex items-center gap-2">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
                         View PDF Receipt
                       </a>
                     ) : (
-                      <a href={item.transaction.transfer_proof} target="_blank" rel="noreferrer">
+                      <a href={item.proofUrl} target="_blank" rel="noreferrer">
                         <img 
-                          src={item.transaction.transfer_proof} 
+                          src={item.proofUrl} 
                           alt="Transfer Proof" 
                           className="max-h-[300px] rounded border border-gray-300 dark:border-gray-700 cursor-zoom-in"
                         />

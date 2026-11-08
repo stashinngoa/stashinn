@@ -1,3 +1,5 @@
+import { platformDue } from '@stashinn/lib/services/bookingAvailability';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { createClient } from '@stashinn/lib/supabase/server';
 import UploadProofForm from './UploadProofForm';
 import DownloadPDFWrapper from './DownloadPDFWrapper';
@@ -19,7 +21,7 @@ export default async function SettlementsPage() {
   // Fetch all pay-at-hotel bookings for this partner where payment is pending or pending_validation
   const { data: pendingPayments } = await supabase
     .from('payments')
-    .select('*, bookings!inner(id, start_time, end_time, commission_amount, total_amount, users(full_name))')
+    .select('*, bookings!inner(id, start_time, end_time, base_amount, commission_amount, gst_amount, total_amount, partner_amount, users!bookings_customer_id_fkey(full_name))')
     .eq('method', 'pay_at_location')
     .in('status', ['pending', 'pending_validation'])
     .eq('bookings.partner_id', partner.id)
@@ -34,11 +36,18 @@ export default async function SettlementsPage() {
     .order('created_at', { ascending: false })
     .limit(10);
 
+  // Proofs are private: link to them with short-lived signed URLs
+  const service = createServiceClient();
+  const proofLinks = await Promise.all((pastTransactions || []).map(async (tx: any) => {
+    const { data } = await service.storage.from('settlement_proofs').createSignedUrl(tx.transfer_proof, 3600);
+    return { ...tx, proof_url: data?.signedUrl ?? null };
+  }));
+
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900">Platform Settlements</h1>
-        <p className="text-gray-500 mt-1">Upload transfer proofs for commission owed on Pay-at-Hotel bookings.</p>
+        <p className="text-gray-500 mt-1">Upload transfer proofs for commission and GST owed on Pay-at-Hotel bookings.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -47,7 +56,7 @@ export default async function SettlementsPage() {
         <div className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-100 bg-gray-50">
             <h2 className="text-lg font-bold text-gray-800">Pending Dues</h2>
-            <p className="text-xs text-gray-500">Bookings where you collected cash and owe the platform commission.</p>
+            <p className="text-xs text-gray-500">Bookings where you collected cash and owe StashInn its commission and the GST.</p>
           </div>
           <div className="p-0">
             {!pendingPayments || pendingPayments.length === 0 ? (
@@ -66,8 +75,12 @@ export default async function SettlementsPage() {
                         <p className="text-xs text-gray-500 mt-1">Customer: {payment.bookings.users?.full_name}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-bold text-red-600">Owed: ₹{payment.bookings.commission_amount}</p>
-                        <p className="text-xs text-gray-500">Total Booking: ₹{payment.bookings.total_amount}</p>
+                        <p className="text-sm font-bold text-red-600">Owed: ₹{platformDue(payment.bookings).toFixed(2)}</p>
+                        <p className="text-xs text-gray-500">
+                          Commission ₹{Number(payment.bookings.commission_amount).toFixed(2)}{payment.bookings.gst_amount != null ? ` + GST ₹${Number(payment.bookings.gst_amount).toFixed(2)}` : ''}
+                        </p>
+                        <p className="text-xs text-gray-500">Collected: ₹{payment.bookings.total_amount}</p>
+                        {payment.bookings.partner_amount != null && <p className="text-xs text-gray-500">You keep: ₹{Number(payment.bookings.partner_amount).toFixed(2)}</p>}
                       </div>
                     </div>
 
@@ -94,11 +107,11 @@ export default async function SettlementsPage() {
             <h2 className="text-lg font-bold text-gray-800">Settlement History</h2>
           </div>
           <div className="p-0">
-             {!pastTransactions || pastTransactions.length === 0 ? (
+             {proofLinks.length === 0 ? (
                <div className="p-12 text-center text-sm text-gray-500">No past transactions.</div>
              ) : (
                <div className="divide-y divide-gray-100">
-                 {pastTransactions.map((tx: any) => (
+                 {proofLinks.map((tx: any) => (
                    <div key={tx.id} className="p-4 flex items-center justify-between">
                      <div>
                        <p className="text-sm font-medium text-gray-900">
@@ -113,9 +126,11 @@ export default async function SettlementsPage() {
                        }`}>
                          {tx.transfer_status.toUpperCase()}
                        </span>
-                       <a href={tx.transfer_proof} target="_blank" rel="noreferrer" className="text-purple-600 hover:text-purple-800 text-xs font-medium underline">
-                         View Proof
-                       </a>
+                       {tx.proof_url && (
+                         <a href={tx.proof_url} target="_blank" rel="noreferrer" className="text-orange-600 hover:text-orange-800 text-xs font-medium underline">
+                           View Proof
+                         </a>
+                       )}
                        <DownloadPDFWrapper transaction={tx} />
                      </div>
                    </div>

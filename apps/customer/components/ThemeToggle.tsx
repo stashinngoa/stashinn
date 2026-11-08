@@ -5,15 +5,9 @@ import { useState, useEffect } from "react";
 export default function ThemeToggle() {
   const [isDark, setIsDark] = useState(false);
 
+  // The layout's script has already applied the saved theme; just show the matching icon
   useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDark(false);
-      document.documentElement.classList.remove('dark');
-    }
+    setIsDark(document.documentElement.classList.contains('dark'));
   }, []);
 
   const toggleTheme = () => {

@@ -1,10 +1,13 @@
 'use server';
 
+import { requireAccess } from '../../../lib/adminAccess';
+
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { sendSMS } from '@stashinn/lib/services/messaging';
 
 export async function resolveDispute(formData: FormData) {
+  await requireAccess('/dashboard/disputes'); // role check: see lib/permissions.ts
   const supabase = await createClient();
   const id = formData.get('id') as string;
   const status = formData.get('status') as string;

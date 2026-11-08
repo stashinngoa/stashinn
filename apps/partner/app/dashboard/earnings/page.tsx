@@ -15,7 +15,7 @@ export default async function EarningsPage(props: {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
+  if (!user) redirect('/');
 
   const { data: partner } = await supabase
     .from('partners')
@@ -33,6 +33,7 @@ export default async function EarningsPage(props: {
       bookings (
         start_time,
         end_time,
+        gst_amount,
         payments (
           method,
           status
@@ -40,6 +41,7 @@ export default async function EarningsPage(props: {
       )
     `)
     .eq('partner_id', partner.id)
+    .is('transfer_proof', null) // proof rows repeat a booking's amounts; they're shown under Settlements
     .order('created_at', { ascending: false });
 
   if (startDate) {
@@ -75,8 +77,8 @@ export default async function EarningsPage(props: {
         // Platform has the money, owes the partner their cut
         pendingOnlinePayouts += Number(tx.amount);
       } else if (payment?.method === 'pay_at_location') {
-        // Partner has the cash, owes the platform the commission
-        pendingCashOwedToPlatform += Number(tx.commission);
+        // Partner has the cash, owes the platform the commission and the GST
+        pendingCashOwedToPlatform += Number(tx.commission) + (Number((tx.bookings as any)?.gst_amount) || 0);
       }
     }
   });
@@ -214,7 +216,7 @@ export default async function EarningsPage(props: {
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Booking ID</th>
                   <th className="px-6 py-4">Payment Method</th>
-                  <th className="px-6 py-4">Gross Amount</th>
+                  <th className="px-6 py-4">Gross (excl. GST)</th>
                   <th className="px-6 py-4">Commission</th>
                   <th className="px-6 py-4">Your Cut</th>
                   <th className="px-6 py-4">Status</th>

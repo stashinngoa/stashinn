@@ -29,7 +29,7 @@ export default async function AdminPartnerPocsPage(props: { params: Promise<{ id
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-            <Link href="/dashboard/partners" className="hover:text-gray-700 dark:text-gray-300">Partners</Link>
+            <Link href="/dashboard/partners" className="hover:text-gray-700 dark:hover:text-gray-300">Partners</Link>
             <span>/</span>
             <span className="text-gray-600 dark:text-gray-400">{partner?.business_name}</span>
             <span>/</span>

@@ -23,9 +23,9 @@ export default function DisputeResolutionForm({ dispute }: { dispute: any }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form data-edit onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="text-xs bg-red-900/30 text-red-400 p-2 rounded border border-red-800/50">
+        <div className="text-xs bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 p-2 rounded border border-red-200 dark:border-red-800/50">
           {error}
         </div>
       )}
@@ -72,7 +72,7 @@ export default function DisputeResolutionForm({ dispute }: { dispute: any }) {
       <button
         type="submit"
         disabled={isPending}
-        className="w-full py-2.5 px-4 text-xs font-bold rounded-md text-gray-900 dark:text-white bg-red-600 hover:bg-red-700 border border-transparent disabled:opacity-50 transition-colors"
+        className="w-full py-2.5 px-4 text-xs font-bold rounded-md text-white bg-red-600 hover:bg-red-700 border border-transparent disabled:opacity-50 transition-colors"
       >
         {isPending ? 'Saving...' : 'Update Record'}
       </button>

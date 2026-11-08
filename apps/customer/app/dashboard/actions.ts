@@ -3,6 +3,7 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 import { sendSMS } from '@stashinn/lib/services/messaging';
+import { getBookingRules } from '@stashinn/lib/services/bookingRules';
 
 export async function cancelBooking(formData: FormData) {
   const bookingId = formData.get('booking_id') as string;
@@ -28,9 +29,12 @@ export async function cancelBooking(formData: FormData) {
   const now = new Date();
   const hoursUntilStart = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
+  // Free cancellation window from Admin → Configuration
+  const { cancellationWindowHours } = await getBookingRules(supabase);
+
   let refundAmount = 0;
   let isFullRefund = false;
-  if (hoursUntilStart >= 12) {
+  if (hoursUntilStart >= cancellationWindowHours) {
     refundAmount = bookingToCancel.total_amount;
     isFullRefund = true;
   }
@@ -105,7 +109,7 @@ export async function cancelBooking(formData: FormData) {
   }
 
   // Notify Customer
-  const refundMsg = isFullRefund ? ` A full refund of ₹${refundAmount} has been initiated.` : ` Note: Cancellations within 12h of check-in are non-refundable.`;
+  const refundMsg = isFullRefund ? ` A full refund of ₹${refundAmount} has been initiated.` : ` Note: Cancellations within ${cancellationWindowHours}h of check-in are non-refundable.`;
   await sendSMS({
     to: user.phone || '+1234567890',
     message: `StashInn: Your booking ${bookingId} has been successfully cancelled.${refundMsg}`

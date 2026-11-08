@@ -1,6 +1,8 @@
 'use server';
 
+import { platformDue } from '@stashinn/lib/services/bookingAvailability';
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
 import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
@@ -8,7 +10,6 @@ export async function submitSettlementProof(formData: FormData) {
   const supabase = await createClient();
   const paymentId = formData.get('payment_id') as string;
   const file = formData.get('proof') as File;
-  const partnerId = formData.get('partner_id') as string;
 
   const txnId = formData.get('transaction_id') as string;
   const amountStr = formData.get('amount') as string;
@@ -29,65 +30,53 @@ export async function submitSettlementProof(formData: FormData) {
     throw new Error('Please enter a valid amount.');
   }
 
-  // Upload the file to settlement_proofs bucket
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${paymentId}-${Date.now()}.${fileExt}`;
-  const filePath = `${partnerId}/${fileName}`;
+  // Only this partner's own pay-at-location payment can be settled
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Please sign in again.');
+  const { data: partner } = await supabase.from('partners').select('id').eq('user_id', user.id).single();
+  const { data: payment } = await supabase
+    .from('payments')
+    .select('id, booking_id, method, status, bookings!inner(partner_id, commission_amount, gst_amount)')
+    .eq('id', paymentId)
+    .maybeSingle();
+  const booking = payment?.bookings as any;
+  if (!partner || !payment || booking?.partner_id !== partner.id || payment.method !== 'pay_at_location') {
+    throw new Error('This payment could not be found.');
+  }
+  if (payment.status !== 'pending') throw new Error('A proof has already been submitted for this payment.');
 
-  const { data: uploadData, error: uploadError } = await supabase
-    .storage
-    .from('settlement_proofs')
-    .upload(filePath, file);
+  // Cash bookings: the partner hands over StashInn's commission and the GST they collected
+  const amountDue = platformDue(booking);
+  const roundedDeclared = Math.round(declaredAmount * 100) / 100;
+  if (roundedDeclared !== amountDue) {
+    throw new Error(`Amount mismatch. You declared ₹${roundedDeclared}, but the amount due (commission + GST) is ₹${amountDue}.`);
+  }
 
+  // Partners can't write payments or the ledger directly; ownership was checked above
+  const service = createServiceClient();
+  const fileExt = file.name.split('.').pop()?.toLowerCase() || 'bin';
+  const filePath = `${partner.id}/${paymentId}-${Date.now()}.${fileExt}`;
+  const { error: uploadError } = await service.storage.from('settlement_proofs').upload(filePath, file, { contentType: file.type });
   if (uploadError) {
     throw new Error(`Upload failed: ${uploadError.message}`);
   }
 
-  const { data: { publicUrl } } = supabase
-    .storage
-    .from('settlement_proofs')
-    .getPublicUrl(filePath);
-
-  // Since we don't have a direct field for transfer proof on `payments`, 
-  // we can use webhook_payload or create a partner_transaction.
-  // Actually, partner_transactions has a `transfer_proof` column!
-  // Let's create a transaction record to link this proof if it doesn't exist,
-  // OR just update the payment status to 'pending_validation' and store the URL in a generic JSON column if possible.
-  // Let's just create a `partner_transaction` to hold the proof, and update payment status.
-
-  const { data: payment } = await supabase
-    .from('payments')
-    .select('booking_id, amount, bookings(commission_amount)')
-    .eq('id', paymentId)
-    .single();
-
-  if (payment) {
-    const expectedCommission = (payment.bookings as any)?.commission_amount || 0;
-    
-    // Add rounding rules (PS05)
-    const roundedDeclared = Math.round(declaredAmount * 100) / 100;
-    const roundedExpected = Math.round(expectedCommission * 100) / 100;
-
-    if (roundedDeclared !== roundedExpected) {
-      throw new Error(`Amount mismatch. You declared ₹${roundedDeclared}, but the required commission is ₹${roundedExpected}.`);
-    }
-
-    // 1. Log the proof in partner_transactions
-    await supabase.from('partner_transactions').insert({
-      partner_id: partnerId,
-      booking_id: payment.booking_id,
-      amount: 0, 
-      commission: roundedExpected,
-      transfer_status: 'pending',
-      transfer_proof: publicUrl,
-      notes: `Txn ID: ${txnId}`
-    });
-  }
+  // 1. Log the proof in partner_transactions
+  const { error: proofError } = await service.from('partner_transactions').insert({
+    partner_id: partner.id,
+    booking_id: payment.booking_id,
+    amount: 0,
+    commission: Number(booking.commission_amount) || 0,
+    transfer_status: 'pending',
+    transfer_proof: filePath,
+    notes: `Txn ID: ${txnId}. Paid ₹${amountDue} (commission + GST).`,
+  });
+  if (proofError) throw new Error(proofError.message);
 
   // 2. Update the payment status to pending_validation
-  const { error: updateError } = await supabase
+  const { error: updateError } = await service
     .from('payments')
-    .update({ 
+    .update({
       status: 'pending_validation',
       updated_at: new Date().toISOString()
     })

@@ -1,4 +1,5 @@
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { redirect } from 'next/navigation';
 import { cancelBooking } from './actions';
 import Link from 'next/link';
@@ -23,7 +24,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { filt
   // Build query
   let query = supabase
     .from('bookings')
-    .select('*, partner_locations(name, city, address_line1, photos), partners(business_name)', { count: 'exact' })
+    .select('*, partner_locations(name, address_line1, address_line2, city, state, pincode, latitude, longitude, photos), partners(business_name)', { count: 'exact' })
     .eq('customer_id', user.id);
 
   if (filter === 'active') {
@@ -45,6 +46,16 @@ export default async function Dashboard({ searchParams }: { searchParams: { filt
   const { data: bookings, count } = await query;
   const totalCount = count || 0;
   const totalPages = Math.ceil(totalCount / limit);
+
+  // The exact address and the partner's contact are only shown once a booking exists. Customers
+  // can't read partner contacts themselves, so they're looked up here for this customer's bookings.
+  const showsDetails = (status: string) => status !== 'cancelled';
+  const locationIds = [...new Set((bookings || []).filter(b => showsDetails(b.status)).map(b => b.location_id).filter(Boolean))];
+  const { data: pocRows } = locationIds.length
+    ? await createServiceClient().from('partner_pocs').select('location_id, name, phone, email, is_primary').in('location_id', locationIds)
+    : { data: [] as { location_id: string; name: string; phone: string | null; email: string | null; is_primary: boolean | null }[] };
+  const contactFor = (locationId: string) =>
+    (pocRows || []).filter(p => p.location_id === locationId).sort((a, b) => Number(!!b.is_primary) - Number(!!a.is_primary))[0] ?? null;
 
   const getStatusColor = (status: string) => {
     switch(status) {
@@ -106,7 +117,7 @@ export default async function Dashboard({ searchParams }: { searchParams: { filt
                 <div className="p-6 border-b border-gray-50 dark:border-gray-800/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">{booking.partner_locations?.name}</h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{booking.partner_locations?.address_line1}, {booking.partner_locations?.city}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{booking.partner_locations?.city}{booking.partner_locations?.state ? `, ${booking.partner_locations.state}` : ''}</p>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-1 font-mono">Ref: #{booking.id.split('-')[0].toUpperCase()}</p>
                   </div>
                   <div className={`px-3 py-1 rounded-full text-xs font-bold border uppercase tracking-wider ${getStatusColor(booking.status)}`}>
@@ -181,6 +192,44 @@ export default async function Dashboard({ searchParams }: { searchParams: { filt
                     )}
                   </div>
                 </div>
+
+                {showsDetails(booking.status) && booking.partner_locations && (() => {
+                  const loc = booking.partner_locations;
+                  const contact = contactFor(booking.location_id);
+                  return (
+                    <div className="mx-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl border border-gray-200 dark:border-gray-800 p-5">
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Address</span>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-200">
+                          {[loc.address_line1, loc.address_line2, loc.city, loc.state, loc.pincode].filter(Boolean).join(', ')}
+                        </p>
+                        {loc.latitude && loc.longitude && (
+                          <a
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-orange-600 hover:bg-orange-500 px-3 py-1.5 text-xs font-bold text-white"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            Open in Maps
+                          </a>
+                        )}
+                      </div>
+                      <div>
+                        <span className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Partner contact</span>
+                        {contact ? (
+                          <div className="text-sm text-gray-900 dark:text-gray-200">
+                            <p className="font-medium">{contact.name}</p>
+                            {contact.phone && <a href={`tel:${contact.phone}`} className="block text-orange-700 dark:text-orange-400 font-semibold hover:underline">{contact.phone}</a>}
+                            {contact.email && <a href={`mailto:${contact.email}`} className="block text-gray-500 dark:text-gray-400 hover:underline break-all">{contact.email}</a>}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{booking.partners?.business_name || 'The partner'}. Contact StashInn support if you need help reaching them.</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Footer Actions */}
                 <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">

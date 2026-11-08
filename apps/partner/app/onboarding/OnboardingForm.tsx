@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { submitOnboarding } from './actions';
+import { usePinAutofill } from './pinLookup';
+import LegalModal from './LegalModal';
+import { ONBOARDING_LIMITS, checkFiles, isValidEmail, isValidGstin, isValidPan, isValidPhone, isValidPin } from './validation';
 
 // --- UI Components ---
 const FloatingInput = ({ label, name, type = "text", value, onChange, required = false, className = "", ...props }: any) => (
@@ -43,7 +46,7 @@ const FloatingSelect = ({ label, name, value, onChange, options, required = fals
 );
 
 // --- Main Form ---
-export default function OnboardingForm({ defaultEmail, defaultName, userId }: { defaultEmail: string, defaultName?: string, userId: string }) {
+export default function OnboardingForm({ defaultEmail, defaultName, userId, legal }: { defaultEmail: string, defaultName?: string, userId: string, legal: { terms: string; privacy: string } }) {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,7 +78,9 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
   const [luggagePostalCode, setLuggagePostalCode] = useState('');
   const [capacityBags, setCapacityBags] = useState('');
 
-  const [isGarageSameAddress, setIsGarageSameAddress] = useState(false);
+  const [garageSameTicked, setIsGarageSameAddress] = useState(false);
+  // Only meaningful while a luggage space exists; otherwise the garage needs its own address
+  const isGarageSameAddress = garageSameTicked && providesLuggage;
   const [garageAddress1, setGarageAddress1] = useState('');
   const [garageAddress2, setGarageAddress2] = useState('');
   const [garageCity, setGarageCity] = useState('');
@@ -106,40 +111,38 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
   const [luggagePhotos, setLuggagePhotos] = useState<File[]>([]);
   const [garagePhotos, setGaragePhotos] = useState<File[]>([]);
 
-  // Postal Code Lookup
-  useEffect(() => {
-    if (luggagePostalCode.length === 6) {
-      fetch(`https://api.postalpincode.in/pincode/${luggagePostalCode}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === 'Success') {
-            const po = data[0].PostOffice[0];
-            setLuggageState(po.State);
-            if (!luggageCity) setLuggageCity(po.District || po.Block);
-          }
-        }).catch(() => {});
-    }
-  }, [luggagePostalCode]);
+  // PIN code lookup: fills state and city whenever a valid PIN is entered (both stay editable)
+  const luggagePin = usePinAutofill(luggagePostalCode, providesLuggage, ({ city, state }) => {
+    setLuggageCity(city);
+    setLuggageState(state);
+  });
+  const garagePin = usePinAutofill(garagePostalCode, providesGarage && !isGarageSameAddress, ({ city, state }) => {
+    setGarageCity(city);
+    setGarageState(state);
+  });
 
-  useEffect(() => {
-    if (garagePostalCode.length === 6 && !isGarageSameAddress) {
-      fetch(`https://api.postalpincode.in/pincode/${garagePostalCode}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data && data[0] && data[0].Status === 'Success') {
-            const po = data[0].PostOffice[0];
-            setGarageState(po.State);
-            if (!garageCity) setGarageCity(po.District || po.Block);
-          }
-        }).catch(() => {});
+  // Checks a newly picked file selection; on a problem, shows it and clears the input
+  const acceptFiles = (input: HTMLInputElement, kind: 'photos' | 'photo' | 'doc', label: string): File[] | null => {
+    const list = Array.from(input.files ?? []);
+    const rules = kind === 'doc'
+      ? { maxCount: 1, maxMb: ONBOARDING_LIMITS.docMaxMb, types: ONBOARDING_LIMITS.docTypes }
+      : { maxCount: kind === 'photo' ? 1 : ONBOARDING_LIMITS.maxPhotos, maxMb: ONBOARDING_LIMITS.photoMaxMb, types: ONBOARDING_LIMITS.imageTypes };
+    const problem = checkFiles(list, rules, label);
+    if (problem) {
+      setValidationError(problem);
+      input.value = '';
+      return null;
     }
-  }, [garagePostalCode, isGarageSameAddress]);
+    setValidationError(null);
+    return list;
+  };
 
-  // Validators
-  const isValidPan = (pan: string) => /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan.toUpperCase());
-  const isValidPhone = (phone: string) => /^\d{10}$/.test(phone.replace(/\D/g, ''));
-  const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  const isValidPin = (pin: string) => /^\d{6}$/.test(pin);
+  // Step 4 document: businesses prove the business; an individual who is their own point of
+  // contact already uploaded their ID on the Contact step, so only a separate owner needs one
+  const needsOwnDocument = partnerType === 'business' || !isPocSameAsOwner;
+
+  // The phone StashInn alerts go to: the owner's for individuals, the point of contact's for businesses
+  const alertPhone = partnerType === 'individual' ? ownerPhone : pocPhone;
 
   const validateStep = (currentStep: number): boolean => {
     setValidationError(null);
@@ -157,6 +160,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
         if (!businessName) return setValidationError('Business Name is required.'), false;
       }
       if (!panNumber || !isValidPan(panNumber)) return setValidationError('Valid format PAN Number is required (e.g. ABCDE1234F).'), false;
+      if (partnerType !== 'individual' && gstNumber && !isValidGstin(gstNumber)) return setValidationError('GST Number should be a 15-character GSTIN (e.g. 30ABCDE1234F1Z5), or leave it blank.'), false;
     }
 
     if (currentStep === 2) {
@@ -176,6 +180,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
           if (!garagePostalCode || !isValidPin(garagePostalCode)) return setValidationError('Valid 6-digit Garage Postal Code is required.'), false;
         }
         if (!capacitySedans || !capacitySuvs || !capacityBikes) return setValidationError('Sedan, SUV, and Bike capacities are required.'), false;
+        if ((parseInt(capacitySedans) || 0) + (parseInt(capacitySuvs) || 0) + (parseInt(capacityBikes) || 0) < 1) return setValidationError('Your vehicle space must fit at least one vehicle.'), false;
       }
     }
 
@@ -194,11 +199,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
     if (validateStep(step)) {
       if (step === 3) {
         // Pre-fill contact phone for summary
-        if (partnerType === 'individual' && isPocSameAsOwner) {
-          setContactPhone(pocPhone);
-        } else if (partnerType === 'business') {
-          setContactPhone(pocPhone);
-        }
+        setContactPhone(alertPhone);
       }
       setStep((s) => Math.min(s + 1, 4));
     }
@@ -225,16 +226,17 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
           if (step < 4) return;
           
           setValidationError(null);
-          if (!kycFile && !kycRef.current?.files?.length) {
+          if (needsOwnDocument && !kycFile && !kycRef.current?.files?.length) {
             setIsSubmitting(false);
-            return setValidationError('KYC/ID Proof Document is required to submit.');
+            return setValidationError(partnerType === 'business' ? 'Business registration document is required to submit.' : 'Your ID proof is required to submit.');
           }
           if (!agreedToTerms) {
             setIsSubmitting(false);
-            return setValidationError('You must agree to the Terms of Service and Privacy Policy.');
+            return setValidationError('You must agree to the Partner Terms & Conditions and Privacy Policy.');
           }
           
-          if (kycFile) formData.set('kyc_document', kycFile);
+          if (needsOwnDocument && kycFile) formData.set('kyc_document', kycFile);
+          else if (!needsOwnDocument) formData.delete('kyc_document');
           if (pocIdFile) formData.set('poc_id_document', pocIdFile);
           if (pocPhotoFile) formData.set('poc_photo', pocPhotoFile);
           
@@ -250,6 +252,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
           
           setError(null);
           
+          formData.set('contact_phone', alertPhone);
           formData.append('user_id', userId);
           formData.append('partner_type', partnerType);
           formData.append('provides_luggage', providesLuggage ? 'true' : 'false');
@@ -330,7 +333,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
               <label className="block text-sm font-bold text-gray-900 mb-4">What spaces are you providing? <span className="text-red-500">*</span></label>
               <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <label className={`cursor-pointer group relative flex flex-col p-4 sm:p-5 border-2 rounded-2xl transition-all duration-300 ${providesLuggage ? 'border-orange-500 bg-orange-50/30 shadow-md shadow-orange-100' : 'border-gray-100 hover:border-gray-200 bg-white shadow-sm'}`}>
-                  <input type="checkbox" className="sr-only" checked={providesLuggage} onChange={(e) => setProvidesLuggage(e.target.checked)} />
+                  <input type="checkbox" className="sr-only" checked={providesLuggage} onChange={(e) => { setProvidesLuggage(e.target.checked); if (!e.target.checked) setIsGarageSameAddress(false); }} />
                   <span className="text-3xl sm:text-4xl mb-2 sm:mb-3 drop-shadow-sm">🧳</span>
                   <span className={`text-sm sm:text-base font-extrabold ${providesLuggage ? 'text-orange-700' : 'text-gray-700'}`}>Luggage Space</span>
                   <span className="text-[10px] sm:text-xs font-medium text-gray-500 mt-1">Store bags and suitcases</span>
@@ -395,9 +398,15 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                     <FloatingInput label="Address Line 1" name="luggage_address_line1" value={luggageAddress1} onChange={(e: any) => setLuggageAddress1(e.target.value)} required />
                     <FloatingInput label="Address Line 2 (Optional)" name="luggage_address_line2" value={luggageAddress2} onChange={(e: any) => setLuggageAddress2(e.target.value)} />
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <FloatingInput label="Pin Code" name="luggage_postal_code" value={luggagePostalCode} onChange={(e: any) => setLuggagePostalCode(e.target.value)} required />
-                      <FloatingInput label="City" name="luggage_city" value={luggageCity} onChange={(e: any) => setLuggageCity(e.target.value)} required />
+                      <FloatingInput label="Pin Code" name="luggage_postal_code" value={luggagePostalCode} onChange={(e: any) => setLuggagePostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="postal-code" maxLength={6} required />
+                      <FloatingInput label="City" name="luggage_city" value={luggageCity} onChange={(e: any) => setLuggageCity(e.target.value)} list="luggage-city-options" autoComplete="off" required />
+                      <datalist id="luggage-city-options">{luggagePin.areas.map(a => <option key={a} value={a} />)}</datalist>
                       <FloatingInput label="State" name="luggage_state" value={luggageState} onChange={(e: any) => setLuggageState(e.target.value)} required />
+                      {(luggagePin.status === 'loading' || luggagePin.status === 'not_found') && (
+                        <p className="sm:col-span-3 text-xs text-gray-500" aria-live="polite">
+                          {luggagePin.status === 'loading' ? 'Looking up PIN code…' : 'PIN code not found. Please enter the city and state.'}
+                        </p>
+                      )}
                     </div>
                       <div className="pt-4 border-t border-orange-100 mt-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FloatingInput label="Max Bags Capacity" type="number" name="capacity_bags" min="1" value={capacityBags} onChange={(e: any) => setCapacityBags(e.target.value)} required />
@@ -408,7 +417,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                           </label>
                           <p className="text-[10px] text-gray-400 mb-2">Max 5 images. Up to 5MB each. (50MB total limit)</p>
                           <input type="file" multiple accept="image/*" name="luggage_photos" onChange={(e) => {
-                            if (e.target.files) setLuggagePhotos(Array.from(e.target.files));
+                            const ok = acceptFiles(e.target, 'photos', 'Luggage space photos'); setLuggagePhotos(ok ?? []);
                           }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 cursor-pointer outline-none transition-colors ${luggagePhotos.length > 0 ? 'opacity-50' : ''}`} />
                         </div>
                       </div>
@@ -436,14 +445,20 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                         <input type="hidden" name="garage_postal_code" value={luggagePostalCode} />
                         <input type="hidden" name="garage_city" value={luggageCity} />
                         <input type="hidden" name="garage_state" value={luggageState} />
+                      {(garagePin.status === 'loading' || garagePin.status === 'not_found') && (
+                        <p className="sm:col-span-3 text-xs text-gray-500" aria-live="polite">
+                          {garagePin.status === 'loading' ? 'Looking up PIN code…' : 'PIN code not found. Please enter the city and state.'}
+                        </p>
+                      )}
                       </>
                     ) : (
                       <>
                         <FloatingInput label="Address Line 1" name="garage_address_line1" value={garageAddress1} onChange={(e: any) => setGarageAddress1(e.target.value)} required />
                         <FloatingInput label="Address Line 2 (Optional)" name="garage_address_line2" value={garageAddress2} onChange={(e: any) => setGarageAddress2(e.target.value)} />
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          <FloatingInput label="Pin Code" name="garage_postal_code" value={garagePostalCode} onChange={(e: any) => setGaragePostalCode(e.target.value)} required />
-                          <FloatingInput label="City" name="garage_city" value={garageCity} onChange={(e: any) => setGarageCity(e.target.value)} required />
+                          <FloatingInput label="Pin Code" name="garage_postal_code" value={garagePostalCode} onChange={(e: any) => setGaragePostalCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" autoComplete="postal-code" maxLength={6} required />
+                          <FloatingInput label="City" name="garage_city" value={garageCity} onChange={(e: any) => setGarageCity(e.target.value)} list="garage-city-options" autoComplete="off" required />
+                          <datalist id="garage-city-options">{garagePin.areas.map(a => <option key={a} value={a} />)}</datalist>
                           <FloatingInput label="State" name="garage_state" value={garageState} onChange={(e: any) => setGarageState(e.target.value)} required />
                         </div>
                       </>
@@ -460,7 +475,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                           </label>
                           <p className="text-[10px] text-gray-400 mb-2">Max 5 images. Up to 5MB each. (50MB total limit)</p>
                           <input type="file" multiple accept="image/*" name="garage_photos" onChange={(e) => {
-                            if (e.target.files) setGaragePhotos(Array.from(e.target.files));
+                            const ok = acceptFiles(e.target, 'photos', 'Vehicle space photos'); setGaragePhotos(ok ?? []);
                           }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 cursor-pointer outline-none transition-colors ${garagePhotos.length > 0 ? 'opacity-50' : ''}`} />
                         </div>
                       </div>
@@ -500,17 +515,17 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                   </label>
                   <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
                   <input type="file" ref={pocIdRef} name="poc_id_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) setPocIdFile(e.target.files[0]);
+                    const ok = acceptFiles(e.target, 'doc', 'Contact ID document'); setPocIdFile(ok?.[0] ?? null);
                   }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocIdFile ? 'opacity-50' : ''}`} />
                 </div>
                 <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-orange-300 transition-colors group">
                   <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                    Contact Photo (Headshot) <span className="text-red-500">*</span>
+                    Contact Photo <span className="text-red-500">*</span>
                     {pocPhotoFile && <div className="text-green-600 mt-1">✓ {pocPhotoFile.name}</div>}
                   </label>
                   <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
                   <input type="file" ref={pocPhotoRef} name="poc_photo" accept="image/jpeg,image/png,image/webp" onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) setPocPhotoFile(e.target.files[0]);
+                    const ok = acceptFiles(e.target, 'photo', 'Contact photo'); setPocPhotoFile(ok?.[0] ?? null);
                   }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${pocPhotoFile ? 'opacity-50' : ''}`} />
                 </div>
               </div>
@@ -564,7 +579,9 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                        <div className="space-y-1.5">
                          {pocIdFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> ID Document: {pocIdFile.name}</p>}
                          {pocPhotoFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Contact Photo: {pocPhotoFile.name}</p>}
-                         {kycFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> KYC/ID Proof: {kycFile.name}</p>}
+                         {needsOwnDocument
+                          ? kycFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> {partnerType === 'business' ? 'Business document' : 'ID proof'}: {kycFile.name}</p>
+                          : pocIdFile && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> ID proof: {pocIdFile.name} (from Contact step)</p>}
                          {luggagePhotos.length > 0 && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Luggage Photos ({luggagePhotos.length})</p>}
                          {garagePhotos.length > 0 && <p className="text-xs font-bold text-green-600 flex items-center"><span className="mr-2">✓</span> Garage Photos ({garagePhotos.length})</p>}
                        </div>
@@ -577,16 +594,28 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                 <h4 className="text-sm font-black text-gray-900 mb-4">Required Documents</h4>
                 <div className="space-y-4">
                   <FloatingInput label="System Alert Phone" type="tel" name="contact_phone" value={contactPhone} readOnly className="opacity-70 cursor-not-allowed" required />
+                  {needsOwnDocument ? (
                   <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-2xl p-5 relative hover:border-orange-300 transition-colors">
-                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">
-                      {partnerType === 'individual' ? 'ID Proof Document (PDF/JPG)' : 'Business KYC Document (PDF/JPG)'} <span className="text-red-500">*</span>
+                    <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                      {partnerType === 'business' ? 'Business Registration Document' : 'Your ID Proof'} <span className="text-red-500">*</span>
                       {kycFile && <div className="text-green-600 mt-1">✓ {kycFile.name}</div>}
                     </label>
-                    <p className="text-[10px] text-gray-400 mb-2">Max size: 5MB.</p>
+                    <p className="text-xs text-gray-500 mb-1">
+                      {partnerType === 'business'
+                        ? 'Trade licence, GST certificate or Shop & Establishment registration.'
+                        : 'Aadhaar or PAN card of the owner. Your point of contact’s ID was added separately.'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 mb-2">PDF or image, max 5MB.</p>
                     <input type="file" ref={kycRef} name="kyc_document" accept=".pdf,image/jpeg,image/png,image/webp" onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) setKycFile(e.target.files[0]);
+                      const ok = acceptFiles(e.target, 'doc', partnerType === 'business' ? 'Business document' : 'ID proof'); setKycFile(ok?.[0] ?? null);
                     }} className={`w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:uppercase file:tracking-wide file:bg-orange-100 file:text-orange-700 hover:file:bg-orange-200 transition-colors ${kycFile ? 'opacity-50' : ''}`} />
                   </div>
+                  ) : (
+                    <p className="flex items-start gap-2 text-sm text-gray-600 bg-emerald-50 border border-emerald-100 rounded-2xl p-4">
+                      <span className="text-emerald-600 font-bold">✓</span>
+                      Your ID document from the Contact step will be used as your ID proof.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -594,7 +623,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
                 <input type="checkbox" checked={agreedToTerms} onChange={(e) => setAgreedToTerms(e.target.checked)} className="w-5 h-5 mt-0.5 text-orange-600 rounded-md border-gray-300 focus:ring-orange-500" />
                 <span className="text-sm font-medium text-gray-700">
                   I have read and agree to the{' '}
-                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 font-bold hover:underline">Terms of Service</button>{' '}
+                  <button type="button" onClick={() => setShowTerms(true)} className="text-orange-600 font-bold hover:underline">Partner Terms &amp; Conditions</button>{' '}
                   and{' '}
                   <button type="button" onClick={() => setShowPrivacy(true)} className="text-orange-600 font-bold hover:underline">Privacy Policy</button>.
                 </span>
@@ -614,8 +643,11 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
             Go Back
           </button>
           
+          {/* Distinct keys: React must replace (not mutate) the button, otherwise the click on
+              "Continue" that opens step 4 also counts as a click on "Submit" and submits the form */}
           {step < 4 ? (
             <button 
+              key="continue"
               type="button" 
               onClick={nextStep}
               className="px-8 py-3 bg-gray-900 text-white rounded-2xl font-bold text-sm tracking-wide uppercase shadow-lg shadow-gray-300 hover:bg-gray-800 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 active:scale-95"
@@ -624,6 +656,7 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
             </button>
           ) : (
             <button 
+              key="submit"
               type="submit" 
               disabled={isSubmitting}
               className="px-8 py-3 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-2xl font-bold text-sm tracking-wide uppercase shadow-lg shadow-orange-200 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:hover:translate-y-0 active:scale-95 flex items-center"
@@ -639,39 +672,9 @@ export default function OnboardingForm({ defaultEmail, defaultName, userId }: { 
         </div>
       </form>
 
-      {/* Modern Modals */}
-      <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${showTerms ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
-        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowTerms(false)}></div>
-        <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative z-10 max-h-[85vh] overflow-y-auto border border-gray-100 transition-all duration-300 transform ${showTerms ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 translate-y-4 opacity-0'}`}>
-          <h2 className="text-2xl font-black text-gray-900 mb-6">Terms of Service</h2>
-          <div className="text-sm font-medium text-gray-600 space-y-4">
-            <p>Welcome to StashInn. These Terms of Service govern your use of our platform as a storage partner.</p>
-            <div className="p-4 bg-gray-50 rounded-xl space-y-3">
-              <p><span className="font-bold text-gray-900">1. Partner Responsibilities:</span> You agree to safely store items entrusted to you by our users.</p>
-              <p><span className="font-bold text-gray-900">2. Liability:</span> You are responsible for any damage or loss of items while in your care.</p>
-              <p><span className="font-bold text-gray-900">3. Payments:</span> StashInn will remit payouts according to the agreed schedule.</p>
-            </div>
-          </div>
-          <button type="button" onClick={() => setShowTerms(false)} className="mt-8 w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors">I Understand</button>
-        </div>
-      </div>
+      <LegalModal open={showTerms} onClose={() => setShowTerms(false)} title="Partner Terms & Conditions" text={legal.terms} />
+      <LegalModal open={showPrivacy} onClose={() => setShowPrivacy(false)} title="Partner Privacy Policy" text={legal.privacy} />
 
-      <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300 ${showPrivacy ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'}`}>
-        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowPrivacy(false)}></div>
-        <div className={`bg-white rounded-3xl shadow-2xl w-full max-w-lg p-8 relative z-10 max-h-[85vh] overflow-y-auto border border-gray-100 transition-all duration-300 transform ${showPrivacy ? 'scale-100 translate-y-0 opacity-100' : 'scale-95 translate-y-4 opacity-0'}`}>
-          <h2 className="text-2xl font-black text-gray-900 mb-6">Privacy Policy</h2>
-          <div className="text-sm font-medium text-gray-600 space-y-4">
-            <p>Your privacy is important to us. This policy explains how we collect and use your data.</p>
-            <div className="p-4 bg-gray-50 rounded-xl space-y-3">
-              <p><span className="font-bold text-gray-900">Data Collection:</span> We collect KYC documents, contact details, and location data to verify your business.</p>
-              <p><span className="font-bold text-gray-900">Data Usage:</span> Your location details will be visible to users searching for storage.</p>
-              <p><span className="font-bold text-gray-900">Data Protection:</span> We use industry-standard encryption to protect your sensitive documents.</p>
-            </div>
-          </div>
-          <button type="button" onClick={() => setShowPrivacy(false)} className="mt-8 w-full py-3 bg-gray-900 text-white rounded-xl font-bold uppercase tracking-wide hover:bg-gray-800 transition-colors">I Understand</button>
-        </div>
-      </div>
-      
       {/* Creative Full-Screen Loader */}
       {isSubmitting && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center p-4">

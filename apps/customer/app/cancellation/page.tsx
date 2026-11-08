@@ -1,10 +1,14 @@
-'use client';
-
 import Link from 'next/link';
 import SupportHeader from '../../components/SupportHeader';
 import SupportFooter from '../../components/SupportFooter';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
+import { getBookingRules } from '@stashinn/lib/services/bookingRules';
 
-export default function CancellationOptionsPage() {
+export default async function CancellationOptionsPage() {
+  // Free cancellation window is set in Admin → Configuration. system_config is only readable
+  // when signed in, so read it server-side with the service client.
+  const { cancellationWindowHours: windowHours } = await getBookingRules(createServiceClient());
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-black text-gray-900 dark:text-gray-100 flex flex-col font-inter">
       <SupportHeader />
@@ -27,7 +31,7 @@ export default function CancellationOptionsPage() {
               <svg className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              100% Full Refund if cancelled 12+ hours prior to scheduled drop-off
+              100% Full Refund if cancelled {windowHours}+ hours prior to scheduled drop-off
             </div>
           </div>
         </section>
@@ -50,11 +54,11 @@ export default function CancellationOptionsPage() {
                 Full Refund
               </span>
               <div className="text-emerald-600 dark:text-emerald-400 font-bold text-sm uppercase tracking-wider mb-2">
-                12+ Hours Notice
+                {windowHours}+ Hours Notice
               </div>
               <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-3">100% Refund</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 flex-1">
-                Cancel any booking at least 12 hours before your scheduled drop-off date and time to receive a complete, 100% refund with zero cancellation penalties.
+                Cancel any booking at least {windowHours} hours before your scheduled drop-off date and time to receive a complete, 100% refund with zero cancellation penalties.
               </p>
               <div className="pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
                 Refund sent directly to your original payment method via Razorpay.
@@ -64,11 +68,11 @@ export default function CancellationOptionsPage() {
             {/* Window 2 */}
             <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-sm flex flex-col">
               <div className="text-amber-600 dark:text-amber-400 font-bold text-sm uppercase tracking-wider mb-2">
-                Within 12 Hours
+                Within {windowHours} Hours
               </div>
               <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-3">Late Cancellation</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-6 flex-1">
-                If cancelled less than 12 hours prior to scheduled drop-off, the booking is non-refundable. Partner hosts hold and reserve space exclusively for your bags, turning away other travelers.
+                If cancelled less than {windowHours} hours prior to scheduled drop-off, the booking is non-refundable. Partner hosts hold and reserve space exclusively for your bags, turning away other travelers.
               </p>
               <div className="pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
                 You may reschedule your drop-off time on the same date without cancelling.

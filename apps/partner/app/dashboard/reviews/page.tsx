@@ -5,7 +5,7 @@ export default async function PartnerReviewsPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
+  if (!user) redirect('/');
 
   const { data: partner } = await supabase.from('partners').select('id').eq('user_id', user.id).single();
   if (!partner) redirect('/onboarding');

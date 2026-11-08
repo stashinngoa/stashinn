@@ -1,8 +1,8 @@
 import { createClient } from '@stashinn/lib/supabase/server';
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import ClientPartnerDetails from './ClientPartnerDetails';
 import { getKycDocs } from '../actions';
+import { getAmenities } from '@stashinn/lib/services/amenities';
 
 export default async function PartnerDetailsPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -56,29 +56,34 @@ export default async function PartnerDetailsPage(props: { params: Promise<{ id: 
 
   const kycDocs = await getKycDocs(partnerId);
 
+  // The signed registration form is stored as a private storage path; link to it with a signed URL
+  let signedRegistrationUrl: string | null = null;
+  if (partner.signed_registration_doc_url) {
+    const { data } = await supabase.storage.from('kyc-documents').createSignedUrl(partner.signed_registration_doc_url, 3600);
+    signedRegistrationUrl = data?.signedUrl || null;
+  }
+
   const { data: scoringRules } = await supabase.from('system_scoring_rules').select('*').eq('id', 1).single();
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/partners" className="text-gray-500 hover:text-gray-900 dark:hover:text-gray-900 dark:text-white transition-colors">
-          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Partner Details</h1>
-          <p className="text-gray-500 mt-1">Manage partner profile, locations, and points of contact.</p>
-        </div>
-      </div>
+  // Current and upcoming booking pauses set by the partner
+  const { data: pauses } = await supabase
+    .from('location_pauses')
+    .select('id, location_id, starts_at, ends_at, reason, details, created_at')
+    .eq('partner_id', partnerId)
+    .is('cancelled_at', null)
+    .gt('ends_at', new Date().toISOString())
+    .order('starts_at');
 
-      <ClientPartnerDetails 
-        partner={partner} 
-        locations={locations || []} 
-        pocs={pocs || []} 
-        kycDocs={kycDocs} 
-        scoringRules={scoringRules}
-      />
-    </div>
+  return (
+    <ClientPartnerDetails
+      partner={partner}
+      locations={locations || []}
+      pocs={pocs || []}
+      kycDocs={kycDocs}
+      signedRegistrationUrl={signedRegistrationUrl}
+      scoringRules={scoringRules}
+      pauses={pauses || []}
+      amenities={await getAmenities(supabase)}
+    />
   );
 }

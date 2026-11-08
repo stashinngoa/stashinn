@@ -10,11 +10,12 @@ export default function Forbidden() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-900 text-white">
-      <img src="/StashInn_Dark.png" alt="StashInn" className="h-20 w-auto mb-6" />
-      <h1 className="text-6xl font-bold mb-4 text-red-500">403</h1>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white">
+      <img src="/StashInn_Light.png" alt="StashInn" className="h-20 w-auto mb-6 dark:hidden" />
+      <img src="/StashInn_Dark.png" alt="StashInn" className="h-20 w-auto mb-6 hidden dark:block" />
+      <h1 className="text-6xl font-bold mb-4 text-red-600 dark:text-red-500">403</h1>
       <h2 className="text-2xl font-semibold mb-6">Restricted Area</h2>
-      <p className="text-gray-400 mb-8 max-w-md text-center">
+      <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md text-center">
         This area is restricted to StashInn Administrators only. All unauthorized access attempts are logged.
       </p>
       <form action={forceLogout}>

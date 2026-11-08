@@ -31,13 +31,13 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/dashboard/partners" className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-700 text-sm font-bold rounded-lg transition-colors">
+        <Link href="/dashboard/partners" className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 text-sm font-bold rounded-lg transition-colors">
           ← Back to Partners
         </Link>
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Manage Locations</h1>
           <p className="text-gray-500 mt-1">
-            Editing locations for <span className="text-purple-400 font-bold">{partner.business_name}</span> (Owner: {(partner.users as any)?.full_name || '—'})
+            Editing locations for <span className="text-orange-600 dark:text-orange-400 font-bold">{partner.business_name}</span> (Owner: {(partner.users as any)?.full_name || '—'})
           </p>
         </div>
       </div>
@@ -54,13 +54,13 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-200">{loc.name} <span className="text-sm font-normal text-gray-600 dark:text-gray-400 capitalize bg-gray-50 dark:bg-gray-800 px-2 py-0.5 rounded ml-2">{loc.location_type || 'luggage'}</span></h3>
                 <p className="text-sm text-gray-500">{loc.address_line1}, {loc.city}, {loc.state} - {loc.pincode}</p>
                 <div className="flex gap-2 mt-2">
-                  <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded ${loc.is_active ? 'bg-green-900/40 text-green-400 border border-green-700/30' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700'}`}>
+                  <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded ${loc.is_active ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-700/30' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700'}`}>
                     {loc.is_active ? 'Active' : 'Inactive'}
                   </span>
                   {loc.location_type === 'garage' && (
                     <>
-                      {loc.has_cctv && <span className="inline-block px-2 py-0.5 text-xs bg-purple-900/40 text-purple-400 border border-purple-700/30 rounded">CCTV</span>}
-                      {loc.has_security_guard && <span className="inline-block px-2 py-0.5 text-xs bg-purple-900/40 text-purple-400 border border-purple-700/30 rounded">Guard</span>}
+                      {loc.has_cctv && <span className="inline-block px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-700/30 rounded">CCTV</span>}
+                      {loc.has_security_guard && <span className="inline-block px-2 py-0.5 text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-700/30 rounded">Guard</span>}
                     </>
                   )}
                 </div>
@@ -77,7 +77,7 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
                 )}
               </div>
 
-              <form action={updateLocationCoordinates} className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-800">
+              <form data-edit action={updateLocationCoordinates} className="space-y-4 pt-4 border-t border-gray-200 dark:border-gray-800">
                 <input type="hidden" name="location_id" value={loc.id} />
                 <input type="hidden" name="partner_id" value={partnerId} />
 
@@ -90,7 +90,7 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
                       name="latitude" 
                       defaultValue={loc.latitude || 0}
                       required 
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-purple-500" 
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-orange-500" 
                     />
                   </div>
                   <div>
@@ -101,13 +101,13 @@ export default async function PartnerLocationsPage(props: { params: Promise<{ id
                       name="longitude" 
                       defaultValue={loc.longitude || 0}
                       required 
-                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-purple-500" 
+                      className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-orange-500" 
                     />
                   </div>
                 </div>
 
                 <div className="flex justify-end">
-                  <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-gray-900 dark:text-white text-xs font-bold rounded-lg transition-colors">
+                  <button type="submit" className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-lg transition-colors">
                     Update Coordinates
                   </button>
                 </div>

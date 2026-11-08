@@ -8,7 +8,7 @@ export default async function PartnerCheckInPage({ params }: { params: { id: str
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/');
   }
 
   const { data: booking } = await supabase

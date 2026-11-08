@@ -1,5 +1,7 @@
 'use server';
 
+import { requireAccess } from '../../../lib/adminAccess';
+
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
@@ -26,6 +28,7 @@ export async function getCustomers(search?: string) {
 }
 
 export async function toggleBlockUser(formData: FormData) {
+  await requireAccess('/dashboard/customers'); // role check: see lib/permissions.ts
   const userId = formData.get('user_id') as string;
   const currentlyBlocked = formData.get('is_blocked') === 'true';
   const supabase = await createClient();

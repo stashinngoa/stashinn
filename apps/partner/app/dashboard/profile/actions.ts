@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { markInfoRequestAnswered } from '../../../lib/infoRequest';
 
 export async function updateProfile(formData: FormData) {
   const supabase = await createClient();
@@ -17,7 +18,7 @@ export async function updateProfile(formData: FormData) {
     return { error: 'Invalid PAN format.' };
   }
 
-  const { data: oldPartner } = await supabase.from('partners').select('gstin, pan').eq('user_id', user.id).single();
+  const { data: oldPartner } = await supabase.from('partners').select('id, gstin, pan, status').eq('user_id', user.id).single();
   
   const newGstin = (formData.get('gstin') as string)?.toUpperCase() || null;
   const newPan = pan.toUpperCase();
@@ -32,7 +33,8 @@ export async function updateProfile(formData: FormData) {
   };
 
   if (isFinancialChange) {
-    updatePayload.status = 'pending';
+    // A live partner goes back to review; suspended/rejected partners keep their status
+    if (oldPartner.status === 'approved') updatePayload.status = 'pending';
     updatePayload.kyc_verified = false;
   }
 
@@ -70,7 +72,8 @@ export async function updateProfile(formData: FormData) {
     });
   }
 
-  revalidatePath('/dashboard/profile');
+  if (oldPartner?.id) await markInfoRequestAnswered(supabase, oldPartner.id, 'business_details');
+  revalidatePath('/dashboard', 'layout');
   return { success: true };
 }
 

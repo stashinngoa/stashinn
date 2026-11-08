@@ -6,7 +6,7 @@ export default async function SchedulePage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect('/login');
+  if (!user) redirect('/');
 
   const { data: partner } = await supabase
     .from('partners')

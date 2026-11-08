@@ -18,6 +18,11 @@
     "./services/messaging": "./src/services/messaging.ts",
     "./services/notifications": "./src/services/notifications.ts",
     "./services/rateLimiter": "./src/services/rateLimiter.ts",
+    "./services/bookingRules": "./src/services/bookingRules.ts",
+    "./services/bookingAvailability": "./src/services/bookingAvailability.ts",
+    "./services/amenities": "./src/services/amenities.ts",
+    "./services/legal": "./src/services/legal.ts",
+    "./services/bookingEmails": "./src/services/bookingEmails.ts",
     "./services/logger": "./src/services/logger.ts"
   },
   "scripts": {
@@ -27,10 +32,12 @@
   "devDependencies": {
     "@repo/eslint-config": "*",
     "@repo/typescript-config": "*",
+    "@types/nodemailer": "^6.4.17",
     "typescript": "5.9.2"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
-    "@supabase/supabase-js": "^2.103.0"
+    "@supabase/supabase-js": "^2.103.0",
+    "nodemailer": "^6.9.16"
   }
 }

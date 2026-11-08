@@ -1,8 +1,15 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@stashinn/lib/supabase/server';
+import { cookies } from 'next/headers';
 import { logger } from '@stashinn/lib/services/logger';
+import { ACTIVITY_COOKIE, ACTIVITY_COOKIE_OPTIONS, IDLE_TIMEOUT_MS, MAX_SESSION_MS, encodeActivity } from '../../lib/sessionPolicy';
 
-export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string }> }) {
+const SIGN_OUT_MESSAGES: Record<string, string> = {
+  idle: `You were signed out after ${IDLE_TIMEOUT_MS / 60000} minutes of inactivity. Please sign in again.`,
+  expired: `Your admin session reached its ${MAX_SESSION_MS / 3600000}-hour limit. Please sign in again.`,
+};
+
+export default async function Login(props: { searchParams: Promise<{ next?: string; error?: string; reason?: string }> }) {
   const searchParams = await props.searchParams;
   const login = async (formData: FormData) => {
     'use server';
@@ -11,12 +18,14 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
     const nextUrl = formData.get('next') as string;
     
     const supabase = await createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       logger.warn('Auth Failure: Admin login failed', { email, error: error.message });
       return redirect('/login?error=Invalid admin credentials');
     }
+    // Start the idle clock for the new session (see lib/sessionPolicy.ts)
+    (await cookies()).set(ACTIVITY_COOKIE, encodeActivity(data.user.id), ACTIVITY_COOKIE_OPTIONS);
     return redirect(nextUrl || '/dashboard');
   };
 
@@ -35,8 +44,17 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
           <p className="mt-2 text-center text-sm text-gray-500 dark:text-gray-400">Admin Portal</p>
         </div>
         
+        {!searchParams?.error && searchParams?.reason && SIGN_OUT_MESSAGES[searchParams.reason] && (
+          <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 p-3 rounded-lg text-sm border border-amber-200 dark:border-amber-800/50">
+            <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {SIGN_OUT_MESSAGES[searchParams.reason]}
+          </div>
+        )}
+
         {searchParams?.error && (
-          <div className="bg-red-900/50 text-red-400 p-3 rounded text-sm text-center border border-red-800">
+          <div className="bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-400 p-3 rounded text-sm text-center border border-red-200 dark:border-red-800">
             {searchParams.error}
           </div>
         )}

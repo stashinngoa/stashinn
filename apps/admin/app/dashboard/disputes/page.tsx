@@ -10,7 +10,7 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
     .from('damage_reports')
     .select(`
       *,
-      bookings ( id, total_amount, booking_type, vehicle_make, model, plate, check_in_photos ),
+      bookings ( id, total_amount, booking_type, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos ),
       partners ( business_name, user_id, users(email) ),
       users!damage_reports_customer_id_fkey ( full_name, email )
     `)
@@ -36,8 +36,8 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
             href={`/dashboard/disputes?status=${status}`}
             className={`px-4 py-2 text-xs font-bold rounded-lg border transition-colors ${
               statusFilter === status
-                ? 'bg-red-900/30 text-red-400 border-red-700/50'
-                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:bg-gray-800 hover:text-gray-800 dark:text-gray-200'
+                ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-700/50'
+                : 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-800 dark:hover:text-gray-200'
             }`}
           >
             {status.replace(/_/g, ' ').toUpperCase()}
@@ -53,17 +53,17 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
         ) : (
           disputes.map((dispute: any) => (
             <div key={dispute.id} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden shadow-xl">
-              <div className="px-6 py-4 bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-start">
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex justify-between items-start">
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                      Booking: <span className="font-mono text-red-400">{dispute.booking_id.split('-')[0]}</span>
+                      Booking: <span className="font-mono text-red-600 dark:text-red-400">{dispute.booking_id.split('-')[0]}</span>
                     </h3>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                      dispute.status === 'submitted' ? 'bg-blue-900/30 text-blue-400 border-blue-700/50' :
-                      dispute.status === 'under_review' ? 'bg-amber-900/30 text-amber-400 border-amber-700/50' :
-                      dispute.status.startsWith('resolved') ? 'bg-green-900/30 text-green-400 border-green-700/50' :
-                      'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-600'
+                      dispute.status === 'submitted' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-700/50' :
+                      dispute.status === 'under_review' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-700/50' :
+                      dispute.status.startsWith('resolved') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-700/50' :
+                      'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
                     }`}>
                       {dispute.status.replace(/_/g, ' ')}
                     </span>
@@ -82,12 +82,12 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                 {/* Left Col - Details */}
                 <div className="xl:col-span-2 space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
+                    <div className="bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Claimant (Partner)</p>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{dispute.partners?.business_name}</p>
                       <p className="text-xs text-gray-500">{dispute.partners?.users?.email}</p>
                     </div>
-                    <div className="bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
+                    <div className="bg-gray-50 dark:bg-gray-950 p-4 rounded-lg border border-gray-200 dark:border-gray-800">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Defendant (Customer)</p>
                       <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{dispute.users?.full_name || 'Unknown'}</p>
                       <p className="text-xs text-gray-500">{dispute.users?.email}</p>
@@ -95,10 +95,10 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
                   </div>
 
                   {dispute.bookings?.booking_type === 'garage' && (
-                    <div className="bg-purple-950/20 p-4 rounded-lg border border-purple-900/50 space-y-3">
-                      <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider">Vehicle Details</h4>
+                    <div className="bg-purple-50 dark:bg-purple-950/20 p-4 rounded-lg border border-purple-200 dark:border-purple-900/50 space-y-3">
+                      <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Vehicle Details</h4>
                       <p className="text-sm text-gray-800 dark:text-gray-200">
-                        🚗 <strong className="text-gray-900 dark:text-white">{dispute.bookings.vehicle_make} {dispute.bookings.model}</strong> — Plate: <strong className="font-mono text-gray-900 dark:text-white">{dispute.bookings.plate}</strong>
+                        🚗 <strong className="text-gray-900 dark:text-white">{dispute.bookings.vehicle_make} {dispute.bookings.vehicle_model}</strong> — Plate: <strong className="font-mono text-gray-900 dark:text-white">{dispute.bookings.vehicle_license_plate}</strong>
                       </p>
                       
                       {dispute.bookings.check_in_photos && dispute.bookings.check_in_photos.length > 0 && (
@@ -139,7 +139,7 @@ export default async function DisputesPage(props: { searchParams: Promise<{ stat
 
                 {/* Right Col - Arbitration Form */}
                 <div className="xl:col-span-1">
-                  <div className="bg-gray-950 p-5 rounded-lg border border-gray-200 dark:border-gray-800">
+                  <div className="bg-gray-50 dark:bg-gray-950 p-5 rounded-lg border border-gray-200 dark:border-gray-800">
                     <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-4">Adjudication Panel</h4>
                     <DisputeResolutionForm dispute={dispute} />
                   </div>

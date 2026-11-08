@@ -2,6 +2,7 @@
 
 import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { markInfoRequestAnswered } from '../../../lib/infoRequest';
 
 export async function addPoc(formData: FormData) {
   const supabase = await createClient();
@@ -51,7 +52,8 @@ export async function addPoc(formData: FormData) {
     return { error: error.message };
   }
 
-  revalidatePath('/dashboard/pocs');
+  await markInfoRequestAnswered(supabase, partnerId, 'contact');
+  revalidatePath('/dashboard', 'layout');
 }
 
 export async function editPoc(formData: FormData) {
@@ -60,7 +62,7 @@ export async function editPoc(formData: FormData) {
   if (!user) return { error: 'Unauthorized' };
 
   // Need to ensure the partner is NOT approved if they try to edit directly
-  const { data: partner } = await supabase.from('partners').select('status').eq('user_id', user.id).single();
+  const { data: partner } = await supabase.from('partners').select('id, status').eq('user_id', user.id).single();
   if (partner?.status === 'approved') return { error: 'Cannot edit directly when approved' };
 
   const pocIdsStr = formData.get('poc_ids') as string;
@@ -127,7 +129,8 @@ export async function editPoc(formData: FormData) {
     if (error) return { error: error.message };
   }
 
-  revalidatePath('/dashboard/pocs');
+  if (partner?.id) await markInfoRequestAnswered(supabase, partner.id, 'contact');
+  revalidatePath('/dashboard', 'layout');
 }
 
 export async function deletePoc(pocId: string) {

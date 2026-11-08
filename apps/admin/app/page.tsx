@@ -59,7 +59,7 @@ export default function AdminHome() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center p-4 font-inter relative overflow-hidden text-white">
+    <div className="neutral-gray min-h-screen bg-black flex flex-col items-center justify-center p-4 font-inter relative overflow-hidden text-white">
       {/* Deep Space Background (Always Visible) */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         {stars.map((style, i) => (
@@ -115,6 +115,23 @@ export default function AdminHome() {
 
       {/* Main UI and Players - Fades out on eject */}
       <div className={`absolute inset-0 flex flex-col items-center justify-center transition-opacity duration-[1500ms] ease-in-out ${isFading ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+
+        {/* Brand bar */}
+        <div className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-5 md:px-10 py-5">
+          <div className="flex items-center gap-3">
+            <img src="/StashInn_Dark_no_text.png" alt="" className="h-10 md:h-12 w-auto drop-shadow-[0_0_12px_rgba(249,115,22,0.35)]" />
+            <div className="flex flex-col leading-none">
+              <span className="text-xl md:text-2xl font-black tracking-tight">
+                <span className="text-white">Stash</span><span className="text-orange-500">Inn</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400/90 mt-1">Admin Console</span>
+            </div>
+          </div>
+          <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-500/40 bg-red-950/40 text-[11px] font-bold uppercase tracking-wider text-red-300">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            Restricted area
+          </span>
+        </div>
         
         {/* Foreground Imposter */}
         <div className="absolute top-1/4 left-10 md:left-32 w-24 md:w-32 text-red-500 animate-[bounce_8s_ease-in-out_infinite] transform -rotate-45 select-none opacity-80 z-0 drop-shadow-[0_0_20px_rgba(239,68,68,0.6)]">
@@ -155,7 +172,7 @@ export default function AdminHome() {
           
           <div className="text-lg md:text-xl text-gray-300 mb-8 space-y-4">
             <p>
-              Emergency Meeting! 📢 <span className="font-bold text-red-400">Someone just vented into the Admin Portal.</span>
+              Emergency Meeting! 📢 <span className="font-bold text-red-400">Someone just vented into the StashInn Admin Portal.</span>
             </p>
             <div className="text-sm md:text-base text-gray-400 space-y-3 bg-black/40 p-4 rounded-xl border border-gray-800">
               <p>

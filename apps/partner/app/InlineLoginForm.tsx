@@ -1,76 +1,85 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 export default function InlineLoginForm({ loginAction }: { loginAction: (formData: FormData) => Promise<void> }) {
   const [isPending, startTransition] = useTransition();
+  const [showPassword, setShowPassword] = useState(false);
   const searchParams = useSearchParams();
   const errorMsg = searchParams?.get('error');
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const next = searchParams?.get('next');
+    if (next) formData.set('next', next);
     startTransition(() => {
       loginAction(formData);
     });
   };
 
+  const inputClass =
+    'w-full px-4 py-3 bg-white dark:bg-gray-950 border border-gray-300 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/30 transition-colors';
+
   return (
-    <div 
-      className="w-full max-w-sm mx-auto bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl shadow-2xl shadow-orange-900/5 dark:shadow-orange-900/10 border-2 border-orange-100 dark:border-orange-900/50 p-8 transform transition-transform duration-500 relative overflow-hidden" 
+    <div
       id="login-section"
+      className="relative w-full max-w-md xl:max-w-lg overflow-hidden rounded-3xl bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-gray-200 dark:border-gray-800 shadow-2xl shadow-orange-900/10 p-7 sm:p-9"
     >
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-400 to-orange-600"></div>
-      
-      <div className="text-center mb-8">
-        <div className="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-xl flex items-center justify-center mx-auto mb-4 border border-orange-100 dark:border-orange-800/50">
-          <svg className="w-6 h-6 text-orange-600 dark:text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-          </svg>
-        </div>
-        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Partner Login</h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">Welcome back to StashInn</p>
-      </div>
+      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-orange-600 to-amber-500" aria-hidden="true" />
+
+      <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">Partner sign in</h2>
+      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage your locations, bookings and earnings.</p>
 
       {errorMsg && (
-        <div className="mb-6 bg-red-50/80 dark:bg-red-900/20 border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 p-3 rounded-xl text-sm text-center font-medium backdrop-blur-sm">
+        <div role="alert" className="mt-5 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/40 px-3.5 py-2.5 text-sm font-medium text-red-700 dark:text-red-400">
           {errorMsg}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">Email Address</label>
-          <input 
-            name="email" 
-            type="email" 
-            required 
-            placeholder="partner@example.com"
-            className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none text-gray-900 dark:text-white transition-all placeholder-gray-400"
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-2">Password</label>
-          <input 
-            name="password" 
-            type="password" 
-            required 
-            placeholder="••••••••"
-            className="w-full px-4 py-3 bg-gray-50/50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 rounded-xl focus:bg-white dark:focus:bg-gray-900 focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500 outline-none text-gray-900 dark:text-white transition-all placeholder-gray-400"
-          />
-        </div>
-        
-        <div className="pt-2">
-          <button 
-            type="submit" 
-            disabled={isPending}
-            className="w-full py-3.5 bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-700 hover:to-orange-600 text-white font-bold rounded-xl transition-all disabled:opacity-70 shadow-lg shadow-orange-600/20 active:scale-[0.98]"
-          >
-            {isPending ? 'Authenticating...' : 'Sign In'}
-          </button>
-        </div>
+      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+        <label className="block">
+          <span className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5">Email address</span>
+          <input name="email" type="email" required autoComplete="email" placeholder="you@business.com" className={inputClass} />
+        </label>
+        <label className="block">
+          <span className="block text-xs font-bold text-gray-600 dark:text-gray-400 mb-1.5">Password</span>
+          <span className="relative block">
+            <input
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className={`${inputClass} pr-16`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(v => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-xs font-bold text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </span>
+        </label>
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white font-bold shadow-lg shadow-orange-500/25 transition-colors disabled:opacity-70 active:scale-[0.99]"
+        >
+          {isPending && <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" aria-hidden="true" />}
+          {isPending ? 'Signing in…' : 'Sign in'}
+        </button>
       </form>
+
+      <p className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-800 text-center text-sm text-gray-500 dark:text-gray-400">
+        New to StashInn?{' '}
+        <Link href="/register" className="font-bold text-orange-600 dark:text-orange-400 hover:underline">Become a partner</Link>
+      </p>
     </div>
   );
 }

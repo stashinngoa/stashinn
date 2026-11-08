@@ -17,15 +17,20 @@ export async function acceptBooking(formData: FormData) {
   const checkinOtp = generateOTP();
   const checkoutOtp = generateOTP();
 
-  const { data: booking } = await supabase.from('bookings').select('customer_id, partner_locations(name)').eq('id', bookingId).single();
+  const { data: booking } = await supabase
+    .from('bookings')
+    .select('customer_id, location_id, start_time, end_time, num_bags, vehicle_type, booking_type, total_amount, partner_locations(name, address_line1, address_line2, city, state, pincode, latitude, longitude)')
+    .eq('id', bookingId)
+    .single();
 
-  const { error } = await supabase.from('bookings').update({
+  const { data: updated, error } = await supabase.from('bookings').update({
     status: 'confirmed',
     checkin_otp: checkinOtp,
     checkout_otp: checkoutOtp
-  }).eq('id', bookingId).eq('status', 'pending');
+  }).eq('id', bookingId).eq('status', 'pending').select('id');
 
   if (error) return { error: error.message };
+  if (!updated?.length) return { error: 'This booking is no longer pending.' };
 
   if (booking?.customer_id) {
     const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
@@ -42,19 +47,42 @@ export async function acceptBooking(formData: FormData) {
     });
     
     // Notify Customer via SMS and Email
-    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
+    const { data: customerData } = await supabaseService.from('users').select('phone, email, full_name').eq('id', booking.customer_id).single();
     if (customerData) {
       await sendSMS({
         to: customerData.phone || '+1234567890',
         message: `StashInn: Your booking at ${(booking.partner_locations as any)?.name || 'the partner'} was accepted! Your Check-in OTP is ${checkinOtp}.`
       });
-      const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+      // Confirmation email with the exact address and the location's contact (shared only after booking)
       if (customerData.email) {
-        await ExternalNotificationService.sendEmail(
-          customerData.email,
-          'Booking Accepted - StashInn',
-          `Good news! Your booking at ${(booking.partner_locations as any)?.name} was accepted.\n\nYour Check-in OTP is: ${checkinOtp}\n\nPlease present this OTP at the location.`
-        );
+        try {
+          const loc = booking.partner_locations as any;
+          const { data: contacts } = await supabaseService.from('partner_pocs').select('name, phone, is_primary').eq('location_id', booking.location_id);
+          const contact = [...(contacts || [])].sort((a: any, b: any) => Number(!!b.is_primary) - Number(!!a.is_primary))[0];
+          const { BOOKING_EMAIL_SLUGS, bookingRef, emailTime, renderBookingEmail } = await import('@stashinn/lib/services/bookingEmails');
+          const { vehicleLabel } = await import('@stashinn/lib/services/bookingAvailability');
+          const confirmation = await renderBookingEmail(BOOKING_EMAIL_SLUGS.customerConfirmed, {
+            customer_name: (customerData.full_name || '').split(' ')[0] || 'there',
+            booking_ref: bookingRef(bookingId),
+            location_name: loc?.name || 'your StashInn location',
+            address: [loc?.address_line1, loc?.address_line2, loc?.city, loc?.state, loc?.pincode].filter(Boolean).join(', '),
+            directions_url: loc?.latitude && loc?.longitude ? `https://www.google.com/maps/dir/?api=1&destination=${loc.latitude},${loc.longitude}` : '',
+            contact_name: contact?.name || 'The partner',
+            contact_phone: contact?.phone || '',
+            drop_off: emailTime(booking.start_time),
+            pick_up: emailTime(booking.end_time),
+            items: booking.booking_type === 'garage' ? vehicleLabel(booking.vehicle_type) : `${booking.num_bags} bag${booking.num_bags === 1 ? '' : 's'}`,
+            total: Number(booking.total_amount || 0).toFixed(2),
+            checkin_otp: checkinOtp,
+            dashboard_url: `${process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3000'}/dashboard`,
+          });
+          if (confirmation) {
+            const { ExternalNotificationService } = await import('@stashinn/lib/services/notifications');
+            await ExternalNotificationService.sendEmail(customerData.email, confirmation.subject, confirmation.html);
+          }
+        } catch (e) {
+          console.error('[BOOKING_EMAIL] confirmation email failed:', e);
+        }
       }
     }
   }
@@ -95,7 +123,7 @@ export async function declineBooking(formData: FormData) {
     });
     
     // Notify Customer via SMS and Email
-    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
+    const { data: customerData } = await supabaseService.from('users').select('phone, email, full_name').eq('id', booking.customer_id).single();
     if (customerData) {
       await sendSMS({
         to: customerData.phone || '+1234567890',
@@ -236,7 +264,7 @@ export async function verifyCheckOutOTP(formData: FormData) {
     });
     
     // SMS reminder
-    const { data: customerData } = await supabaseService.from('users').select('phone, email').eq('id', booking.customer_id).single();
+    const { data: customerData } = await supabaseService.from('users').select('phone, email, full_name').eq('id', booking.customer_id).single();
     await sendSMS({
       to: customerData?.phone || '+1234567890',
       message: `StashInn: Thanks for using StashInn! Rate your experience at ${(booking.partner_locations as any)?.name || 'the partner'}.`

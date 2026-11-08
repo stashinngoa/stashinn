@@ -42,21 +42,21 @@ export default function SystemHealthMonitor() {
       return (
         <div className="flex items-center gap-2">
           <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-          <span className="text-green-400 text-xs font-mono">{latency}ms</span>
+          <span className="text-green-600 dark:text-green-400 text-xs font-mono">{latency}ms</span>
         </div>
       );
     }
     return (
       <div className="flex items-center gap-2">
         <div className="h-2 w-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse"></div>
-        <span className="text-red-400 text-xs font-mono">DOWN</span>
+        <span className="text-red-600 dark:text-red-400 text-xs font-mono">DOWN</span>
       </div>
     );
   };
 
   return (
     <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden mb-8">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-950">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between bg-gray-50 dark:bg-gray-950">
         <div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,7 +71,7 @@ export default function SystemHealthMonitor() {
         <button 
           onClick={checkHealth}
           disabled={isPending}
-          className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 rounded hover:bg-gray-700 transition-colors disabled:opacity-50"
+          className="px-4 py-2 bg-gray-50 dark:bg-gray-800 text-xs font-bold text-gray-700 dark:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
         >
           {isPending ? 'Pinging...' : 'Force Refresh'}
         </button>
@@ -83,11 +83,11 @@ export default function SystemHealthMonitor() {
         <div className="space-y-4">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 dark:border-gray-800 pb-2">Supabase Core</h3>
           <div className="space-y-3">
-            <div className="flex items-center justify-between bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
               <span className="text-sm text-gray-700 dark:text-gray-300">Database Engine</span>
               {supabaseHealth ? renderStatus(supabaseHealth.db.status, supabaseHealth.db.latency) : <span className="text-xs text-gray-600">Pinging...</span>}
             </div>
-            <div className="flex items-center justify-between bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
               <span className="text-sm text-gray-700 dark:text-gray-300">Auth GoTrue</span>
               {supabaseHealth ? renderStatus(supabaseHealth.auth.status, supabaseHealth.auth.latency) : <span className="text-xs text-gray-600">Pinging...</span>}
             </div>
@@ -102,7 +102,7 @@ export default function SystemHealthMonitor() {
               <div className="text-xs text-gray-600 p-3">Initializing map...</div>
             ) : (
               prodHealth.map(node => (
-                <div key={node.url} className="flex items-center justify-between bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
+                <div key={node.url} className="flex items-center justify-between bg-gray-50 dark:bg-gray-950 p-3 rounded border border-gray-200 dark:border-gray-800">
                   <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[150px]" title={node.url}>{node.url.replace('https://', '')}</span>
                   {renderStatus(node.status, node.latency)}
                 </div>
@@ -119,7 +119,7 @@ export default function SystemHealthMonitor() {
               <div className="text-xs text-gray-600 p-3 col-span-2">Initializing map...</div>
             ) : (
               previewHealth.map(node => (
-                <div key={node.url} className="flex flex-col bg-gray-950 p-2.5 rounded border border-gray-200 dark:border-gray-800">
+                <div key={node.url} className="flex flex-col bg-gray-50 dark:bg-gray-950 p-2.5 rounded border border-gray-200 dark:border-gray-800">
                   <span className="text-[10px] text-gray-500 truncate mb-1" title={node.url}>{node.url.replace('https://', '')}</span>
                   {renderStatus(node.status, node.latency)}
                 </div>
