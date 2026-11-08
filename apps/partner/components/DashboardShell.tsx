@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Icon from "./Icon";
 
+// Pages laid out to fill the screen on large displays instead of scrolling (the page sizes itself to the space left)
+const FIT_ROUTES = ['/dashboard/schedule'];
+
 interface DashboardShellProps {
   sidebar: React.ReactNode;
   header: React.ReactNode;
@@ -14,6 +17,7 @@ export default function DashboardShell({ sidebar, header, children }: DashboardS
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
   const pathname = usePathname();
+  const fit = FIT_ROUTES.includes(pathname);
 
   // The theme class is applied before paint by app/layout.tsx; this just syncs the toggle icon
   useEffect(() => { setIsDark(document.documentElement.classList.contains('dark')); }, []);
@@ -61,9 +65,9 @@ export default function DashboardShell({ sidebar, header, children }: DashboardS
           </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto flex flex-col">
-          <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-8">{children}</main>
-          <footer className="border-t border-gray-200 dark:border-gray-800 bg-white/60 dark:bg-gray-900/40">
+        <div className={`flex-1 overflow-y-auto flex flex-col ${fit ? 'lg:overflow-hidden' : ''}`}>
+          <main className={`flex-1 w-full max-w-7xl mx-auto p-4 md:p-8 ${fit ? 'lg:p-6 lg:min-h-0 lg:flex lg:flex-col' : ''}`}>{children}</main>
+          <footer className="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white/60 dark:bg-gray-900/40">
             <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
               <p>© {new Date().getFullYear()} StashInn · Luggage & vehicle storage in Goa</p>
               <a href="mailto:support@stashinn.in" className="inline-flex items-center gap-1.5 hover:text-orange-600 dark:hover:text-orange-400">

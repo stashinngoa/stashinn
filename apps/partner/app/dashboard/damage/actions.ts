@@ -1,104 +1,91 @@
 'use server';
 
-import { createClient } from '@stashinn/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { notifyAdmins } from '@stashinn/lib/services/notifications';
+import { PARTNER_CLAIM_CATEGORIES } from '@stashinn/lib/constants';
+import { CLAIM_WINDOW_DAYS, MAX_CLAIM_PHOTOS, isClaimable, parseReport } from './damageShared';
 
-export async function submitDamageReport(formData: FormData) {
+export type ClaimResult = { ok: true; message: string } | { ok: false; error: string };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PHOTO_TYPES: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' };
+const OPEN = ['submitted', 'under_review', 'escalated'];
+
+/**
+ * Files a claim for one of the partner's own bookings. Ownership and eligibility are checked
+ * with the partner's session; photos go to the same bucket admin Disputes reads from.
+ */
+export async function submitDamageReport(formData: FormData): Promise<ClaimResult> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session has expired. Please sign in again.' };
+  const { data: partner } = await supabase.from('partners').select('id, business_name').eq('user_id', user.id).maybeSingle();
+  if (!partner) return { ok: false, error: 'Partner account not found.' };
 
-  if (!user) throw new Error('Not authenticated');
+  const bookingId = String(formData.get('booking_id') || '');
+  const category = String(formData.get('category') || '');
+  const details = String(formData.get('description') || '').trim().slice(0, 3000);
+  const amountRaw = String(formData.get('amount') || '').replace(/[,₹\s]/g, '');
+  const amount = amountRaw ? Number(amountRaw) : 0;
 
-  // Get partner profile
-  const { data: partner } = await supabase
-    .from('partners')
-    .select('id')
-    .eq('user_id', user.id)
-    .single();
+  if (!UUID.test(bookingId)) return { ok: false, error: 'Choose the booking this is about.' };
+  if (!(PARTNER_CLAIM_CATEGORIES as readonly string[]).includes(category)) return { ok: false, error: 'Choose what happened.' };
+  if (details.length < 20) return { ok: false, error: 'Describe what happened in a little more detail (at least 20 characters).' };
+  if (amountRaw && (!Number.isFinite(amount) || amount < 0 || amount > 500000)) return { ok: false, error: 'Enter the amount in rupees, or leave it blank.' };
 
-  if (!partner) throw new Error('Not a partner');
+  const { data: booking } = await supabase.from('bookings')
+    .select('id, partner_id, customer_id, status, end_time, actual_checkout')
+    .eq('id', bookingId).eq('partner_id', partner.id).maybeSingle();
+  if (!booking) return { ok: false, error: 'That booking wasn’t found on your account.' };
+  if (!isClaimable(booking)) return { ok: false, error: `Claims can be filed while items are stored, or up to ${CLAIM_WINDOW_DAYS} days after pick-up.` };
 
-  const bookingId = formData.get('booking_id') as string;
-  const description = formData.get('description') as string;
-  
-  // Need to get customer_id from booking
-  const { data: booking } = await supabase
-    .from('bookings')
-    .select('customer_id')
-    .eq('id', bookingId)
-    .single();
+  const db = createServiceClient();
+  const { data: existing } = await db.from('damage_reports').select('id, description, photos').eq('booking_id', bookingId).in('status', OPEN);
+  if ((existing || []).some(r => parseReport(r.description, r.photos).source === 'partner')) {
+    return { ok: false, error: 'You already have an open claim for this booking. StashInn will update you on it; reply to their email to add details.' };
+  }
 
-  if (!booking) throw new Error('Invalid booking ID');
+  const files = (formData.getAll('photos') as File[]).filter(f => f && typeof f !== 'string' && f.size > 0);
+  if (files.length > MAX_CLAIM_PHOTOS) return { ok: false, error: `Attach up to ${MAX_CLAIM_PHOTOS} photos.` };
+  for (const f of files) {
+    if (!PHOTO_TYPES[f.type]) return { ok: false, error: `${f.name} isn’t a JPG, PNG or WebP photo.` };
+    if (f.size > 5 * 1024 * 1024) return { ok: false, error: `${f.name} is larger than 5 MB.` };
+  }
 
-  // Process photo uploads
   const photos: string[] = [];
-  const files = formData.getAll('photos') as File[];
-  
-  // Ensure the bucket exists (this might fail if RLS prevents it, but usually service role can do it)
-  // For safety, we will just try to upload. If the bucket doesn't exist, we must create it in Supabase dashboard.
-  
-  for (const file of files) {
-    if (file.size > 0 && file.name) {
-      // 1. Validate Image size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Image size must be less than 5MB.');
-      }
-      
-      // 2. Validate Image mime type
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      if (!validTypes.includes(file.type)) {
-        throw new Error('Invalid file type. Only JPEG, PNG, WEBP, and GIF images are allowed.');
-      }
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${bookingId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `${partner.id}/${fileName}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('damage_reports')
-        .upload(filePath, file);
-
-      if (!uploadError && uploadData) {
-        // Get public URL
-        const { data: { publicUrl } } = supabase
-          .storage
-          .from('damage_reports')
-          .getPublicUrl(filePath);
-        
-        photos.push(publicUrl);
-      } else {
-        console.error('File upload failed:', uploadError);
-        throw new Error(`Upload failed for ${file.name}`);
-      }
-    }
+  for (const [i, f] of files.entries()) {
+    const path = `partner-${partner.id}/${bookingId}-${Date.now()}-${i}.${PHOTO_TYPES[f.type]}`;
+    const { error } = await db.storage.from('damage_reports').upload(path, f, { contentType: f.type });
+    if (error) return { ok: false, error: `Couldn’t upload ${f.name}. Please try again.` };
+    photos.push(db.storage.from('damage_reports').getPublicUrl(path).data.publicUrl);
   }
 
-  // Insert report
-  const { error } = await supabase
-    .from('damage_reports')
-    .insert({
-      partner_id: partner.id,
-      booking_id: bookingId,
-      customer_id: booking.customer_id,
-      description,
-      photos,
-      status: 'submitted'
-    });
+  const description = `[${category}] ${details}${amount > 0 ? `\n\nAmount claimed: ₹${amount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : ''}`;
+  const { data: inserted, error } = await db.from('damage_reports').insert({
+    partner_id: partner.id,
+    customer_id: booking.customer_id,
+    booking_id: bookingId,
+    description,
+    photos,
+    status: 'submitted',
+  }).select('id').single();
+  if (error) return { ok: false, error: 'Couldn’t submit your claim. Please try again.' };
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Notify support admin
+  const ref = bookingId.split('-')[0]!.toUpperCase();
+  await db.from('audit_logs').insert({
+    user_id: user.id, action: 'damage.partner_claim_filed', entity_type: 'damage_reports', entity_id: inserted.id,
+    new_values: { booking_id: bookingId, category, amount: amount || null, photos: photos.length },
+  });
   await notifyAdmins({
-    title: 'New Dispute Claim Filed',
-    message: `Partner has filed a new dispute claim for booking ID ${bookingId.split('-')[0]}.`,
+    title: 'New claim from a partner',
+    message: `${partner.business_name}: ${category}${amount > 0 ? ` (₹${amount.toLocaleString('en-IN')})` : ''} for booking #${ref}.`,
     category: 'damage',
     targetRoles: ['support'],
-    action_url: '/dashboard/disputes'
-  });
+    action_url: '/dashboard/disputes',
+  }).catch(() => null);
 
   revalidatePath('/dashboard/damage');
+  return { ok: true, message: `Claim filed for booking #${ref}. StashInn support usually replies within 2 working days.` };
 }

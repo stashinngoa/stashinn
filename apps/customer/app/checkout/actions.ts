@@ -25,27 +25,32 @@ export async function createBooking(formData: FormData) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    let customerId = formData.get('customer_id') as string;
-    
-    if (!customerId) {
-      if (user) {
-        customerId = user.id;
+    // Who the booking is for comes from the session or the email, never from the browser
+    let customerId: string;
+    if (user) {
+      customerId = user.id;
+    } else {
+      const { data: existingUser } = await supabaseService.from('users').select('id').eq('email', email).maybeSingle();
+      if (existingUser) {
+        customerId = existingUser.id;
       } else {
-        const { data: existingUser } = await supabaseService.from('users').select('id').eq('email', email).single();
-        if (existingUser) {
-          customerId = existingUser.id;
-        } else {
-          const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
-          const { data: authUser, error: authErr } = await supabaseService.auth.admin.createUser({
-            email: email,
-            password: randomPassword,
-            email_confirm: true,
-            user_metadata: { full_name: fullName, phone: mobile }
-          });
-          if (authErr || !authUser.user) redirect('/search?error=guest_creation_failed');
-          customerId = authUser.user.id;
-        }
+        const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
+        const { data: authUser, error: authErr } = await supabaseService.auth.admin.createUser({
+          email: email,
+          password: randomPassword,
+          email_confirm: true,
+          user_metadata: { full_name: fullName, phone: mobile }
+        });
+        if (authErr || !authUser.user) redirect('/search?error=guest_creation_failed');
+        customerId = authUser.user.id;
       }
+    }
+
+    // Accounts suspended by StashInn staff can't book
+    const { data: account } = await supabaseService.from('users').select('is_blocked').eq('id', customerId).maybeSingle();
+    if (account?.is_blocked) {
+      if (formData.get('payment_method') === 'razorpay') console.error(`[BLOCKED_CUSTOMER_PAID] payment ${formData.get('razorpay_payment_id')} by blocked customer ${customerId}; the orphan-payment job will refund it`);
+      redirect('/search?error=account_blocked&msg=' + encodeURIComponent('This account has been suspended and can’t make bookings. Contact support@stashinn.in.'));
     }
 
     const locationId = formData.get('location_id') as string;
@@ -317,7 +322,10 @@ export async function ensureCustomer(fullName: string, email: string, mobile: st
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data: existingUser } = await supabaseService.from("users").select("id, phone").eq("email", email).single();
+  const { data: existingUser } = await supabaseService.from("users").select("id, phone, is_blocked").eq("email", email).single();
+  if (existingUser?.is_blocked) {
+    return { error: "This account has been suspended and can’t make bookings. Contact support@stashinn.in." };
+  }
   if (existingUser) {
     if (!existingUser.phone && mobile) {
       // Update phone if missing

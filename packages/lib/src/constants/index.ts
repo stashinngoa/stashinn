@@ -37,3 +37,4 @@ export const BOOKING_DEFAULTS = {
 export const OTP_CHANNELS = ["email", "whatsapp", "sms"] as const;
 
 export * from './partnerInfoRequest';
+export * from './partnerClaims';

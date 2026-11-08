@@ -2,6 +2,7 @@ import { createClient } from '@stashinn/lib/supabase/server';
 import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { processSettlement } from './actions';
 import DownloadPDFWrapper from './DownloadPDFWrapper';
+import QrConfirmations, { type QrItem } from './QrConfirmations';
 import { platformDue } from '@stashinn/lib/services/bookingAvailability';
 
 export default async function AdminSettlementsPage() {
@@ -24,13 +25,37 @@ export default async function AdminSettlementsPage() {
     return { payment: p, transaction: tx, proofUrl: data?.signedUrl ?? null };
   })).then(items => items.filter(Boolean) as any[]);
 
+  // Pay-at-drop-off payments a partner recorded as paid on the StashInn QR (* so this loads before the columns exist)
+  const { data: dropoff } = await service.from('payments')
+    .select('*, bookings!inner(id, status, total_amount, partner_amount, partners(business_name), partner_locations(name))')
+    .eq('method', 'pay_at_location').eq('status', 'pending').limit(1000);
+  const qrItems: QrItem[] = (dropoff || [])
+    .filter((p: any) => p.collected_via === 'stashinn_qr')
+    .map((p: any) => {
+      const b = Array.isArray(p.bookings) ? p.bookings[0] : p.bookings;
+      return {
+        paymentId: p.id,
+        bookingId: b.id,
+        partner: (Array.isArray(b.partners) ? b.partners[0] : b.partners)?.business_name || 'Partner',
+        location: (Array.isArray(b.partner_locations) ? b.partner_locations[0] : b.partner_locations)?.name || '',
+        amount: Number(p.collected_amount ?? b.total_amount) || 0,
+        share: Number(b.partner_amount) || 0,
+        collectedAt: p.collected_at,
+        reference: p.qr_reference || '',
+      };
+    })
+    .sort((a, b) => String(a.collectedAt).localeCompare(String(b.collectedAt)));
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">Settlement Verification</h1>
-        <p className="text-gray-500 mt-1">Verify partner transfer proofs for pay-at-location commission and GST.</p>
+        <p className="text-gray-500 mt-1">Confirm StashInn-QR payments partners recorded at drop-off, and verify partners’ transfers of commission and GST on pay-at-drop-off bookings they collected.</p>
       </div>
 
+      <QrConfirmations items={qrItems} />
+
+      <h2 className="text-lg font-extrabold text-gray-900 dark:text-white">Partner transfer proofs <span className="text-gray-400 tabular-nums">({validationItems.length})</span></h2>
       <div className="space-y-4">
         {validationItems.length === 0 ? (
           <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-12 text-center text-gray-500 text-sm">

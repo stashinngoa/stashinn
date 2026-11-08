@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@stashinn/lib/supabase/server';
 import { redirect } from 'next/navigation';
 import WelcomeModal from './WelcomeModal';
+import { stashinnHoldsMoney } from '@stashinn/lib/services/dropoffPayment';
 import Icon, { type IconName } from '../../components/Icon';
 
 const IST = 'Asia/Kolkata';
@@ -72,7 +73,7 @@ export default async function DashboardOverview({ searchParams }: { searchParams
       .order('start_time', { ascending: true }),
     supabase.from('partner_locations').select('id, name, location_type, admin_status, is_active, status_reason').eq('partner_id', partner.id).order('created_at'),
     supabase.from('partner_pocs').select('phone, is_verified').eq('partner_id', partner.id),
-    supabase.from('partner_transactions').select('amount, bookings(payments(method))').eq('partner_id', partner.id).eq('transfer_status', 'pending'),
+    supabase.from('partner_transactions').select('amount, bookings(status, cancellation_code, payments(*))').eq('partner_id', partner.id).eq('transfer_status', 'pending').is('transfer_proof', null),
     supabase.from('location_pauses').select('location_id').eq('partner_id', partner.id).is('cancelled_at', null).lte('starts_at', nowIso).gt('ends_at', nowIso),
   ]);
   const pausedIds = new Set((pauses || []).map(p => p.location_id));
@@ -92,8 +93,9 @@ export default async function DashboardOverview({ searchParams }: { searchParams
   let pendingPayouts = 0;
   (transactions || []).forEach((tx: any) => {
     const payments = tx.bookings?.payments;
-    const method = Array.isArray(payments) ? payments[0]?.method : payments?.method;
-    if (method === 'razorpay') pendingPayouts += Number(tx.amount);
+    const pay = Array.isArray(payments) ? payments[0] : payments;
+    const done = tx.bookings?.status === 'checked_out' || (tx.bookings?.status === 'cancelled' && tx.bookings?.cancellation_code === 'no_show');
+    if (done && stashinnHoldsMoney(pay)) pendingPayouts += Number(tx.amount);
   });
 
   const locs = locations || [];
@@ -207,7 +209,7 @@ export default async function DashboardOverview({ searchParams }: { searchParams
             <section className={`${card} overflow-hidden border-amber-300 dark:border-amber-700/60`}>
               <div className="px-5 py-3.5 flex items-center justify-between bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800/50">
                 <h2 className="font-extrabold text-amber-900 dark:text-amber-200">Needs your response <span className="ml-1 tabular-nums">({needsResponse.length})</span></h2>
-                <Link href="/dashboard/bookings" className="text-xs font-bold text-amber-800 dark:text-amber-300 hover:underline">Review all →</Link>
+                <Link href="/dashboard/bookings?tab=pending" className="text-xs font-bold text-amber-800 dark:text-amber-300 hover:underline">Review all →</Link>
               </div>
               <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {needsResponse.slice(0, 5).map(b => <BookingRow key={b.id} b={b} time={`${fmtDay(b.start_time)}, ${fmtTime(b.start_time)}`} />)}

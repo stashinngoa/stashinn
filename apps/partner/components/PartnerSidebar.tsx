@@ -17,7 +17,8 @@ const NAV: { title: string; items: { href: string; label: string; icon: IconName
   {
     title: 'Money',
     items: [
-      { href: '/dashboard/settlements', label: 'Settlements', icon: 'wallet' },
+      { href: '/dashboard/earnings', label: 'Earnings', icon: 'wallet' },
+      { href: '/dashboard/settlements', label: 'Settlements', icon: 'check' },
       { href: '/dashboard/reports', label: 'Reports', icon: 'chart' },
     ],
   },

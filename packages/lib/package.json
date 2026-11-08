@@ -23,7 +23,10 @@
     "./services/amenities": "./src/services/amenities.ts",
     "./services/legal": "./src/services/legal.ts",
     "./services/bookingEmails": "./src/services/bookingEmails.ts",
-    "./services/logger": "./src/services/logger.ts"
+    "./services/logger": "./src/services/logger.ts",
+    "./services/bookingLifecycle": "./src/services/bookingLifecycle.ts",
+    "./services/dropoffPayment": "./src/services/dropoffPayment.ts",
+    "./jobs": "./src/jobs/index.ts"
   },
   "scripts": {
     "lint": "eslint --max-warnings 0",

@@ -13,9 +13,27 @@ const TEMPLATE_USAGE: Record<string, { name: string; used: boolean; when: string
   booking_requested: { name: 'Booking request (customer)', used: true, when: 'Sent to the customer as soon as they request a booking.' },
   partner_booking_request: { name: 'Booking request (partner)', used: true, when: 'Sent to the partner for each new booking request, if they get email notifications.' },
   booking_confirmed: { name: 'Booking confirmed', used: true, when: 'Sent to the customer when the partner accepts, with the exact address, directions, contact and check-in code.' },
+  booking_dropped_off: { name: 'Dropped off (customer)', used: true, when: 'Sent to the customer when the partner checks in their items, with the pick-up code.' },
+  booking_picked_up: { name: 'Picked up (customer)', used: true, when: 'Sent to the customer when the partner checks them out. The review request follows later from a scheduled job.' },
   booking_cancelled: { name: 'Booking cancelled', used: false, when: 'Not sent yet: cancellation emails currently use built-in text.' },
   otp_checkin: { name: 'Check-in code', used: false, when: 'Not sent yet: check-in codes currently use built-in text.' },
   otp_checkout: { name: 'Pick-up code', used: false, when: 'Not sent yet: pick-up codes currently use built-in text.' },
+  // Sent by the scheduled jobs; built-in text is used unless a template with this slug exists
+  partner_response_reminder: { name: 'Reminder: answer a booking (partner)', used: true, when: 'Scheduled job: sent to a partner who hasn’t accepted or declined a booking.' },
+  booking_partner_delay: { name: 'Booking not confirmed yet (customer)', used: true, when: 'Scheduled job: sent to the customer when the partner still hasn’t answered close to drop-off.' },
+  booking_auto_cancelled: { name: 'Booking auto-cancelled (customer)', used: true, when: 'Scheduled job: the partner didn’t answer in time, so the booking was cancelled and refunded.' },
+  partner_booking_auto_cancelled: { name: 'Booking auto-cancelled (partner)', used: true, when: 'Scheduled job: tells the partner a booking was cancelled because they didn’t answer.' },
+  dropoff_reminder: { name: 'Drop-off reminder', used: true, when: 'Scheduled job: address, contact and check-in code before drop-off.' },
+  pickup_reminder: { name: 'Pick-up reminder', used: true, when: 'Scheduled job: pick-up time and code an hour before the booking ends.' },
+  no_show_nudge: { name: 'Are you still coming?', used: true, when: 'Scheduled job: a confirmed customer hasn’t dropped off 2 hours after drop-off time.' },
+  booking_no_show: { name: 'Marked as a no-show', used: true, when: 'Scheduled job: nothing was dropped off before the booking ended.' },
+  pickup_overdue: { name: 'Pick-up overdue', used: true, when: 'Scheduled job: the items weren’t collected by the end of the booking.' },
+  review_request: { name: 'Review request', used: true, when: 'Scheduled job: asks the customer to rate the location after pick-up (and one reminder).' },
+  partner_info_request_reminder: { name: 'Info request reminder (partner)', used: true, when: 'Scheduled job: a partner hasn’t answered an admin’s request for details.' },
+  partner_pause_ending: { name: 'Pause ending (partner)', used: true, when: 'Scheduled job: a paused location starts taking bookings again within a day.' },
+  partner_day_plan: { name: 'Morning plan (partner)', used: true, when: 'Scheduled job: 07:30 list of the day’s drop-offs and pick-ups, for partners who opted in.' },
+  partner_cash_dues: { name: 'Cash commission reminder (partner)', used: true, when: 'Scheduled job: weekly, while StashInn’s share of pay-at-location bookings is unsettled.' },
+  partner_monthly_statement: { name: 'Monthly statement (partner)', used: true, when: 'Scheduled job: on the 1st, last month’s online earnings and cash commission.' },
 };
 
 export default async function ConfigPage() {

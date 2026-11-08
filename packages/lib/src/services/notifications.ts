@@ -238,7 +238,8 @@ export async function notifyPartnerExternal(partnerId: string, payload: { title:
   
   const userId = partner.user_id;
   const email = (partner.users as any)?.email;
-  const phone = (partner.users as any)?.phone || '+910000000000'; // Default mock phone
+  // No fallback number: SMS / WhatsApp are skipped when the partner hasn't given a mobile
+  const phone: string | null = (partner.users as any)?.phone || null;
 
   // 2. Get preferences
   const { data: prefs } = await supabase
@@ -268,11 +269,11 @@ export async function notifyPartnerExternal(partnerId: string, payload: { title:
     await ExternalNotificationService.sendEmail(email, payload.email?.subject ?? payload.title, payload.email?.html ?? payload.message);
   }
 
-  if (activePrefs.whatsapp) {
+  if (activePrefs.whatsapp && phone) {
     await ExternalNotificationService.sendWhatsApp(phone, 'partner_alert', { message: payload.message });
   }
 
-  if (activePrefs.sms) {
+  if (activePrefs.sms && phone) {
     await ExternalNotificationService.sendSMS(phone, `StashInn: ${payload.title} - ${payload.message}`);
   }
 }

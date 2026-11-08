@@ -179,6 +179,22 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
     mapCenter = [locations[0].latitude, locations[0].longitude];
   }
 
+  // Checkout sends people back here with ?error= when a booking couldn't be made
+  const errorCode = (resolvedParams as { error?: string }).error;
+  const errorMsg = (resolvedParams as { msg?: string }).msg;
+  const CHECKOUT_ERRORS: Record<string, string> = {
+    account_blocked: 'This account has been suspended and can’t make bookings. Contact support@stashinn.in.',
+    invalid_duration: 'That booking length isn’t allowed. Please pick other times.',
+    guest_creation_failed: 'We couldn’t set up your account. Please try again.',
+    payment_verification_failed: 'We couldn’t verify your payment. If money was taken, it will be refunded automatically.',
+    invalid_payment_signature: 'We couldn’t verify your payment. If money was taken, it will be refunded automatically.',
+    payment_amount_mismatch: 'The payment didn’t match the booking price. If money was taken, it will be refunded automatically.',
+  };
+  // Only messages we wrote ourselves are shown word for word
+  const checkoutError = errorCode
+    ? (['account_blocked', 'invalid_duration'].includes(errorCode) && errorMsg ? errorMsg : CHECKOUT_ERRORS[errorCode] || 'Something went wrong with that booking. Please try again.')
+    : null;
+
   return (
     <div className="min-h-screen flex flex-col font-inter bg-gray-50 dark:bg-gray-950 transition-colors">
       <header className="h-16 sticky top-0 z-50 shrink-0 flex items-center gap-3 md:gap-5 px-4 md:px-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
@@ -212,6 +228,12 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           )}
         </nav>
       </header>
+
+      {checkoutError && (
+        <div role="alert" className="px-4 md:px-6 py-3 bg-red-50 dark:bg-red-950/40 border-b border-red-200 dark:border-red-900/60 text-sm font-semibold text-red-800 dark:text-red-300">
+          {checkoutError}
+        </div>
+      )}
 
       <SearchResults
         locations={locations || []}

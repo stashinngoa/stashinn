@@ -48,7 +48,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (user) {
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('role')
+      .select('role, is_blocked')
       .eq('id', user.id)
       .single();
 
@@ -60,6 +60,19 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     }
 
     const role = profile?.role;
+
+    // A customer blocked by StashInn staff is signed out and can't come back in
+    if (role === 'customer' && profile?.is_blocked) {
+      logger.warn('Blocked customer signed out', { userId: user.id, requestedPath: path });
+      await supabase.auth.signOut({ scope: 'local' });
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      url.search = '';
+      url.searchParams.set('error', 'This account has been suspended. If you think this is a mistake, contact support@stashinn.in.');
+      const res = NextResponse.redirect(url);
+      request.cookies.getAll().forEach(({ name }) => { if (name.startsWith('sb-')) res.cookies.delete(name); });
+      return res;
+    }
 
     // If a logged-in user is NOT a customer, they shouldn't be using this portal
     if (role && role !== 'customer' && !path.startsWith('/403')) {

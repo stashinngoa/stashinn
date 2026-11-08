@@ -23,6 +23,7 @@ const RULES: Rule[] = [
   { prefix: '/dashboard/scoring', access: { superadmin: 'full', ops: 'full' } },
   { prefix: '/dashboard/staff', access: { superadmin: 'full' } },
   { prefix: '/dashboard/config', access: { superadmin: 'full' } },
+  { prefix: '/dashboard/jobs', access: { superadmin: 'full' } },
   { prefix: '/dashboard/audit', access: { superadmin: 'full' } },
   { prefix: '/print/partners', access: { superadmin: 'full', ops: 'full', finance: 'view' } },
   { prefix: '/api/export-analytics', access: { superadmin: 'full', finance: 'full' } },

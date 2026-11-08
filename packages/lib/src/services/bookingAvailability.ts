@@ -161,7 +161,7 @@ export type AvailabilityResult =
  */
 export async function checkAvailability(
   supabase: { from: (table: string) => any },
-  params: { locationId: string; mode: BookingMode; vehicleType?: string | null; bags?: number; start: Date; end: Date },
+  params: { locationId: string; mode: BookingMode; vehicleType?: string | null; bags?: number; start: Date; end: Date; excludeBookingId?: string },
 ): Promise<AvailabilityResult> {
   const { locationId, mode, start, end } = params;
   if (!(end > start)) return { ok: false, reason: 'Pick-up must be after drop-off.' };
@@ -176,9 +176,12 @@ export async function checkAvailability(
 
   const startIso = start.toISOString();
   const endIso = end.toISOString();
+  // When moving an existing booking, it doesn't compete with itself for space
+  let others = supabase.from('bookings').select('num_bags, vehicle_type').eq('location_id', locationId).in('status', ACTIVE_STATUSES).lt('start_time', endIso).gt('end_time', startIso);
+  if (params.excludeBookingId) others = others.neq('id', params.excludeBookingId);
   const [{ data: pauses }, { data: overlapping }] = await Promise.all([
     supabase.from('location_pauses').select('starts_at, ends_at').eq('location_id', locationId).is('cancelled_at', null).lt('starts_at', endIso).gt('ends_at', startIso),
-    supabase.from('bookings').select('num_bags, vehicle_type').eq('location_id', locationId).in('status', ACTIVE_STATUSES).lt('start_time', endIso).gt('end_time', startIso),
+    others,
   ]);
 
   const pause = overlappingPause(pauses as PauseWindow[], start, end);

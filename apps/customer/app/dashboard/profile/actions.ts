@@ -1,84 +1,55 @@
 'use server';
 
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
 
-export async function updateProfile(formData: FormData) {
-  const supabase = await createClient();
-  
-  const fullName = formData.get('fullName') as string;
-  const phone = formData.get('phone') as string;
+type Result = { success: true } | { error: string };
 
-  const { error } = await supabase.auth.updateUser({
-    data: { 
-      full_name: fullName,
-      phone: phone
-    }
-  });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  revalidatePath('/dashboard/profile');
-  return { success: true };
-}
-
-export async function updatePassword(formData: FormData) {
-  const supabase = await createClient();
-  
-  const password = formData.get('password') as string;
-  const confirmPassword = formData.get('confirmPassword') as string;
-
-  if (password !== confirmPassword) {
-    return { error: 'Passwords do not match.' };
-  }
-  if (password.length < 6) {
-    return { error: 'Password should be at least 6 characters.' };
-  }
-
-  const { error } = await supabase.auth.updateUser({
-    password: password
-  });
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  return { success: true };
-}
-
-export async function updateNotificationPreferences(formData: FormData) {
+/**
+ * Saves the customer's name and mobile. They're kept on the sign-in account and on the
+ * users row, which checkout and booking emails read.
+ */
+export async function updateProfile(formData: FormData): Promise<Result> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Your session has expired. Please sign in again.' };
 
-  if (!user) {
-    return { error: 'Unauthorized' };
-  }
+  const fullName = String(formData.get('fullName') || '').trim().replace(/\s+/g, ' ');
+  const phone = String(formData.get('phone') || '').replace(/[\s-]/g, '');
+  if (fullName.length < 2) return { error: 'Please enter your full name.' };
+  if (phone && !/^(\+91)?[6-9]\d{9}$/.test(phone)) return { error: 'Enter a valid 10-digit Indian mobile number.' };
 
-  const in_app = formData.get('in_app') === 'on';
-  const email = formData.get('email') === 'on';
-  const whatsapp = formData.get('whatsapp') === 'on';
-  const sms = formData.get('sms') === 'on';
-  const push = formData.get('push') === 'on';
+  const { error } = await supabase.auth.updateUser({ data: { full_name: fullName, phone } });
+  if (error) return { error: error.message };
 
-  const { error } = await supabase
-    .from('notification_preferences')
-    .upsert(
-      {
-        user_id: user.id,
-        in_app,
-        email,
-        whatsapp,
-        sms,
-        push
-      },
-      { onConflict: 'user_id' }
-    );
+  // Only these two columns, for this user (checked above)
+  const { error: rowError } = await createServiceClient()
+    .from('users')
+    .update({ full_name: fullName, phone: phone || null, updated_at: new Date().toISOString() })
+    .eq('id', user.id);
+  if (rowError) return { error: rowError.message };
 
-  if (error) {
-    return { error: error.message };
-  }
+  revalidatePath('/dashboard', 'layout');
+  return { success: true };
+}
+
+export async function updateNotificationPreferences(formData: FormData): Promise<Result> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Your session has expired. Please sign in again.' };
+
+  const { error } = await supabase.from('notification_preferences').upsert(
+    {
+      user_id: user.id,
+      in_app: formData.get('in_app') === 'on',
+      email: formData.get('email') === 'on',
+      whatsapp: formData.get('whatsapp') === 'on',
+      sms: formData.get('sms') === 'on',
+    },
+    { onConflict: 'user_id' },
+  );
+  if (error) return { error: error.message };
 
   revalidatePath('/dashboard/profile');
   return { success: true };

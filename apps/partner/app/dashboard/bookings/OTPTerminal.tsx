@@ -1,134 +1,99 @@
 'use client';
 
-import { verifyCheckInOTP, verifyCheckOutOTP, acceptBooking, declineBooking } from './actions';
-import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, useTransition } from 'react';
+import { verifyCheckInOTP, verifyCheckOutOTP } from './actions';
+import CollectionChoice, { type Collect } from './CollectionChoice';
+import type { CollectedVia } from '@stashinn/lib/services/dropoffPayment';
 
-export default function OTPTerminal({ booking }: { booking: any }) {
+/** Code entry for drop-off (confirmed) and pick-up (checked in). */
+export default function OTPTerminal({ bookingId, mode, garage, collect, overdue }: {
+  bookingId: string;
+  mode: 'checkin' | 'checkout';
+  garage?: boolean;
+  /** Pay at drop-off: what to collect, what the partner would owe, and their share */
+  collect?: Collect | null;
+  overdue?: boolean;
+}) {
+  const router = useRouter();
   const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  const [via, setVia] = useState<CollectedVia | ''>('');
+  const [qrRef, setQrRef] = useState('');
+  const needsVia = mode === 'checkin' && !!collect;
 
-  const handleVerify = async () => {
-    setIsSubmitting(true);
-    setError('');
-    const formData = new FormData();
-    formData.append('booking_id', booking.id);
-    formData.append('otp', otp);
-
-    let res;
-    if (booking.status === 'confirmed') {
-      res = await verifyCheckInOTP(formData);
-    } else if (booking.status === 'checked_in') {
-      res = await verifyCheckOutOTP(formData);
-    }
-
-    if (res?.error) {
-      setError(res.error);
-    } else {
-      setOtp('');
-    }
-    setIsSubmitting(false);
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length !== 4 || (needsVia && !via)) return;
+    setMsg(null);
+    const fd = new FormData();
+    fd.set('booking_id', bookingId);
+    fd.set('otp', otp);
+    if (needsVia) { fd.set('collected_via', via); fd.set('qr_reference', qrRef); }
+    start(async () => {
+      try {
+        const r = mode === 'checkin' ? await verifyCheckInOTP(fd) : await verifyCheckOutOTP(fd);
+        if (r.success) { setOtp(''); setMsg({ ok: true, text: r.message }); router.refresh(); }
+        else setMsg({ ok: false, text: r.error || 'Something went wrong.' });
+      } catch {
+        setMsg({ ok: false, text: 'Something went wrong. Please try again.' });
+      }
+    });
   };
 
-  if (booking.status === 'pending') {
-    return (
-      <div className="bg-white p-8 rounded-2xl text-center border border-yellow-200 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-1 bg-yellow-400"></div>
-        <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold text-gray-900 mb-1">Incoming Booking Request</h3>
-        <p className="text-gray-500 text-sm mb-6">Customer is waiting for you to confirm availability. Please accept if you have enough space for {booking.num_bags} bags.</p>
-        
-        <div className="flex gap-3">
-          <form action={async (formData) => { await acceptBooking(formData); }} className="flex-1">
-            <input type="hidden" name="booking_id" value={booking.id} />
-            <button type="submit" className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors">
-              Accept
-            </button>
-          </form>
-          <form action={async (formData) => { await declineBooking(formData); }} className="flex-1">
-            <input type="hidden" name="booking_id" value={booking.id} />
-            <button type="submit" className="w-full py-3 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition-colors">
-              Decline
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  if (booking.status === 'checked_out') {
-    return (
-      <div className="bg-green-50 p-8 rounded-2xl text-center border border-green-200">
-        <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold text-green-900 mb-1">Transaction Complete</h3>
-        <p className="text-green-700">The customer has successfully picked up their bags.</p>
-      </div>
-    );
-  }
-
-  if (booking.status === 'cancelled') {
-    return (
-      <div className="bg-red-50 p-8 rounded-2xl text-center border border-red-200">
-        <h3 className="text-xl font-bold text-red-900 mb-1">Booking Cancelled</h3>
-        <p className="text-red-700">This booking was cancelled and is no longer active.</p>
-      </div>
-    );
-  }
-
-  const isCheckin = booking.status === 'confirmed';
-
+  const checkin = mode === 'checkin';
   return (
-    <div className="bg-gray-900 rounded-2xl p-8 border border-gray-800 shadow-2xl relative overflow-hidden">
-      {/* Decorative gradient */}
-      <div className="absolute -top-24 -right-24 w-64 h-64 bg-purple-500 rounded-full blur-[80px] opacity-20 pointer-events-none"></div>
-      
-      <h3 className="text-xl font-bold text-white mb-2">
-        {isCheckin ? 'Check-In Terminal' : 'Check-Out Terminal'}
-      </h3>
-      <p className="text-gray-400 text-sm mb-6">
-        {isCheckin ? "Collect the cash and ask the customer for their 4-digit Drop-off OTP to log the bags." : "Ask the customer for their 4-digit Pick-up OTP to return the bags."}
-      </p>
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-base font-extrabold text-gray-900 dark:text-white">{checkin ? 'Check in at drop-off' : 'Check out at pick-up'}</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          {checkin
+            ? garage ? 'Take photos of the vehicle and enter the customer’s check-in code.' : 'Count the bags, then enter the customer’s 4-digit check-in code.'
+            : 'Ask for the customer’s 4-digit pick-up code before handing anything back.'}
+        </p>
+      </div>
 
-      {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm mb-4 border border-red-500/20">{error}</div>}
-
-      {isCheckin && booking.partner_locations?.location_type === 'garage' ? (
-        <div className="text-center">
-          <p className="text-yellow-400 text-sm mb-4">Garage check-in requires vehicle condition photos.</p>
-          <a 
-            href={`/dashboard/bookings/${booking.id}/check-in`}
-            className="block w-full py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-colors"
-          >
-            Proceed to Vehicle Check-In
-          </a>
+      {checkin && collect && garage && (
+        <div className="rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-2.5 text-sm text-amber-900 dark:text-amber-200">
+          <span className="font-bold">Collect {collect.total}</span> at drop-off. You’ll record how it was paid on the next screen.
         </div>
+      )}
+      {checkin && collect && !garage && !msg?.ok && (
+        <CollectionChoice collect={collect} value={via} onChange={setVia} reference={qrRef} onReference={setQrRef} />
+      )}
+      {!checkin && overdue && (
+        <div className="rounded-xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/30 px-3.5 py-2.5 text-sm text-red-800 dark:text-red-300">
+          Pick-up is overdue. You can still check out here when the customer arrives.
+        </div>
+      )}
+
+      {checkin && garage ? (
+        <Link href={`/dashboard/bookings/${bookingId}/check-in`}
+          className="flex items-center justify-center w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow-sm transition-colors">
+          Start vehicle check-in
+        </Link>
+      ) : msg?.ok ? (
+        <p role="status" className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 px-3.5 py-2.5 text-sm font-semibold text-emerald-800 dark:text-emerald-300">{msg.text}</p>
       ) : (
-        <>
-          <div className="flex gap-4">
-            <input 
-              type="text" 
-              maxLength={4}
-              value={otp}
-              onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-              placeholder="0000"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-6 py-4 text-3xl font-mono text-white tracking-[0.3em] text-center focus:border-purple-500 outline-none transition-colors"
+        <form onSubmit={submit} className="space-y-3">
+          <label className="block">
+            <span className="sr-only">{checkin ? 'Check-in code' : 'Pick-up code'}</span>
+            <input
+              inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otp}
+              onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 4)); setMsg(null); }}
+              placeholder="0000" aria-invalid={msg ? !msg.ok : undefined}
+              className={`w-full rounded-xl border bg-white dark:bg-gray-950 px-4 py-3.5 text-center font-mono text-3xl tracking-[0.5em] text-gray-900 dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-700 outline-none focus:ring-2 focus:ring-orange-500/20 ${
+                msg && !msg.ok ? 'border-red-400 focus:border-red-400' : 'border-gray-300 dark:border-gray-700 focus:border-orange-400'}`}
             />
-          </div>
-          <button 
-            onClick={handleVerify}
-            disabled={otp.length !== 4 || isSubmitting}
-            className="w-full mt-4 py-4 bg-purple-600 text-white font-bold rounded-xl hover:bg-purple-500 transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? 'Verifying...' : (isCheckin ? 'Verify Drop-off' : 'Verify Pick-up')}
+          </label>
+          {msg && !msg.ok && <p role="alert" className="text-sm font-semibold text-red-600 dark:text-red-400">{msg.text}</p>}
+          <button type="submit" disabled={otp.length !== 4 || pending || (needsVia && !via)}
+            className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow-sm disabled:opacity-50 transition-colors">
+            {pending ? 'Checking…' : checkin ? 'Confirm drop-off' : 'Confirm pick-up'}
           </button>
-        </>
+        </form>
       )}
     </div>
   );

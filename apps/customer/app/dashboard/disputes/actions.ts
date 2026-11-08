@@ -1,85 +1,67 @@
 'use server';
 
 import { createClient } from '@stashinn/lib/supabase/server';
+import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { revalidatePath } from 'next/cache';
 import { notifyAdmins } from '@stashinn/lib/services/notifications';
 
-export async function submitCustomerDispute(formData: FormData) {
+const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_PHOTOS = 5;
+
+/**
+ * Files a dispute for one of the customer's own bookings. Ownership is checked with the
+ * customer's session; the report and photos are then saved with the service role, since
+ * damage_reports and its bucket only let partners write.
+ */
+export async function submitCustomerDispute(formData: FormData): Promise<{ ok: true } | { ok: false; error: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Your session has expired. Please sign in again.' };
 
-  if (!user) throw new Error('Not authenticated');
+  const bookingId = String(formData.get('booking_id') || '');
+  const category = String(formData.get('category') || '').trim();
+  const details = String(formData.get('description') || '').trim();
+  if (!bookingId) return { ok: false, error: 'Choose the booking this is about.' };
+  if (details.length < 20) return { ok: false, error: 'Please describe what happened in a little more detail (at least 20 characters).' };
 
-  const bookingId = formData.get('booking_id') as string;
-  const description = formData.get('description') as string;
-  
-  // Need to get partner_id from booking
-  const { data: booking } = await supabase
-    .from('bookings')
-    .select('partner_id, customer_id')
-    .eq('id', bookingId)
-    .single();
+  const { data: booking } = await supabase.from('bookings').select('partner_id, customer_id').eq('id', bookingId).single();
+  if (!booking || booking.customer_id !== user.id) return { ok: false, error: 'That booking wasn’t found on your account.' };
 
-  if (!booking) throw new Error('Invalid booking ID');
-  if (booking.customer_id !== user.id) throw new Error('Unauthorized');
+  const files = (formData.getAll('photos') as File[]).filter(f => f && f.size > 0 && f.name);
+  if (files.length > MAX_PHOTOS) return { ok: false, error: `Attach up to ${MAX_PHOTOS} photos.` };
+  for (const f of files) {
+    if (!PHOTO_TYPES.includes(f.type)) return { ok: false, error: `${f.name} isn’t a JPG, PNG, WebP or GIF image.` };
+    if (f.size > 5 * 1024 * 1024) return { ok: false, error: `${f.name} is larger than 5 MB.` };
+  }
 
-  // Process photo uploads
+  const service = createServiceClient();
   const photos: string[] = [];
-  const files = formData.getAll('photos') as File[];
-  
   for (const file of files) {
-    if (file.size > 0 && file.name) {
-      if (file.size > 5 * 1024 * 1024) throw new Error('Image size must be less than 5MB.');
-      
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-      if (!validTypes.includes(file.type)) throw new Error('Invalid file type.');
-
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${bookingId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `customer-${user.id}/${fileName}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase
-        .storage
-        .from('damage_reports')
-        .upload(filePath, file);
-
-      if (!uploadError && uploadData) {
-        const { data: { publicUrl } } = supabase
-          .storage
-          .from('damage_reports')
-          .getPublicUrl(filePath);
-        photos.push(publicUrl);
-      } else {
-        console.error('File upload failed:', uploadError);
-        throw new Error(`Upload failed for ${file.name}`);
-      }
-    }
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `customer-${user.id}/${bookingId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await service.storage.from('damage_reports').upload(path, file, { contentType: file.type });
+    if (error) return { ok: false, error: `Couldn’t upload ${file.name}. Please try again.` };
+    photos.push(service.storage.from('damage_reports').getPublicUrl(path).data.publicUrl);
   }
 
-  // Insert report
-  const { error } = await supabase
-    .from('damage_reports')
-    .insert({
-      partner_id: booking.partner_id,
-      customer_id: user.id,
-      booking_id: bookingId,
-      description,
-      photos,
-      status: 'submitted'
-    });
+  const { error } = await service.from('damage_reports').insert({
+    partner_id: booking.partner_id,
+    customer_id: user.id,
+    booking_id: bookingId,
+    description: category ? `[${category}] ${details}` : details,
+    photos,
+    status: 'submitted',
+  });
+  if (error) return { ok: false, error: 'Couldn’t submit your report. Please try again.' };
 
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  // Notify support admin
   await notifyAdmins({
-    title: 'New Dispute Claim Filed by Customer',
-    message: `Customer has filed a new dispute claim for booking ID ${bookingId.split('-')[0]}.`,
+    title: 'New dispute from a customer',
+    message: `${category || 'Issue'} reported for booking #${bookingId.split('-')[0]!.toUpperCase()}.`,
     category: 'damage',
     targetRoles: ['support'],
-    action_url: '/dashboard/disputes'
+    action_url: '/dashboard/disputes',
   });
 
   revalidatePath('/dashboard/disputes');
+  return { ok: true };
 }

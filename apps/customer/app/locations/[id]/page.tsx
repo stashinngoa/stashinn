@@ -10,6 +10,7 @@ import ThemeToggle from '../../../components/ThemeToggle';
 import { publicLocation } from '../../../lib/locationPrivacy';
 import BookingSidebar from './BookingSidebar';
 import PhotoGallery from './PhotoGallery';
+import ReviewsSection, { Stars, type PublicReview } from './ReviewsSection';
 
 type Search = { in?: string; out?: string; bags?: string; vehicleType?: string; error?: string; msg?: string; q?: string; lat?: string; lon?: string; mode?: string };
 
@@ -47,7 +48,7 @@ export default async function LocationDetailsPage({ params, searchParams }: {
   const supabase = await createClient();
   const service = createServiceClient();
 
-  const [{ data: { user } }, { data: location }, bookingRules, systemGst, amenityCatalog, { data: pauses }, legal] = await Promise.all([
+  const [{ data: { user } }, { data: location }, bookingRules, systemGst, amenityCatalog, { data: pauses }, legal, { data: reviewRows }] = await Promise.all([
     supabase.auth.getUser(),
     supabase.from('partner_locations').select('*, partners(business_name, gst_applicable, avg_rating), vehicle_pricing(*)').eq('id', id).single(),
     // system_config is only readable when signed in, so read the public booking rules server-side
@@ -58,6 +59,10 @@ export default async function LocationDetailsPage({ params, searchParams }: {
     service.from('location_pauses').select('starts_at, ends_at').eq('location_id', id).is('cancelled_at', null).gt('ends_at', new Date().toISOString()).order('starts_at'),
     // StashGuard limits come from the business details on Admin → Configuration → Legal documents
     loadLegal(service),
+    // This location's reviews. Reviewer names are private, so they're read here and shortened to
+    // "First L."; nothing else about the customer is sent to the page. (* picks up tags once they exist.)
+    service.from('reviews').select('*, users!reviews_customer_id_fkey(full_name), bookings(booking_type, num_bags, vehicle_make, vehicle_model)')
+      .eq('location_id', id).order('created_at', { ascending: false }).limit(500),
   ]);
   if (!location) notFound();
 
@@ -67,7 +72,28 @@ export default async function LocationDetailsPage({ params, searchParams }: {
   const isGarage = location.location_type === 'garage';
   const vehicleType = normalizeVehicleType(search.vehicleType);
   const label = isGarage ? vehicleLabel(vehicleType) : 'Luggage Storage';
-  const rating = Number(location.partners?.avg_rating) > 0 ? Number(location.partners.avg_rating).toFixed(1) : null;
+  const reviews: PublicReview[] = (reviewRows || []).map((r: any) => {
+    const u = Array.isArray(r.users) ? r.users[0] : r.users;
+    const b = Array.isArray(r.bookings) ? r.bookings[0] : r.bookings;
+    const parts = String(u?.full_name || '').trim().split(/\s+/).filter(Boolean);
+    const name = parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]![0]!.toUpperCase()}.` : parts[0] || 'StashInn guest';
+    const stay = b?.booking_type === 'garage'
+      ? ([b.vehicle_make, b.vehicle_model].filter(Boolean).join(' ') || 'Vehicle parked')
+      : `Stored ${Number(b?.num_bags) || 1} bag${Number(b?.num_bags) === 1 || !b?.num_bags ? '' : 's'}`;
+    return {
+      id: r.id,
+      rating: r.rating,
+      comment: (r.comment || '').trim(),
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      name,
+      stay,
+      when: new Date(r.created_at).toLocaleDateString('en-IN', { month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }),
+      at: Date.parse(r.created_at),
+    };
+  });
+  // This location's own rating (the partner's average covers all their locations)
+  const avgRating = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
+  const rating = reviews.length ? avgRating.toFixed(1) : null;
   const hours = location.operating_hours || { open: '08:00', close: '22:00' };
   const vp = (Array.isArray(location.vehicle_pricing) ? location.vehicle_pricing[0] : location.vehicle_pricing) || {};
   const host = location.partners?.business_name || 'StashInn partner';
@@ -155,7 +181,10 @@ export default async function LocationDetailsPage({ params, searchParams }: {
               <Icon d={ICON.shield} className="w-3.5 h-3.5" /> StashGuard protected
             </a>
             {rating ? (
-              <span className="inline-flex items-center gap-1 text-sm font-bold text-gray-800 dark:text-gray-100"><span className="text-amber-500">★</span>{rating}</span>
+              <a href="#reviews" className="inline-flex items-center gap-1 text-sm font-bold text-gray-800 dark:text-gray-100 hover:underline underline-offset-2">
+                <span className="text-amber-500">★</span>{rating}
+                <span className="font-semibold text-gray-500 dark:text-gray-400">· {reviews.length} review{reviews.length === 1 ? '' : 's'}</span>
+              </a>
             ) : (
               <span className="rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">New on StashInn</span>
             )}
@@ -224,6 +253,18 @@ export default async function LocationDetailsPage({ params, searchParams }: {
             </section>
 
             {/* StashGuard (Customer Terms & Conditions, section 6) */}
+            <section id="reviews" className={`${card} scroll-mt-24`}>
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 className={h2}>Reviews</h2>
+                {reviews.length > 0 && <span className="inline-flex items-center gap-2 text-sm font-bold text-gray-800 dark:text-gray-100"><Stars n={avgRating} />{rating}</span>}
+              </div>
+              {reviews.length > 0 ? (
+                <ReviewsSection reviews={reviews} />
+              ) : (
+                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No reviews yet. This location is new on StashInn, and every booking is protected by StashGuard. Guests can review after they pick up.</p>
+              )}
+            </section>
+
             <section id="stashguard" className="scroll-mt-24 rounded-3xl border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/30 dark:to-gray-900 p-6 sm:p-8">
               <div className="flex items-start gap-4">
                 <StashGuardStamp />

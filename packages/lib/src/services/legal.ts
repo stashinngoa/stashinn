@@ -81,6 +81,13 @@ export const LEGAL_FIELD_GROUPS: { title: string; fields: LegalField[] }[] = [
       { key: 'effective_date', label: 'Effective date', hint: 'Leave blank to use the date the document was last saved.', placeholder: '1 December 2026' },
     ],
   },
+  {
+    title: 'Partner settlements',
+    fields: [
+      { key: 'settlement_upi_id', label: 'UPI ID partners pay StashInn’s share to', placeholder: 'stashinn@okicici', hint: 'Shown on the partner Settlements page for pay-at-drop-off bookings.' },
+      { key: 'settlement_bank_details', label: 'Bank account for partner settlements', multiline: true, placeholder: 'StashInn Technologies Pvt. Ltd.\nA/c 1234567890 · IFSC HDFC0001234', hint: 'Account name, number and IFSC, for partners who pay by bank transfer.' },
+    ],
+  },
 ];
 
 export const LEGAL_FIELDS = LEGAL_FIELD_GROUPS.flatMap(g => g.fields);
