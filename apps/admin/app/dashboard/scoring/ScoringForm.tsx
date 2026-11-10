@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { REPUTATION_MAX } from '@stashinn/lib/services/reputation';
 import Link from 'next/link';
 import type { Amenity } from '@stashinn/lib/services/amenities';
 import { updateScoringRules } from './actions';
@@ -14,7 +15,8 @@ const TRANSIT = [
 
 const scopeText = (a: Amenity) => [a.applies_to.includes('luggage') && 'Luggage', a.applies_to.includes('garage') && 'Parking'].filter(Boolean).join(' & ');
 
-const REPUTATION_POINTS = 15; // fixed in LocationScoringEngine until real ratings are used
+// Reputation comes from each location's reviews: 15 with none, up to 30 (services/reputation.ts)
+const REPUTATION_POINTS = REPUTATION_MAX;
 
 const card = 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm dark:shadow-none';
 // A field with a fixed unit inside its border. min-w-0 lets it shrink to fit narrow cards.

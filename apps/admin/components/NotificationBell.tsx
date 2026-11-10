@@ -32,7 +32,7 @@ export default function NotificationBell({ initialNotifications }: { initialNoti
     if (title === 'New Booking Request') return 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-600 dark:text-yellow-400';
     if (title === 'Booking Accepted') return 'bg-green-100 dark:bg-green-900/40 text-green-600 dark:text-green-400';
     if (title === 'Booking Declined') return 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400';
-    return 'bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400';
+    return 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400';
   };
 
   return (
@@ -56,7 +56,7 @@ export default function NotificationBell({ initialNotifications }: { initialNoti
         <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden z-50">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-950 flex justify-between items-center">
             <h3 className="font-bold text-gray-900 dark:text-white">Notifications</h3>
-            {unreadCount > 0 && <span className="text-xs font-semibold text-purple-600 dark:text-purple-400">{unreadCount} new</span>}
+            {unreadCount > 0 && <span className="text-xs font-semibold text-orange-600 dark:text-orange-400">{unreadCount} new</span>}
           </div>
           
           <div className="max-h-96 overflow-y-auto">
@@ -89,7 +89,7 @@ export default function NotificationBell({ initialNotifications }: { initialNoti
           </div>
 
           <div className="border-t border-gray-100 dark:border-gray-800 p-2">
-            <a href="/dashboard/notifications" className="block text-center text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
+            <a href="/dashboard/notifications" className="block text-center text-xs font-bold text-orange-700 dark:text-orange-400 hover:text-orange-800 dark:hover:text-orange-300 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors">
               View All Notifications
             </a>
           </div>

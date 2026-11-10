@@ -88,6 +88,7 @@ export default function NotificationBell({ initialNotifications }: { initialNoti
               </div>
             )}
           </div>
+          <a href="/dashboard/notifications" className="block border-t border-gray-100 dark:border-gray-800 py-2.5 text-center text-xs font-bold text-orange-700 dark:text-orange-400 hover:bg-gray-50 dark:hover:bg-gray-800">See all notifications</a>
         </div>
       )}
     </div>

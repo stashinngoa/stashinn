@@ -8,8 +8,10 @@ import CollectionChoice, { type Collect } from './CollectionChoice';
 import type { CollectedVia } from '@stashinn/lib/services/dropoffPayment';
 
 /** Code entry for drop-off (confirmed) and pick-up (checked in). */
-export default function OTPTerminal({ bookingId, mode, garage, collect, overdue }: {
+export default function OTPTerminal({ bookingId, mode, garage, collect, overdue, codeLength = 6 }: {
   bookingId: string;
+  /** Digits in this booking's code (6 now; bookings accepted earlier may have 4) */
+  codeLength?: number;
   mode: 'checkin' | 'checkout';
   garage?: boolean;
   /** Pay at drop-off: what to collect, what the partner would owe, and their share */
@@ -26,7 +28,7 @@ export default function OTPTerminal({ bookingId, mode, garage, collect, overdue 
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length !== 4 || (needsVia && !via)) return;
+    if (otp.length !== codeLength || (needsVia && !via)) return;
     setMsg(null);
     const fd = new FormData();
     fd.set('booking_id', bookingId);
@@ -50,8 +52,8 @@ export default function OTPTerminal({ bookingId, mode, garage, collect, overdue 
         <h3 className="text-base font-extrabold text-gray-900 dark:text-white">{checkin ? 'Check in at drop-off' : 'Check out at pick-up'}</h3>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {checkin
-            ? garage ? 'Take photos of the vehicle and enter the customer’s check-in code.' : 'Count the bags, then enter the customer’s 4-digit check-in code.'
-            : 'Ask for the customer’s 4-digit pick-up code before handing anything back.'}
+            ? garage ? 'Take photos of the vehicle and enter the customer’s check-in code.' : `Count the bags, then enter the customer’s ${codeLength}-digit check-in code.`
+            : `Ask for the customer’s ${codeLength}-digit pick-up code before handing anything back.`}
         </p>
       </div>
 
@@ -81,15 +83,15 @@ export default function OTPTerminal({ bookingId, mode, garage, collect, overdue 
           <label className="block">
             <span className="sr-only">{checkin ? 'Check-in code' : 'Pick-up code'}</span>
             <input
-              inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otp}
-              onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 4)); setMsg(null); }}
+              inputMode="numeric" autoComplete="one-time-code" maxLength={codeLength} value={otp}
+              onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, codeLength)); setMsg(null); }}
               placeholder="0000" aria-invalid={msg ? !msg.ok : undefined}
               className={`w-full rounded-xl border bg-white dark:bg-gray-950 px-4 py-3.5 text-center font-mono text-3xl tracking-[0.5em] text-gray-900 dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-700 outline-none focus:ring-2 focus:ring-orange-500/20 ${
                 msg && !msg.ok ? 'border-red-400 focus:border-red-400' : 'border-gray-300 dark:border-gray-700 focus:border-orange-400'}`}
             />
           </label>
           {msg && !msg.ok && <p role="alert" className="text-sm font-semibold text-red-600 dark:text-red-400">{msg.text}</p>}
-          <button type="submit" disabled={otp.length !== 4 || pending || (needsVia && !via)}
+          <button type="submit" disabled={otp.length !== codeLength || pending || (needsVia && !via)}
             className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow-sm disabled:opacity-50 transition-colors">
             {pending ? 'Checking…' : checkin ? 'Confirm drop-off' : 'Confirm pick-up'}
           </button>

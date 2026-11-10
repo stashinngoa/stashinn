@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@stashinn/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { logger } from '@stashinn/lib/services/logger';
+import { auditAdminLogin } from '../../lib/loginAudit';
 import { ACTIVITY_COOKIE, ACTIVITY_COOKIE_OPTIONS, IDLE_TIMEOUT_MS, MAX_SESSION_MS, encodeActivity } from '../../lib/sessionPolicy';
 
 const SIGN_OUT_MESSAGES: Record<string, string> = {
@@ -22,11 +23,15 @@ export default async function Login(props: { searchParams: Promise<{ next?: stri
 
     if (error) {
       logger.warn('Auth Failure: Admin login failed', { email, error: error.message });
+      await auditAdminLogin(email, false, null, error.message);
       return redirect('/login?error=Invalid admin credentials');
     }
+    await auditAdminLogin(email, true, data.user.id);
     // Start the idle clock for the new session (see lib/sessionPolicy.ts)
     (await cookies()).set(ACTIVITY_COOKIE, encodeActivity(data.user.id), ACTIVITY_COOKIE_OPTIONS);
-    return redirect(nextUrl || '/dashboard');
+    // Only a path on this site, never another website (open redirect)
+    const safe = nextUrl && nextUrl.startsWith('/') && !nextUrl.startsWith('//') && !nextUrl.startsWith('/\\') ? nextUrl : '/dashboard';
+    return redirect(safe);
   };
 
   return (

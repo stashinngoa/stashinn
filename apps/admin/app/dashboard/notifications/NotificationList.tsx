@@ -221,7 +221,7 @@ export default function NotificationList() {
                     {notif.title}
                   </h3>
                   <span className="text-xs text-gray-600 whitespace-nowrap ml-4">
-                    {new Date(notif.created_at).toLocaleString()}
+                    {new Date(notif.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}
                   </span>
                 </div>
                 <p className={`text-sm mt-1 ${notif.is_read ? 'text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>

@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendZavuOTP } from '@stashinn/lib/services/messaging';
 import crypto from 'crypto';
 import { getCustomerBaseUrl } from '../../lib/getBaseUrl';
+import { safeNext } from '../../lib/safeNext';
 
 function getSupabaseAdmin() {
   return createClient(
@@ -123,7 +124,7 @@ export async function verifyOTP(identifier: string, enteredOtp: string, nextUrl:
   }
   
   const baseUrl = await getCustomerBaseUrl();
-  const finalNextUrl = nextUrl || '/dashboard';
+  const finalNextUrl = safeNext(nextUrl);
   const separator = finalNextUrl.includes('?') ? '&' : '?';
   const redirectToUrl = `${baseUrl}${finalNextUrl}${separator}autoLogin=true`;
 

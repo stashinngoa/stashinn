@@ -10,7 +10,8 @@ const PRESETS = [
   { label: '90D', days: 90 },
 ];
 
-const toDateStr = (d: Date) => d.toISOString().split('T')[0]!;
+// India-time calendar day (toISOString would give the UTC day, which is wrong before 5:30 am)
+const toDateStr = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
 
 function Spinner() {
   return <span className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden="true" />;

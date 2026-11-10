@@ -121,25 +121,28 @@ export async function updatePartnerStatus(formData: FormData) {
   }
   if (reason) notifMsg += ` Reason: ${reason}`;
 
-  await supabase.from('notifications').insert({
+  // Service client: notifications RLS has no insert policy, so the admin's own session can't
+  // write a row for another user (it used to fail silently and the partner never heard).
+  const db = createServiceClient();
+  const { error: notifError } = await db.from('notifications').insert({
     user_id: updatedPartner.user_id,
     title: notifTitle,
     message: notifMsg,
     category: 'system'
   });
+  if (notifError) console.error('[PARTNER_STATUS] notification insert failed:', notifError.message);
 
   // Also send an SMS and email
-  const { data: userData } = await supabase
+  const { data: userData } = await db
     .from('users')
     .select('phone, email, full_name')
     .eq('id', updatedPartner.user_id)
     .maybeSingle();
 
   if (userData) {
-    await sendSMS({
-      to: userData.phone || '+1234567890',
-      message: `StashInn: ${notifMsg}`
-    });
+    if (userData.phone) {
+      await sendSMS({ to: userData.phone, message: `StashInn: ${notifMsg}` }).catch(() => false);
+    }
 
     // Send Email Confirmation on Approval
     if (newStatus === 'approved' && !reactivated && userData.email) {

@@ -20,7 +20,7 @@ export default async function PartnerCheckInPage({ params }: { params: Promise<{
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, status, booking_type, num_bags, vehicle_type, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos, start_time, total_amount, customer:users!bookings_customer_id_fkey(full_name), commission_amount, gst_amount, partner_amount, base_amount, payments(*), partner_locations(location_type)')
+    .select('id, status, booking_type, num_bags, vehicle_type, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos, checkin_otp, start_time, total_amount, customer:users!bookings_customer_id_fkey(full_name), commission_amount, gst_amount, partner_amount, base_amount, payments(*), partner_locations(location_type)')
     .eq('id', id)
     .eq('partner_id', partner.id)
     .maybeSingle();
@@ -42,7 +42,7 @@ export default async function PartnerCheckInPage({ params }: { params: Promise<{
         <h1 className="mt-2 text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">Vehicle check-in</h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{customer?.full_name || 'Customer'} · {itemsLabel(b)} · {whenLabel(b.start_time)}</p>
       </div>
-      <CheckInForm bookingId={b.id} existingPhotos={(b.check_in_photos || []).length}
+      <CheckInForm bookingId={b.id} existingPhotos={(b.check_in_photos || []).length} codeLength={String(b.checkin_otp || '').length || 6}
         collect={atLocation && payment?.status === 'pending' ? { total: inr(b.total_amount), owe: inr(platformDue(b)), share: inr(partnerShare(b)) } : null} />
     </div>
   );

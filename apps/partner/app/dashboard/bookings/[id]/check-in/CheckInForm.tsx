@@ -10,7 +10,7 @@ import { shrinkImage as shrink } from '../../../../../lib/shrinkImage';
 const MAX_PHOTOS = 4;
 const MAX_BYTES = 8 * 1024 * 1024;
 
-export default function CheckInForm({ bookingId, existingPhotos, collect }: { bookingId: string; existingPhotos: number; collect?: Collect | null }) {
+export default function CheckInForm({ bookingId, existingPhotos, collect, codeLength = 6 }: { bookingId: string; existingPhotos: number; collect?: Collect | null; codeLength?: number }) {
   const [via, setVia] = useState<CollectedVia | ''>('');
   const [qrRef, setQrRef] = useState('');
   const router = useRouter();
@@ -88,8 +88,8 @@ export default function CheckInForm({ bookingId, existingPhotos, collect }: { bo
 
       <div className="border-t border-gray-100 dark:border-gray-800 pt-6">
         <label htmlFor="otp" className="text-sm font-bold text-gray-900 dark:text-white">2. Customer’s check-in code</label>
-        <input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={otp} placeholder="0000" required
-          onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, 4)); setError(''); }}
+        <input id="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={codeLength} value={otp} placeholder={'0'.repeat(codeLength)} required
+          onChange={e => { setOtp(e.target.value.replace(/\D/g, '').slice(0, codeLength)); setError(''); }}
           className="mt-2 block w-full max-w-[220px] rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-950 px-4 py-3 text-center font-mono text-3xl tracking-[0.5em] text-gray-900 dark:text-white placeholder:text-gray-300 dark:placeholder:text-gray-700 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20" />
       </div>
 
@@ -103,7 +103,7 @@ export default function CheckInForm({ bookingId, existingPhotos, collect }: { bo
       {error && <p role="alert" className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 px-3.5 py-2.5 text-sm font-semibold text-red-700 dark:text-red-400">{error}</p>}
       {noPhotos && <p className="text-xs text-amber-700 dark:text-amber-400">No photos yet. You can still check in, but photos are strongly recommended.</p>}
 
-      <button type="submit" disabled={otp.length !== 4 || pending || preparing || (!!collect && !via)}
+      <button type="submit" disabled={otp.length !== codeLength || pending || preparing || (!!collect && !via)}
         className="w-full py-3.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold shadow-sm disabled:opacity-50 transition-colors">
         {pending ? (photos.length ? 'Uploading and checking in…' : 'Checking in…') : 'Confirm vehicle check-in'}
       </button>

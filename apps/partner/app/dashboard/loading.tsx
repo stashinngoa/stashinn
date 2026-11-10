@@ -1,10 +1,5 @@
-export default function DashboardLoading() {
-  return (
-    <div className="flex h-[50vh] items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-orange-100 border-t-orange-600 dark:border-gray-800 dark:border-t-orange-500" />
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Loading…</p>
-      </div>
-    </div>
-  );
+import BrandLoader from '../../components/BrandLoader';
+
+export default function Loading() {
+  return <BrandLoader label="Opening your dashboard…" />;
 }

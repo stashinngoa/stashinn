@@ -19,11 +19,18 @@ export default async function PartnerDetailsPage(props: { params: Promise<{ id: 
     notFound();
   }
 
-  const { data: locations } = await supabase
+  const { data: locationRows } = await supabase
     .from('partner_locations')
     .select('*, vehicle_pricing(*)')
     .eq('partner_id', partnerId)
     .order('created_at', { ascending: false });
+
+  // Each location's review ratings, for the Reputation part of its score (LocationScoringEngine)
+  const { data: reviewRows } = await supabase.from('reviews').select('location_id, rating').eq('partner_id', partnerId).limit(5000);
+  const locations = (locationRows || []).map(l => ({
+    ...l,
+    review_ratings: (reviewRows || []).filter(r => r.location_id === l.id).map(r => Number(r.rating)),
+  }));
 
   const { data: pocsData } = await supabase
     .from('partner_pocs')

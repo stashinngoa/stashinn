@@ -48,7 +48,7 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
 
   const { data: booking } = await supabase
     .from('bookings')
-    .select('id, status, cancellation_code, cancellation_reason, cancelled_by, booking_type, num_bags, vehicle_type, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos, ' +
+    .select('id, status, cancellation_code, cancellation_reason, cancelled_by, booking_type, num_bags, vehicle_type, vehicle_make, vehicle_model, vehicle_license_plate, check_in_photos, checkin_otp, checkout_otp, ' +
       'start_time, end_time, actual_checkin, actual_checkout, confirmed_at, created_at, updated_at, total_amount, base_amount, gst_amount, gst_rate, commission_amount, commission_rate, partner_amount, discount_amount, location_id, ' +
       'customer:users!bookings_customer_id_fkey(full_name, email, phone), partner_locations(name, address_line1, city, location_type, max_bags, vehicle_pricing(*)), payments(*)')
     .eq('id', id)
@@ -138,10 +138,10 @@ export default async function BookingDetailsPage({ params }: { params: Promise<{
                 <RespondButtons bookingId={b.id} summary={summary} size="lg" />
               </div>
             ) : b.status === 'confirmed' ? (
-              <OTPTerminal bookingId={b.id} mode="checkin" garage={garage}
+              <OTPTerminal bookingId={b.id} mode="checkin" garage={garage} codeLength={String(b.checkin_otp || '').length || 6}
                 collect={atLocation && payment?.status === 'pending' ? { total: inr(b.total_amount), owe: inr(platformCut), share: inr(share) } : null} />
             ) : b.status === 'checked_in' ? (
-              <OTPTerminal bookingId={b.id} mode="checkout" overdue={new Date(b.end_time) < now} />
+              <OTPTerminal bookingId={b.id} mode="checkout" codeLength={String(b.checkout_otp || '').length || 6} overdue={new Date(b.end_time) < now} />
             ) : b.status === 'checked_out' ? (
               <div className="text-center py-2">
                 <span className="mx-auto h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center"><Icon name="check" className="w-6 h-6" /></span>

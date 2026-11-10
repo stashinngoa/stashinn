@@ -26,6 +26,7 @@
     "./services/logger": "./src/services/logger.ts",
     "./services/bookingLifecycle": "./src/services/bookingLifecycle.ts",
     "./services/dropoffPayment": "./src/services/dropoffPayment.ts",
+    "./services/reputation": "./src/services/reputation.ts",
     "./jobs": "./src/jobs/index.ts"
   },
   "scripts": {

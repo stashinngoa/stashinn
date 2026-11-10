@@ -113,9 +113,9 @@ export default async function AuditLogsPage(props: {
               <p className="text-blue-500 text-xs font-bold uppercase tracking-wider mb-1">Email</p>
               <p className="text-2xl font-black text-blue-600 dark:text-blue-400">{authMetrics.email}</p>
             </div>
-            <div className="bg-purple-50 dark:bg-purple-900/10 p-4 rounded-lg border border-purple-200 dark:border-purple-800/30">
-              <p className="text-purple-500 text-xs font-bold uppercase tracking-wider mb-1">SMS</p>
-              <p className="text-2xl font-black text-purple-600 dark:text-purple-400">{authMetrics.sms}</p>
+            <div className="bg-sky-50 dark:bg-sky-900/10 p-4 rounded-lg border border-sky-200 dark:border-sky-800/30">
+              <p className="text-sky-600 dark:text-sky-400 text-xs font-bold uppercase tracking-wider mb-1">SMS</p>
+              <p className="text-2xl font-black text-sky-700 dark:text-sky-400">{authMetrics.sms}</p>
             </div>
             <div className="bg-orange-50 dark:bg-orange-900/10 p-4 rounded-lg border border-orange-200 dark:border-orange-800/30">
               <p className="text-orange-500 text-xs font-bold uppercase tracking-wider mb-1">Auto (Booking)</p>

@@ -5,6 +5,7 @@ import { updateLocationScoreAndRates } from './actions';
 import { useFormStatus } from 'react-dom';
 import { scoreAmenities, type Amenity } from '@stashinn/lib/services/amenities';
 import { priceIncGst, splitAmount } from '@stashinn/lib/services/bookingAvailability';
+import { REPUTATION_MAX, reviewSummary } from '@stashinn/lib/services/reputation';
 
 function SubmitBtn() {
   const { pending } = useFormStatus();
@@ -38,8 +39,8 @@ export default function LocationScoringEngine({ location, partner, rules, amenit
 
     const proxScore = rules.transit_weights[proximity] || 0;
     
-    // Mock Rating Score for now (Max 30) - In a real app we'd query average reviews
-    const ratingScore = 15; // Default for new locations
+    // Reputation from this location's reviews (15 of 30 with none; see services/reputation.ts)
+    const ratingScore = reviewSummary(location.review_ratings || []).score;
     
     const totalAuto = Math.min(100, amScore + proxScore + ratingScore);
     const totalFinal = Math.max(0, Math.min(100, totalAuto + padding));
@@ -56,6 +57,10 @@ export default function LocationScoringEngine({ location, partner, rules, amenit
   };
   
   const commissionRate = location.commission_rate ?? partner.commission_rate ?? 15.00;
+  const reviews = reviewSummary(location.review_ratings || []);
+  // Rates were applied at the stored score; reviews (or setting changes) may have moved it since
+  const applied = Number(location.final_score) || 0;
+  const outOfDate = breakdown.amScore !== undefined && Number(location.auto_score) > 0 && applied !== finalScore; // after the first calculation
   
   let ratesPreview: any = null;
   if (location.location_type === 'luggage') {
@@ -126,6 +131,11 @@ export default function LocationScoringEngine({ location, partner, rules, amenit
         </div>
       </div>
 
+      {outOfDate && (
+        <div className="mx-4 mt-4 rounded-xl border border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-2.5 text-sm text-amber-900 dark:text-amber-200">
+          <span className="font-bold">Rates are out of date.</span> They were applied at a score of {applied}; it’s {finalScore} now{reviews.count ? ' with the latest reviews' : ''}. Apply to update the rates.
+        </div>
+      )}
       <form className="p-4" action={async (formData) => {
         const payload = {
           auto_score: autoScore,
@@ -158,9 +168,13 @@ export default function LocationScoringEngine({ location, partner, rules, amenit
             </label>
 
             <div className="rounded-xl bg-gray-50 dark:bg-gray-950/50 border border-gray-200 dark:border-gray-800 p-3 space-y-1.5 text-sm">
-              {[['Amenities', breakdown.amScore], ['Location', breakdown.proxScore], ['Reputation', breakdown.ratingScore]].map(([k, v]) => (
+              {[['Amenities', breakdown.amScore], ['Location', breakdown.proxScore]].map(([k, v]) => (
                 <div key={k} className="flex justify-between"><span className="text-gray-600 dark:text-gray-400">{k}</span><span className="font-semibold text-gray-900 dark:text-white tabular-nums">+{v ?? 0}</span></div>
               ))}
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-600 dark:text-gray-400">Reputation <span className="text-xs">({reviews.count ? `${reviews.average!.toFixed(1)}★ from ${reviews.count} review${reviews.count === 1 ? '' : 's'}` : 'no reviews yet'})</span></span>
+                <span className="font-semibold text-gray-900 dark:text-white tabular-nums">+{breakdown.ratingScore ?? 0}<span className="text-xs font-normal text-gray-400">/{REPUTATION_MAX}</span></span>
+              </div>
               {Object.keys(breakdown.amLog || {}).length > 0 && (
                 <ul className="pl-2 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
                   {Object.entries(breakdown.amLog as Record<string, number>).map(([key, points]) => (

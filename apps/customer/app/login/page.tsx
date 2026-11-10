@@ -3,10 +3,11 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { requestOTP, verifyOTP, auditLoginAttempt } from './actions';
+import { safeNext } from '../../lib/safeNext';
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get('next') || '/dashboard';
+  const nextUrl = safeNext(searchParams.get('next'));
   const urlError = searchParams.get('error');
 
   const [step, setStep] = useState<'request' | 'verify'>('request');

@@ -7,6 +7,7 @@ import { createServiceClient } from '@stashinn/lib/supabase/service';
 import { sendSMS } from '@stashinn/lib/services/messaging';
 import { DECLINE_REASONS, itemsLabel } from './bookingShared';
 import { COLLECTION_METHODS, isCollectedVia } from '@stashinn/lib/services/dropoffPayment';
+import { BOOKING_DEFAULTS } from '@stashinn/lib/constants';
 
 export type ActionResult = { success: true; message: string; error?: undefined } | { success?: undefined; error: string };
 
@@ -23,7 +24,16 @@ const BOOKING_FIELDS =
   'partner_locations(name, location_type, address_line1, address_line2, city, state, pincode, latitude, longitude)';
 
 const customerUrl = () => process.env.NEXT_PUBLIC_CUSTOMER_URL || 'http://localhost:3000';
-const newOtp = () => String(randomInt(1000, 10000));
+// Check-in / pick-up codes: system_config.otp_length digits (6 by default; 4 to 8 allowed).
+// Bookings accepted earlier may still hold 4-digit codes, so checking accepts any 4 to 8 digits.
+const OTP_MIN = 4;
+const OTP_MAX = 8;
+async function otpLength(db: ReturnType<typeof createServiceClient>): Promise<number> {
+  const { data } = await db.from('system_config').select('value').eq('key', 'otp_length').maybeSingle();
+  const n = parseInt(String(data?.value ?? '').replace(/"/g, ''), 10);
+  return Number.isInteger(n) && n >= OTP_MIN && n <= OTP_MAX ? n : BOOKING_DEFAULTS.otpLength;
+}
+const newOtp = (digits: number) => String(randomInt(10 ** (digits - 1), 10 ** digits));
 
 /**
  * The signed-in partner and one of their bookings. Ownership is checked against the
@@ -90,7 +100,7 @@ async function checkOtp(
   input: string,
 ): Promise<string | null> {
   const otp = (input || '').replace(/\D/g, '');
-  if (otp.length !== 4) return 'Enter the 4-digit code.';
+  if (otp.length < OTP_MIN || otp.length > OTP_MAX) return 'Enter the customer’s code.';
   const lockedMin = await otpLockedFor(ctx.db, ctx.booking.id, kind);
   if (lockedMin) return `Too many wrong codes. Try again in ${lockedMin} minute${lockedMin === 1 ? '' : 's'}, or contact support@stashinn.in.`;
 
@@ -124,9 +134,10 @@ export async function acceptBooking(formData: FormData): Promise<ActionResult> {
   if (booking.status !== 'pending') return { error: 'This booking has already been answered. Refresh to see its status.' };
   if (new Date(booking.end_time) <= new Date()) return { error: 'This booking’s time has already passed, so it can’t be accepted.' };
 
-  const checkinOtp = newOtp();
-  let checkoutOtp = newOtp();
-  while (checkoutOtp === checkinOtp) checkoutOtp = newOtp();
+  const digits = await otpLength(db);
+  const checkinOtp = newOtp(digits);
+  let checkoutOtp = newOtp(digits);
+  while (checkoutOtp === checkinOtp) checkoutOtp = newOtp(digits);
 
   const { data: updated, error } = await db.from('bookings').update({
     status: 'confirmed',

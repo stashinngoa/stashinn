@@ -65,7 +65,7 @@ export default function SystemHealthMonitor() {
             Live Server Matrix
           </h2>
           <p className="text-xs text-gray-500 mt-1">
-            {lastUpdated ? `Last heartbeat: ${lastUpdated.toLocaleTimeString()}` : 'Initializing sensors...'}
+            {lastUpdated ? `Last heartbeat: ${lastUpdated.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}` : 'Initializing sensors...'}
           </p>
         </div>
         <button 
